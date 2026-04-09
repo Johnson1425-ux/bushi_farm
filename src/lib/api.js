@@ -1,5 +1,10 @@
 // Use an environment variable, fallback to '/api' for local dev
-const BASE = process.env.VITE_API_URL
+const apiHost = import.meta.env.VITE_API_URL || ''; 
+
+// Ensure we have a clean path
+export const BASE = apiHost.endsWith('/') 
+  ? apiHost.slice(0, -1) + '/api' 
+  : apiHost + '/api';
 
 function getToken() {
   return localStorage.getItem('mt_token')
