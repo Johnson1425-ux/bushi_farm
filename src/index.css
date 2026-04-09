@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  --color-green-50:   #f0faf4;
+  --color-green-100:  #d4f0e0;
+  --color-green-200:  #a8e0c0;
+  --color-green-400:  #4db882;
+  --color-green-600:  #2a8a56;
+  --color-green-800:  #155c36;
+  --color-green-900:  #0a3d22;
+  --color-cream:      #faf8f3;
+  --color-cream-dark: #f0ece0;
+  --color-ink:        #1a1a14;
+  --color-ink-60:     #666650;
+  --color-ink-30:     #b3b2a8;
+  --color-ink-10:     #e8e7e0;
+  --color-amber:      #e8a020;
+  --color-red:        #d94040;
+  --color-blue:       #3478c8;
+  --color-surface:    #ffffff;
+  --radius-DEFAULT:   10px;
+  --radius-lg:        16px;
+  --font-sans:        'Outfit', sans-serif;
+  --font-serif:       'DM Serif Display', serif;
+  --font-mono:        'DM Mono', monospace;
+}
+
+/* ── CSS vars used by inline styles and legacy components ── */
+:root {
+  --green-50:   #f0faf4;
+  --green-100:  #d4f0e0;
+  --green-200:  #a8e0c0;
+  --green-400:  #4db882;
+  --green-600:  #2a8a56;
+  --green-800:  #155c36;
+  --green-900:  #0a3d22;
+  --cream:      #faf8f3;
+  --cream-dark: #f0ece0;
+  --ink:        #1a1a14;
+  --ink-60:     #666650;
+  --ink-30:     #b3b2a8;
+  --ink-10:     #e8e7e0;
+  --amber:      #e8a020;
+  --red:        #d94040;
+  --blue:       #3478c8;
+  --surface:    #ffffff;
+  --radius:     10px;
+  --radius-lg:  16px;
+}
+
+/* ── Dark mode overrides ALL CSS vars ── */
+html.dark {
+  --green-50:   #0d1f12;
+  --green-100:  #163320;
+  --green-200:  #1e4a2e;
+  --green-400:  #4db882;
+  --green-600:  #3aad6e;
+  --green-800:  #6fcf97;
+  --cream:      #111b14;
+  --cream-dark: #172119;
+  --ink:        #e2e8e4;
+  --ink-60:     #8a9e8f;
+  --ink-30:     #3a4e3f;
+  --ink-10:     #1e2d22;
+  --surface:    #192219;
+  --amber:      #f0b429;
+  --red:        #f06060;
+  --blue:       #5b9cf6;
+
+  /* Override Tailwind @theme colors for dark mode */
+  --color-green-50:   #0d1f12;
+  --color-green-100:  #163320;
+  --color-green-200:  #1e4a2e;
+  --color-green-600:  #3aad6e;
+  --color-green-800:  #6fcf97;
+  --color-cream:      #111b14;
+  --color-cream-dark: #172119;
+  --color-ink:        #e2e8e4;
+  --color-ink-60:     #8a9e8f;
+  --color-ink-30:     #3a4e3f;
+  --color-ink-10:     #1e2d22;
+  --color-surface:    #192219;
+  --color-amber:      #f0b429;
+  --color-red:        #f06060;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  transition: background 0.25s, color 0.25s;
+}
+
+button {
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+}
+
+select,
+input[type="text"],
+input[type="date"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="email"] {
+  border: 1.5px solid var(--ink-10) !important;
+  border-radius: 8px !important;
+  padding: 7px 12px !important;
+  font-size: 13px !important;
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  font-family: 'Outfit', sans-serif !important;
+  outline: none !important;
+  transition: border-color 0.15s;
+  display: block;
+}
+
+select:focus,
+input:focus {
+  border-color: var(--green-400) !important;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--ink-10); border-radius: 3px; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
