@@ -1,4 +1,5 @@
-const BASE = '/api'
+// Use an environment variable, fallback to '/api' for local dev
+const BASE = import.meta.env.VITE_API_URL
 
 function getToken() {
   return localStorage.getItem('mt_token')
