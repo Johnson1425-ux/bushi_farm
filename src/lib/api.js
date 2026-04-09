@@ -1,5 +1,4 @@
 // Use an environment variable, fallback to '/api' for local dev
-console.log('DEBUG API BASE:', import.meta.env.VITE_API_URL);
 const apiHost = import.meta.env.VITE_API_URL || ''; 
 
 // Ensure we have a clean path
