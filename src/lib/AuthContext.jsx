@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { BASE } from './api'
 
 const AuthContext = createContext(null)
 
@@ -9,7 +10,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('mt_token')
     if (!token) { setLoading(false); return }
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : Promise.reject())
       .then(({ user }) => setUser(user))
       .catch(() => localStorage.removeItem('mt_token'))
@@ -17,7 +18,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (username, password) => {
-    const r = await fetch('/api/auth/login', {
+    const r = await fetch(`${BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
