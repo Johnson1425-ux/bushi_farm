@@ -193,7 +193,7 @@ export default function LandingPage() {
 
       {/* ── Footer ── */}
       <footer style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--ink-10)' }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--green-600)' }}>🐄 MilkTrack</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--green-600)' }}>🐄 Bushi Farm</span>
         <span style={{ fontSize: 13, color: 'var(--ink-30)' }}>Built for dairy farmers who mean business.</span>
       </footer>
     </div>
