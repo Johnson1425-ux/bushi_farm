@@ -11,6 +11,8 @@ import Records     from './pages/Records'
 import ImportData  from './pages/Import'
 import Users       from './pages/Users'
 import Login       from './pages/Login'
+import Inventory    from './pages/Inventory'
+import Sales        from './pages/Sales'
 
 // ── Guards ───────────────────────────────────────────────────────────────────
 
@@ -108,6 +110,8 @@ export default function App() {
         <Route path="/cows"      element={<CowsPage />} />
         <Route path="/compare"   element={<ComparePage />} />
         <Route path="/records"   element={<RecordsPage />} />
+        <Route path="/inventory" element={<Inventory />} />
+        <Route path="/sales"     element={<Sales />} />
         <Route path="/import"    element={<AdminRoute><ImportPage /></AdminRoute>} />
         <Route path="/users"     element={<AdminRoute><UsersPage /></AdminRoute>} />
       </Route>

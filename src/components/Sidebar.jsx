@@ -7,8 +7,10 @@ const NAV = [
   { id: 'cows',      icon: '⊙', label: 'All Cows' },
   { id: 'compare',   icon: '⊜', label: 'Compare' },
   { id: 'records',   icon: '≡', label: 'Records' },
+  { id: 'inventory', icon: '📦', label: 'Inventory' },
+  { id: 'sales',     icon: '💰', label: 'Sales' },
   { id: 'import',    icon: '↑', label: 'Import Data', adminOnly: false },
-  { id: 'users',     icon: '⊛', label: 'Users',       adminOnly: true },
+  { id: 'users',     icon: '⊛', label: 'Users', adminOnly: true },
 ]
 
 function NavItems({ navItems, page, onNav, dark, toggle }) {
@@ -128,7 +130,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
           DESKTOP — always visible
       ═══════════════════════════════ */}
       <aside className="hidden md:flex w-[220px] min-h-screen bg-green-900 text-white flex-col fixed top-0 left-0 bottom-0 z-10">
-        <div className="px-6 py-7 border-b border-white/10">
+        <div className="px-6 py-2 border-b border-white/10">
           <div className="font-serif text-[22px] text-white">🐄 Bushi Farm</div>
           <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
         </div>
