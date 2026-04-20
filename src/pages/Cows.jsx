@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { initials, statusClass } from '../lib/api'
 import { Badge, EmptyState, PageHeader } from '../components/ui'
+import CowHistory from '../components/CowHistory'
 
 export default function Cows({ cows }) {
   const [sort,   setSort]   = useState('desc')
@@ -64,6 +65,7 @@ export default function Cows({ cows }) {
                   key={c.id}
                   className="bg-surface border border-ink-10 rounded-lg p-4 transition-all duration-150 relative cursor-default hover:border-green-400 hover:-translate-y-px"
                 >
+                  <CowHistory cow={c} />
                   <span className="absolute top-2.5 right-3 text-[11px] font-mono text-ink-30">
                     #{i + 1}
                   </span>

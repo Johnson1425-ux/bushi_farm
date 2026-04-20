@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTheme } from "../lib/ThemeContext"
-
 const features = [
   { icon: "🐄", title: "Cow Management",      desc: "Track every cow — health records, lactation cycles, and production history in one place." },
   { icon: "📊", title: "Production Analytics", desc: "Visual charts and trends to understand your farm's performance at a glance." },
@@ -15,7 +14,8 @@ export default function LandingPage() {
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
-    fetch('/api/public/stats')
+    const base = import.meta.env.VITE_API_URL || ''
+    fetch(`${base}/api/public/stats`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setStats(d) })
       .catch(() => {})

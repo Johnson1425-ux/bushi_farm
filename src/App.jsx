@@ -11,8 +11,11 @@ import Records     from './pages/Records'
 import ImportData  from './pages/Import'
 import Users       from './pages/Users'
 import Login       from './pages/Login'
-import Inventory    from './pages/Inventory'
-import Sales        from './pages/Sales'
+import Sales      from './pages/Sales'
+import Inventory  from './pages/Inventory'
+import Health     from './pages/Health'
+import Pregnancies from './pages/Pregnancies'
+import { useAlerts, Toaster } from './lib/useAlerts'
 
 // ── Guards ───────────────────────────────────────────────────────────────────
 
@@ -43,6 +46,7 @@ function Loader() {
 
 function AppShell() {
   const { user }  = useAuth()
+  useAlerts()
   const navigate  = useNavigate()
   const location  = useLocation()
   const [cows,    setCows]    = useState([])
@@ -68,6 +72,7 @@ function AppShell() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <Toaster />
       <Sidebar page={page} setPage={setPage} summary={summary} online={online} />
       {/*
         Desktop: marginLeft 220px (sidebar width)
@@ -92,7 +97,9 @@ function CowsPage()    { const { cows } = useOutletContext(); return <Cows cows=
 function ComparePage() { const { cows } = useOutletContext(); return <Compare cows={cows} /> }
 function RecordsPage() { const { cows, summary } = useOutletContext(); return <Records cows={cows} summary={summary} /> }
 function ImportPage()  { const { loadData } = useOutletContext(); return <ImportData onImported={loadData} /> }
-function UsersPage()   { return <Users /> }
+function UsersPage()     { return <Users /> }
+function SalesPage()     { return <Sales /> }
+function InventoryPage() { return <Inventory /> }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
@@ -110,10 +117,14 @@ export default function App() {
         <Route path="/cows"      element={<CowsPage />} />
         <Route path="/compare"   element={<ComparePage />} />
         <Route path="/records"   element={<RecordsPage />} />
-        <Route path="/inventory" element={<Inventory />} />
-        <Route path="/sales"     element={<Sales />} />
-        <Route path="/import"    element={<AdminRoute><ImportPage /></AdminRoute>} />
+        <Route path="/import"    element={<ImportPage />} />
         <Route path="/users"     element={<AdminRoute><UsersPage /></AdminRoute>} />
+        <Route path="/sales"     element={<SalesPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/health"    element={<Health />} />
+        <Route path="/pregnancies" element={<Pregnancies />} />
+        <Route path="/sales"     element={<SalesPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
