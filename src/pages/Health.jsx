@@ -191,7 +191,7 @@ export default function Health() {
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr>
-                {['Date', 'Disease', 'Affected Cows', 'Treatments', ''].map(h => (
+                {['Date', 'Disease', 'Affected Cows', 'Treatments', 'ACTIONS'].map(h => (
                   <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
                     style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
                 ))}
