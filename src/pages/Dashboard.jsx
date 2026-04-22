@@ -30,12 +30,12 @@ function ExpandedChart({ cows, overall, barSort, setBarSort, onClose }) {
     plugins: { legend: { display: false }, tooltip: { callbacks: { label: v => `${v.raw.toFixed(1)} L/day` } } },
     scales: {
       y: { ticks: { callback: v => v + 'L' }, grid: { color: 'var(--ink-10)' } },
-      x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } }
+      x: { grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 45 } }
     }
   }
 
   // Dynamic height — ~20px per cow, min 400px
-  const chartH = Math.max(400, sortedCows.length * 22)
+  const chartH = Math.max(400, sortedCows.length * 11)
 
   return (
     <div
