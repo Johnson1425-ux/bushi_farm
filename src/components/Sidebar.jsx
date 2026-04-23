@@ -3,14 +3,16 @@ import { useAuth } from '../lib/AuthContext'
 import { useTheme } from '../lib/ThemeContext'
 
 const NAV = [
-  { id: 'dashboard', icon: '◉', label: 'Dashboard' },
-  { id: 'cows',      icon: '⊙', label: 'All Cows' },
-  { id: 'compare',   icon: '⊜', label: 'Compare' },
+  { id: 'dashboard', icon: '📈', label: 'Dashboard' },
+  { id: 'cows',      icon: '🐄', label: 'All Cows' },
+  { id: 'compare',   icon: '↔️', label: 'Compare' },
   { id: 'records',   icon: '≡', label: 'Records' },
-  { id: 'pregnancies',    icon: '↑', label: 'Pregnancies' },
-  { id: 'health',    icon: '↑', label: 'Health Records'},
+  { id: 'daily-records',   icon: '🗒️', label: 'Daily Records' },
+  { id: 'sales',     icon: '$', label: 'Sales' },
+  { id: 'pregnancies', icon: '↑', label: 'Pregnancies' },
+  { id: 'health',    icon: '🩺', label: 'Health Records'},
   { id: 'import',    icon: '↑', label: 'Import Data', adminOnly: false },
-  { id: 'users',     icon: '⊛', label: 'Users',       adminOnly: true },
+  { id: 'users',     icon: '👤', label: 'Users',       adminOnly: true },
 ]
 
 function NavItems({ navItems, page, onNav, dark, toggle }) {

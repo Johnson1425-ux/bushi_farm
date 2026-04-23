@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { apiFetch } from '../lib/api'
+import { useState, useEffect, useRef } from 'react'
+import { apiFetch, BASE } from '../lib/api'
 import { Card, Btn, PageHeader, EmptyState, Badge } from '../components/ui'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -45,6 +45,9 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
   const [showAdd,     setShowAdd]     = useState(false)
   const [updateModal, setUpdateModal] = useState(null)
   const [filterStatus,setFilterStatus]= useState('active')
+  const [importing,    setImporting]    = useState(false)
+  const [importResult, setImportResult] = useState(null)
+  const fileRef = useRef()
 
   const fetchPregnancies = async () => {
     const data = await apiFetch('/pregnancies')
@@ -109,6 +112,30 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
     await fetchPregnancies()
   }
 
+  const handleImport = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImporting(true); setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const token = localStorage.getItem('mt_token')
+      const res = await fetch(`${BASE}/pregnancies/import`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Import failed')
+      setImportResult(result)
+      await fetchPregnancies()
+    } catch (err) {
+      setImportResult({ error: err.message })
+    } finally {
+      setImporting(false); e.target.value = ''
+    }
+  }
+
   const filtered = pregnancies.filter(p => filterStatus === 'all' || p.status === filterStatus)
 
   // Summary stats
@@ -120,9 +147,36 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleImport} />
       <PageHeader title="Pregnancies" sub="Track pregnant cows and expected birth dates">
+        <Btn size="sm" onClick={() => fileRef.current?.click()}>
+          {importing ? 'Importing…' : '↑ Import Excel'}
+        </Btn>
         <Btn size="sm" variant="primary" onClick={() => setShowAdd(true)}>+ Add Pregnancy</Btn>
       </PageHeader>
+
+      {/* Import result */}
+      {importResult && (
+        <div className="rounded-lg text-sm mb-4 flex items-start justify-between gap-3" style={{
+          padding: '10px 16px',
+          background: importResult.error ? 'rgba(217,64,64,0.1)' : 'var(--green-50)',
+          border: `1px solid ${importResult.error ? 'var(--red)' : 'var(--green-100)'}`,
+          color: importResult.error ? 'var(--red)' : 'var(--green-800)',
+        }}>
+          <div>
+            {importResult.error
+              ? `✗ ${importResult.error}`
+              : `✓ Imported ${importResult.imported} pregnancies from "${importResult.sheet}".${importResult.skipped > 0 ? ` ${importResult.skipped} rows skipped.` : ''}`
+            }
+            {importResult.errors?.length > 0 && (
+              <ul className="mt-1 ml-4 text-xs list-disc" style={{ color: 'var(--amber)' }}>
+                {importResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            )}
+          </div>
+          <button onClick={() => setImportResult(null)} className="border-0 bg-transparent cursor-pointer text-lg leading-none flex-shrink-0" style={{ color: 'var(--ink-30)' }}>✕</button>
+        </div>
+      )}
 
       {/* Stats strip */}
       <div className="grid grid-cols-3 gap-3 mb-5">

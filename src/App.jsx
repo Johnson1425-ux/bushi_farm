@@ -8,6 +8,7 @@ import Dashboard   from './pages/Dashboard'
 import Cows        from './pages/Cows'
 import Compare     from './pages/Compare'
 import Records     from './pages/Records'
+import DailyRecords from './pages/DailyRecords'
 import ImportData  from './pages/Import'
 import Users       from './pages/Users'
 import Login       from './pages/Login'
@@ -117,6 +118,7 @@ export default function App() {
         <Route path="/cows"      element={<CowsPage />} />
         <Route path="/compare"   element={<ComparePage />} />
         <Route path="/records"   element={<RecordsPage />} />
+        <Route path="/daily-records"   element={<DailyRecords />} />
         <Route path="/import"    element={<ImportPage />} />
         <Route path="/users"     element={<AdminRoute><UsersPage /></AdminRoute>} />
         <Route path="/sales"     element={<SalesPage />} />
