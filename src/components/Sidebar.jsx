@@ -2,42 +2,88 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { useTheme } from '../lib/ThemeContext'
 
-const NAV = [
-  { id: 'dashboard', icon: '📈', label: 'Dashboard' },
-  { id: 'cows',      icon: '🐄', label: 'All Cows' },
-  { id: 'compare',   icon: '↔️', label: 'Compare' },
-  { id: 'records',   icon: '≡', label: 'Records' },
-  { id: 'daily-records',   icon: '🗒️', label: 'Daily Records' },
-  { id: 'sales',     icon: '$', label: 'Sales' },
-  { id: 'pregnancies', icon: '↑', label: 'Pregnancies' },
-  { id: 'health',    icon: '🩺', label: 'Health Records'},
-  { id: 'import',    icon: '↑', label: 'Import Data', adminOnly: false },
-  { id: 'users',     icon: '👤', label: 'Users',       adminOnly: true },
+// ─── Nav groups ──────────────────────────────────────────────────────────────
+const NAV_GROUPS = [
+  {
+    name: 'overview',
+    label: 'Overview',
+    items: [
+      { id: 'dashboard', icon: '📈', label: 'Dashboard' },
+    ],
+  },
+  {
+    name: 'production',
+    label: 'Production',
+    items: [
+      { id: 'cows',          icon: '🐄',  label: 'All Cows' },
+      { id: 'compare',       icon: '↔️',  label: 'Compare' },
+      { id: 'records',       icon: '≡',   label: 'Records' },
+      { id: 'daily-records', icon: '🗒️', label: 'Daily Records' },
+      { id: 'sales',         icon: '💲',  label: 'Sales' },
+      { id: 'pregnancies',   icon: '🤰',  label: 'Pregnancies' },
+      { id: 'health',        icon: '🩺',  label: 'Health Records' },
+      { id: 'import',        icon: '⬆️',  label: 'Import Data' },
+      { id: 'users',         icon: '👤',  label: 'Users', adminOnly: true },
+    ],
+  },
 ]
 
-function NavItems({ navItems, page, onNav, dark, toggle }) {
+// ─── NavItems (grouped, collapsible) ─────────────────────────────────────────
+function NavItems({ groups, page, onNav, dark, toggle }) {
+  const [expanded, setExpanded] = useState(() =>
+    Object.fromEntries(groups.map(g => [g.name, true]))
+  )
+
+  const toggleGroup = (name) =>
+    setExpanded(prev => ({ ...prev, [name]: !prev[name] }))
+
   return (
     <>
-      <nav className="px-3 py-4 flex-1">
-        {navItems.map(n => {
-          const active = page === n.id
-          return (
+      <nav className="px-3 py-4 flex-1 overflow-y-auto">
+        {groups.map(group => (
+          <div key={group.name} className="mb-1">
+            {/* Group header */}
             <button
-              key={n.id}
-              onClick={() => onNav(n.id)}
-              className={[
-                'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.5px] mb-0.5',
-                'transition-all duration-150 text-left cursor-pointer border-0',
-                active
-                  ? 'bg-green-600 text-white font-medium'
-                  : 'text-white/60 hover:bg-white/8 hover:text-white font-normal',
-              ].join(' ')}
+              onClick={() => toggleGroup(group.name)}
+              className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 border-0 bg-transparent cursor-pointer group"
             >
-              <span className="text-base w-5 text-center leading-none">{n.icon}</span>
-              {n.label}
+              <span className="text-[10px] font-semibold tracking-widest uppercase text-white/35 group-hover:text-white/60 transition-colors duration-150">
+                {group.label}
+              </span>
+              <span
+                className="text-white/30 group-hover:text-white/50 text-[10px] transition-all duration-200"
+                style={{ transform: expanded[group.name] ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}
+              >
+                ▾
+              </span>
             </button>
-          )
-        })}
+
+            {/* Group items */}
+            {expanded[group.name] && (
+              <div>
+                {group.items.map(n => {
+                  const active = page === n.id
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => onNav(n.id)}
+                      className={[
+                        'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.5px] mb-0.5',
+                        'transition-all duration-150 text-left cursor-pointer border-0',
+                        active
+                          ? 'bg-green-600 text-white font-medium'
+                          : 'text-white/60 hover:bg-white/8 hover:text-white font-normal',
+                      ].join(' ')}
+                    >
+                      <span className="text-base w-5 text-center leading-none">{n.icon}</span>
+                      {n.label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ))}
       </nav>
 
       {/* Dark mode toggle */}
@@ -54,13 +100,14 @@ function NavItems({ navItems, page, onNav, dark, toggle }) {
   )
 }
 
+// ─── UserFooter ───────────────────────────────────────────────────────────────
 function UserFooter({ user, logout, online, summary }) {
   const s = summary || {}
   return (
     <>
       {/* Status */}
       <div className="px-6 pb-3 text-[11px] text-white/40 flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${online ? 'bg-green-400' : 'bg-red'}`} />
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${online ? 'bg-green-400' : 'bg-red-400'}`} />
         {online ? (
           <>
             <span className="text-white/70 font-medium">{parseInt(s.total_cows) || 0}</span>
@@ -92,12 +139,17 @@ function UserFooter({ user, logout, online, summary }) {
   )
 }
 
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 export default function Sidebar({ page, setPage, summary, online }) {
   const { user, logout } = useAuth()
   const { dark, toggle } = useTheme()
-  const [open, setOpen]  = useState(false)
+  const [open, setOpen] = useState(false)
 
-  const navItems = NAV.filter(n => !n.adminOnly || user?.role === 'admin')
+  // Filter admin-only items based on role
+  const visibleGroups = NAV_GROUPS.map(group => ({
+    ...group,
+    items: group.items.filter(n => !n.adminOnly || user?.role === 'admin'),
+  })).filter(group => group.items.length > 0)
 
   const handleNav = (id) => {
     setPage(id)
@@ -136,7 +188,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
           <div className="font-serif text-[22px] text-white">🐄 Bushi Farm</div>
           <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
         </div>
-        <NavItems navItems={navItems} page={page} onNav={handleNav} dark={dark} toggle={toggle} />
+        <NavItems groups={visibleGroups} page={page} onNav={handleNav} dark={dark} toggle={toggle} />
         <UserFooter user={user} logout={logout} online={online} summary={summary} />
       </aside>
 
@@ -203,7 +255,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
             </button>
           </div>
 
-          <NavItems navItems={navItems} page={page} onNav={handleNav} dark={dark} toggle={toggle} />
+          <NavItems groups={visibleGroups} page={page} onNav={handleNav} dark={dark} toggle={toggle} />
           <UserFooter user={user} logout={logout} online={online} summary={summary} />
         </aside>
       </div>
