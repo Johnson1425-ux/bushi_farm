@@ -23,8 +23,22 @@ const NAV_GROUPS = [
       { id: 'pregnancies',   icon: '🤰',  label: 'Pregnancies' },
       { id: 'health',        icon: '🩺',  label: 'Health Records' },
       { id: 'import',        icon: '⬆️',  label: 'Import Data' },
-      { id: 'users',         icon: '👤',  label: 'Users', adminOnly: true },
     ],
+  },
+  {
+    name: 'processing',
+    label: 'Processing',
+    items: [
+      { id: 'processing', icon: '🏡', label: 'Data' },
+    ]
+  },
+  {
+    name: 'system',
+    label: 'System',
+    items: [
+      { id: 'users', icon: '👤', label: 'Users', adminOnly: true },
+      { id: 'theme-toggle', type: 'custom' },
+    ]
   },
 ]
 
@@ -38,65 +52,67 @@ function NavItems({ groups, page, onNav, dark, toggle }) {
     setExpanded(prev => ({ ...prev, [name]: !prev[name] }))
 
   return (
-    <>
-      <nav className="px-3 py-4 flex-1 overflow-y-auto">
-        {groups.map(group => (
-          <div key={group.name} className="mb-1">
-            {/* Group header */}
-            <button
-              onClick={() => toggleGroup(group.name)}
-              className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 border-0 bg-transparent cursor-pointer group"
+    <nav className="px-3 py-4 flex-1 overflow-y-auto">
+      {groups.map(group => (
+        <div key={group.name} className="mb-1">
+          {/* Group header */}
+          <button
+            onClick={() => toggleGroup(group.name)}
+            className="w-full flex items-center justify-between px-3 py-1.5 mb-0.5 border-0 bg-transparent cursor-pointer group"
+          >
+            <span className="text-[10px] font-semibold tracking-widest uppercase text-white/35 group-hover:text-white/60 transition-colors duration-150">
+              {group.label}
+            </span>
+            <span
+              className="text-white/30 group-hover:text-white/50 text-[10px] transition-all duration-200"
+              style={{ transform: expanded[group.name] ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}
             >
-              <span className="text-[10px] font-semibold tracking-widest uppercase text-white/35 group-hover:text-white/60 transition-colors duration-150">
-                {group.label}
-              </span>
-              <span
-                className="text-white/30 group-hover:text-white/50 text-[10px] transition-all duration-200"
-                style={{ transform: expanded[group.name] ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}
-              >
-                ▾
-              </span>
-            </button>
+              ▾
+            </span>
+          </button>
 
-            {/* Group items */}
-            {expanded[group.name] && (
-              <div>
-                {group.items.map(n => {
-                  const active = page === n.id
+          {/* Group items */}
+          {expanded[group.name] && (
+            <div>
+              {group.items.map(n => {
+                // Custom render slot
+                if (n.type === 'custom' && n.id === 'theme-toggle') {
                   return (
-                    <button
-                      key={n.id}
-                      onClick={() => onNav(n.id)}
-                      className={[
-                        'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.5px] mb-0.5',
-                        'transition-all duration-150 text-left cursor-pointer border-0',
-                        active
-                          ? 'bg-green-600 text-white font-medium'
-                          : 'text-white/60 hover:bg-white/8 hover:text-white font-normal',
-                      ].join(' ')}
-                    >
-                      <span className="text-base w-5 text-center leading-none">{n.icon}</span>
-                      {n.label}
-                    </button>
+                    <div key={n.id} className="px-1 pb-1">
+                      <button
+                        onClick={toggle}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-white/50 hover:text-white hover:bg-white/8 transition-all duration-150 border-0 cursor-pointer"
+                      >
+                        <span className="text-base w-5 text-center">{dark ? '☀' : '☾'}</span>
+                        {dark ? 'Light mode' : 'Dark mode'}
+                      </button>
+                    </div>
                   )
-                })}
-              </div>
-            )}
-          </div>
-        ))}
-      </nav>
+                }
 
-      {/* Dark mode toggle */}
-      <div className="px-4 pb-3">
-        <button
-          onClick={toggle}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12px] text-white/50 hover:text-white hover:bg-white/8 transition-all duration-150 border-0 cursor-pointer"
-        >
-          <span className="text-base w-5 text-center">{dark ? '☀' : '☾'}</span>
-          {dark ? 'Light mode' : 'Dark mode'}
-        </button>
-      </div>
-    </>
+                const active = page === n.id
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => onNav(n.id)}
+                    className={[
+                      'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-[13.5px] mb-0.5',
+                      'transition-all duration-150 text-left cursor-pointer border-0',
+                      active
+                        ? 'bg-green-600 text-white font-medium'
+                        : 'text-white/60 hover:bg-white/8 hover:text-white font-normal',
+                    ].join(' ')}
+                  >
+                    <span className="text-base w-5 text-center leading-none">{n.icon}</span>
+                    {n.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+    </nav>
   )
 }
 

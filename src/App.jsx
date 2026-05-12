@@ -16,6 +16,7 @@ import Sales      from './pages/Sales'
 import Inventory  from './pages/Inventory'
 import Health     from './pages/Health'
 import Pregnancies from './pages/Pregnancies'
+import ProcessingUnit from './pages/ProcessingUnit'
 import { useAlerts, Toaster } from './lib/useAlerts'
 
 // ── Guards ───────────────────────────────────────────────────────────────────
@@ -127,6 +128,7 @@ export default function App() {
         <Route path="/pregnancies" element={<Pregnancies />} />
         <Route path="/sales"     element={<SalesPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/processing" element={<ProcessingUnit user={user} />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
