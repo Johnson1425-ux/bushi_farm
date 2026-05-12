@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet, useOutletContext } from 'react-router-dom'
 import { useAuth } from './lib/AuthContext'
 import { apiFetch } from './lib/api'
+import { Analytics } from '@vercel/analytics/'
 import LandingPage from './pages/LandingPage'
 import Sidebar     from './components/Sidebar'
 import Dashboard   from './pages/Dashboard'
@@ -132,6 +133,7 @@ export default function App() {
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
+      <Analytics />
     </Routes>
   )
 }
