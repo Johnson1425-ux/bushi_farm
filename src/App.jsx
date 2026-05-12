@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation, Outlet, useOutletContext } from 'react-router-dom'
+import { Analytics } from '@vercel/analytics/react'
 import { useAuth } from './lib/AuthContext'
 import { apiFetch } from './lib/api'
 import LandingPage from './pages/LandingPage'
@@ -110,28 +111,31 @@ export default function App() {
   if (loading) return <Loader />
 
   return (
-    <Routes>
-      <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-      <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+    <>
+      <Analytics />
+      <Routes>
+        <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+        <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
 
-      <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/cows"      element={<CowsPage />} />
-        <Route path="/compare"   element={<ComparePage />} />
-        <Route path="/records"   element={<RecordsPage />} />
-        <Route path="/daily-records"   element={<DailyRecords />} />
-        <Route path="/import"    element={<ImportPage />} />
-        <Route path="/users"     element={<AdminRoute><UsersPage /></AdminRoute>} />
-        <Route path="/sales"     element={<SalesPage />} />
-        <Route path="/inventory" element={<InventoryPage />} />
-        <Route path="/health"    element={<Health />} />
-        <Route path="/pregnancies" element={<Pregnancies />} />
-        <Route path="/sales"     element={<SalesPage />} />
-        <Route path="/inventory" element={<InventoryPage />} />
-        <Route path="/processing" element={<ProcessingUnit user={user} />} />
-      </Route>
+        <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/cows"      element={<CowsPage />} />
+          <Route path="/compare"   element={<ComparePage />} />
+          <Route path="/records"   element={<RecordsPage />} />
+          <Route path="/daily-records"   element={<DailyRecords />} />
+          <Route path="/import"    element={<ImportPage />} />
+          <Route path="/users"     element={<AdminRoute><UsersPage /></AdminRoute>} />
+          <Route path="/sales"     element={<SalesPage />} />
+          <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/health"    element={<Health />} />
+          <Route path="/pregnancies" element={<Pregnancies />} />
+          <Route path="/sales"     element={<SalesPage />} />
+          <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/processing" element={<ProcessingUnit user={user} />} />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }
