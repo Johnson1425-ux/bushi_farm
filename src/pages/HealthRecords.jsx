@@ -350,6 +350,7 @@ export default function HealthRecords() {
       {/* Filters */}
       <div className="flex gap-3 mb-5 flex-wrap">
         <input
+          type="search"
           className="flex-1 min-w-[180px]"
           placeholder="Search cow, diagnosis, vet…"
           value={search}
