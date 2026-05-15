@@ -19,18 +19,26 @@ const NAV_GROUPS = [
       { id: 'compare',       icon: '↔️',  label: 'Compare' },
       { id: 'records',       icon: '≡',   label: 'Records' },
       { id: 'daily-records', icon: '🗒️', label: 'Daily Records' },
-      { id: 'sales',         icon: '💲',  label: 'Sales' },
-      { id: 'pregnancies',   icon: '🤰',  label: 'Pregnancies' },
-      { id: 'health',        icon: '🩺',  label: 'Health Records' },
       { id: 'import',        icon: '⬆️',  label: 'Import Data' },
     ],
   },
   {
-    name: 'processing',
-    label: 'Processing',
+    name: 'health',
+    label: 'Animal Health',
     items: [
-      { id: 'processing', icon: '🏡', label: 'Data' },
-    ]
+      { id: 'health',          icon: '🩺', label: 'Diseases & Treatment' },
+      { id: 'health-records',  icon: '📋', label: 'Individual Records' },
+      { id: 'pregnancies',     icon: '🤰', label: 'Pregnancies' },
+    ],
+  },
+  {
+    name: 'business',
+    label: 'Business',
+    items: [
+      { id: 'sales',      icon: '💰', label: 'Sales' },
+      { id: 'inventory',  icon: '🗃️', label: 'Inventory' },
+      { id: 'processing', icon: '🏭', label: 'Processing Unit' },
+    ],
   },
   {
     name: 'system',
@@ -38,7 +46,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'users', icon: '👤', label: 'Users', adminOnly: true },
       { id: 'theme-toggle', type: 'custom' },
-    ]
+    ],
   },
 ]
 

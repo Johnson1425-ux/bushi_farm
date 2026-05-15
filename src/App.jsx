@@ -3,21 +3,21 @@ import { Routes, Route, Navigate, useNavigate, useLocation, Outlet, useOutletCon
 import { useAuth } from './lib/AuthContext'
 import { apiFetch } from './lib/api'
 import { Analytics } from '@vercel/analytics/react'
-import LandingPage from './pages/LandingPage'
-import Sidebar     from './components/Sidebar'
-import Dashboard   from './pages/Dashboard'
-import Cows        from './pages/Cows'
-import Compare     from './pages/Compare'
-import Records     from './pages/Records'
-import DailyRecords from './pages/DailyRecords'
-import ImportData  from './pages/Import'
-import Users       from './pages/Users'
-import Login       from './pages/Login'
-import Sales      from './pages/Sales'
-import Inventory  from './pages/Inventory'
-import Health     from './pages/Health'
-import HealthRecords from './pages/HealthRecords'
-import Pregnancies from './pages/Pregnancies'
+import LandingPage    from './pages/LandingPage'
+import Sidebar        from './components/Sidebar'
+import Dashboard      from './pages/Dashboard'
+import Cows           from './pages/Cows'
+import Compare        from './pages/Compare'
+import Records        from './pages/Records'
+import DailyRecords   from './pages/DailyRecords'
+import ImportData     from './pages/Import'
+import Users          from './pages/Users'
+import Login          from './pages/Login'
+import Sales          from './pages/Sales'
+import Inventory      from './pages/Inventory'
+import Health         from './pages/Health'
+import HealthRecords  from './pages/HealthRecords'
+import Pregnancies    from './pages/Pregnancies'
 import ProcessingUnit from './pages/ProcessingUnit'
 import { useAlerts, Toaster } from './lib/useAlerts'
 
@@ -49,10 +49,9 @@ function Loader() {
 // ── App shell ─────────────────────────────────────────────────────────────────
 
 function AppShell() {
-  const { user }  = useAuth()
   useAlerts()
-  const navigate  = useNavigate()
-  const location  = useLocation()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [cows,    setCows]    = useState([])
   const [summary, setSummary] = useState({})
   const [online,  setOnline]  = useState(false)
@@ -78,11 +77,7 @@ function AppShell() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Toaster />
       <Sidebar page={page} setPage={setPage} summary={summary} online={online} />
-      {/*
-        Desktop: marginLeft 220px (sidebar width)
-        Mobile:  no marginLeft, but paddingTop 56px (top bar height)
-      */}
-      <main className="flex-1 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px', }}>
+      <main className="flex-1 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px' }}>
         <div className="md:p-[32px_36px] p-0 pt-4">
           <Outlet context={{ cows, summary, loadData, setPage }} />
         </div>
@@ -93,17 +88,19 @@ function AppShell() {
 
 // ── Page wrappers ─────────────────────────────────────────────────────────────
 
-function DashboardPage() {
-  const { cows, summary, setPage } = useOutletContext()
-  return <Dashboard cows={cows} summary={summary} setPage={setPage} />
-}
-function CowsPage()    { const { cows } = useOutletContext(); return <Cows cows={cows} /> }
-function ComparePage() { const { cows } = useOutletContext(); return <Compare cows={cows} /> }
-function RecordsPage() { const { cows, summary } = useOutletContext(); return <Records cows={cows} summary={summary} /> }
-function ImportPage()  { const { loadData } = useOutletContext(); return <ImportData onImported={loadData} /> }
-function UsersPage()     { return <Users /> }
-function SalesPage()     { return <Sales /> }
-function InventoryPage() { return <Inventory /> }
+function DashboardPage()    { const { cows, summary, setPage } = useOutletContext(); return <Dashboard cows={cows} summary={summary} setPage={setPage} /> }
+function CowsPage()         { const { cows } = useOutletContext(); return <Cows cows={cows} /> }
+function ComparePage()      { const { cows } = useOutletContext(); return <Compare cows={cows} /> }
+function RecordsPage()      { const { cows, summary } = useOutletContext(); return <Records cows={cows} summary={summary} /> }
+function ImportPage()       { const { loadData } = useOutletContext(); return <ImportData onImported={loadData} /> }
+function UsersPage()        { return <Users /> }
+function SalesPage()        { return <Sales /> }
+function InventoryPage()    { return <Inventory /> }
+function HealthPage()       { return <Health /> }
+function HealthRecordsPage(){ return <HealthRecords /> }
+function PregPage()         { return <Pregnancies /> }
+function ProcessingPage()   { return <ProcessingUnit /> }
+function DailyRecordsPage() { return <DailyRecords /> }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
@@ -114,27 +111,28 @@ export default function App() {
   return (
     <>
       <Routes>
+        {/* Public */}
         <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
 
+        {/* Protected */}
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/cows"      element={<CowsPage />} />
-          <Route path="/compare"   element={<ComparePage />} />
-          <Route path="/records"   element={<RecordsPage />} />
-          <Route path="/daily-records"   element={<DailyRecords />} />
-          <Route path="/import"    element={<ImportPage />} />
-          <Route path="/users"     element={<AdminRoute><UsersPage /></AdminRoute>} />
-          <Route path="/sales"     element={<SalesPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/health"    element={<Health />} />
-          <Route path="/health-records"    element={<HealthRecords />} />
-          <Route path="/pregnancies" element={<Pregnancies />} />
-          <Route path="/sales"     element={<SalesPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/processing" element={<ProcessingUnit user={user} />} />
+          <Route path="/dashboard"     element={<DashboardPage />} />
+          <Route path="/cows"          element={<CowsPage />} />
+          <Route path="/compare"       element={<ComparePage />} />
+          <Route path="/records"       element={<RecordsPage />} />
+          <Route path="/daily-records" element={<DailyRecordsPage />} />
+          <Route path="/import"        element={<AdminRoute><ImportPage /></AdminRoute>} />
+          <Route path="/sales"         element={<SalesPage />} />
+          <Route path="/inventory"     element={<InventoryPage />} />
+          <Route path="/health"        element={<HealthPage />} />
+          <Route path="/health-records"element={<HealthRecordsPage />} />
+          <Route path="/pregnancies"   element={<PregPage />} />
+          <Route path="/processing"    element={<ProcessingPage />} />
+          <Route path="/users"         element={<AdminRoute><UsersPage /></AdminRoute>} />
         </Route>
 
+        {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

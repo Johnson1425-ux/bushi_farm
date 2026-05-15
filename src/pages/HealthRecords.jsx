@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { apiFetch } from '../lib/api'
+import { apiFetch, BASE } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -187,9 +187,9 @@ function UploadModal({ cows, onClose, onSuccess }) {
       if (cowId) fd.append('cow_id', cowId)
 
       // Use raw fetch for multipart (apiFetch wraps JSON)
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('mt_token')
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL || ''}/api/health-records/import`,
+        `${BASE}/health-records/import`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }
       )
       const data = await res.json()
