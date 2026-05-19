@@ -29,7 +29,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 22 }}>🐄</span>
-            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--green-600)', letterSpacing: '-0.5px' }}>MilkTrack</span>
+            <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--green-600)', letterSpacing: '-0.5px' }}>Bushi Dairy Farm</span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {/* Dark mode toggle */}
@@ -81,7 +81,7 @@ export default function LandingPage() {
         </h1>
 
         <p style={{ fontSize: 18, color: 'var(--ink-60)', maxWidth: 540, margin: '0 auto 36px', lineHeight: 1.65 }}>
-          MilkTrack gives dairy farmers a complete picture — from daily milk logs to herd analytics — so every decision is backed by real data.
+          Bushi Dairy Farm gives dairy farmers a complete picture — from daily milk logs to herd analytics — so every decision is backed by real data.
         </p>
 
         <button
