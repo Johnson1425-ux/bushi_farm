@@ -19,6 +19,10 @@ import Health         from './pages/Health'
 import HealthRecords  from './pages/HealthRecords'
 import Pregnancies    from './pages/Pregnancies'
 import ProcessingUnit from './pages/ProcessingUnit'
+import FarmPage       from './pages/FarmPage'
+import ProductsPage   from './pages/ProductsPage'
+import ContactPage    from './pages/ContactPage'
+import CustomerLayout from './pages/CustomerLayout'
 import { useAlerts, Toaster } from './lib/useAlerts'
 
 // ── Guards ───────────────────────────────────────────────────────────────────
@@ -130,6 +134,12 @@ export default function App() {
           <Route path="/pregnancies"   element={<PregPage />} />
           <Route path="/processing"    element={<ProcessingPage />} />
           <Route path="/users"         element={<AdminRoute><UsersPage /></AdminRoute>} />
+        </Route>
+
+        <Route element={<CustomerLayout />}>
+          <Route path="/farm"     element={<FarmPage />} />
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/contact"  element={<ContactPage />} />
         </Route>
 
         {/* Catch-all */}

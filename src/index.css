@@ -102,6 +102,7 @@ input[type="text"],
 input[type="date"],
 input[type="password"],
 input[type="number"],
+input[type="tel"],
 input[type="search"],
 input[type="email"] {
   border: 1.5px solid var(--ink-10) !important;
