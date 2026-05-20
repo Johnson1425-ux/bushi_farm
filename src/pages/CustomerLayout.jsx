@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useTheme } from '../lib/ThemeContext'
+import { Milk } from 'lucide-react'
 
 const NAV = [
   { path: '/farm',     label: 'Our Farm' },
@@ -28,7 +29,9 @@ export default function CustomerLayout() {
 
           {/* Logo */}
           <button onClick={() => navigate('/farm')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 26 }}>🐄</span>
+            <span style={{ fontSize: 26 }}>
+              <Milk size={24} color="var(--green-600)" />
+            </span>
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green-600)', lineHeight: 1.2, letterSpacing: '-0.3px' }}>Bushi Dairy Farm</div>
               <div style={{ fontSize: 10, color: 'var(--ink-30)', textTransform: 'uppercase', letterSpacing: 1 }}>Mwanza, Tanzania</div>

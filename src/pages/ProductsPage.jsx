@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Leaf, Snowflake, Milk, BadgeCheck } from 'lucide-react'
+import strawberry1L from '../assets/strawberry_yoghurt_1L.png'
 
 const PRODUCTS = [
   {
@@ -36,7 +38,7 @@ const PRODUCTS = [
   {
     id: 'strawberry',
     name: 'Strawberry Yoghurt',
-    emoji: '🍓',
+    image: strawberry1L,
     desc: 'Fruity and refreshing yoghurt bursting with strawberry flavour. A family favourite — perfect for breakfast or a healthy snack.',
     color: '#fff0f0',
     accent: '#d94040',
@@ -97,8 +99,18 @@ export default function ProductsPage() {
               }}
             >
               {/* Product header */}
-              <div style={{ background: p.color, padding: '32px 24px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: 56, marginBottom: 12 }}>{p.emoji}</div>
+              <div style={{padding: '32px 24px 20px', textAlign: 'center' }}>
+                <img
+                  src={p.image}
+                  alt={p.name}
+                  style={{
+                    width: '100%',
+                    height: 180,
+                    objectFit: 'cover',
+                    borderRadius: 10,
+                    marginBottom: 12,
+                  }}
+                />
                 <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{p.name}</h3>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
                   {p.tags.map(t => (
@@ -157,13 +169,13 @@ export default function ProductsPage() {
       <section style={{ background: 'var(--green-900)', padding: '48px 24px' }}>
         <div style={{ maxWidth: 800, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 24, textAlign: 'center' }}>
           {[
-            { icon: '🌿', label: 'No Preservatives' },
-            { icon: '🧊', label: 'Always Fresh' },
-            { icon: '🐄', label: 'Farm Direct' },
-            { icon: '✅', label: 'Quality Tested' },
+            { icon: <Leaf size={28} />, label: 'No Preservatives' },
+            { icon: <Snowflake size={28} />, label: 'Always Fresh' },
+            { icon: <Milk size={28} />, label: 'Farm Direct' },
+            { icon: <BadgeCheck size={28} />, label: 'Quality Tested' },
           ].map(b => (
             <div key={b.label}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{b.icon}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--green-600)', marginBottom: 8 }}>{b.icon}</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>{b.label}</div>
             </div>
           ))}

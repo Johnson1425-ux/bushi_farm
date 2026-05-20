@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { Phone, MapPin, Clock } from 'lucide-react'
 
 const CONTACT_INFO = [
-  { icon: '📞', label: 'Phone / WhatsApp', value: '+255 655 763 844', href: 'tel:+255655763844' },
-  { icon: '📍', label: 'Location', value: 'Maduka Tisa Stand, Mwanza, Tanzania', href: 'https://maps.google.com/?q=Mwanza,Tanzania' },
-  { icon: '🕐', label: 'Working Hours', value: 'Monday – Saturday, 6:00am – 6:00pm', href: null },
+  { icon: <Phone size={22} />, label: 'Phone / WhatsApp', value: '+255 655 763 844', href: 'tel:+255655763844' },
+  { icon: <MapPin size={22} />, label: 'Location', value: 'Maduka Tisa Stand, Mwanza, Tanzania', href: 'https://maps.google.com/?q=Mwanza,Tanzania' },
+  { icon: <Clock size={22} />, label: 'Working Hours', value: 'Monday – Saturday, 6:00am – 6:00pm', href: null },
 ]
 
 export default function ContactPage() {
@@ -54,7 +55,7 @@ export default function ContactPage() {
                 background: 'var(--surface)', border: '1px solid var(--ink-10)',
                 borderRadius: 12, padding: '16px 18px',
               }}>
-                <span style={{ fontSize: 24, flexShrink: 0 }}>{c.icon}</span>
+                <span style={{ color: 'var(--green-600)', flexShrink: 0 }}>{c.icon}</span>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--ink-30)', marginBottom: 4 }}>{c.label}</div>
                   {c.href ? (

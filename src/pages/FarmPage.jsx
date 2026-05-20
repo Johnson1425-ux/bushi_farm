@@ -1,17 +1,18 @@
 import { useEffect, useRef } from 'react'
+import { Milk, Calendar, ShoppingBag, BarChart2, Leaf, FlaskConical, Heart, Globe } from 'lucide-react'
 
 const STATS = [
-  { label: 'Cows on Farm',     value: '52+',   icon: '🐄' },
-  { label: 'Years of Farming', value: '10+',   icon: '📅' },
-  { label: 'Products',         value: '4',     icon: '🥛' },
-  { label: 'Daily Production', value: '500L+', icon: '📊' },
+  { label: 'Cows on Farm',     value: '52+',   icon: <Milk size={28} /> },
+  { label: 'Years of Farming', value: '10+',   icon: <Calendar size={28} /> },
+  { label: 'Products',         value: '4',     icon: <ShoppingBag size={28} /> },
+  { label: 'Daily Production', value: '500L+', icon: <BarChart2 size={28} /> },
 ]
 
 const VALUES = [
-  { icon: '🌿', title: 'Natural Feeding',    desc: 'Our cows graze on natural pastures and are fed high-quality feed for optimal milk production.' },
-  { icon: '🧪', title: 'Quality Tested',     desc: 'Every batch is tested for purity and quality before reaching your hands.' },
-  { icon: '❤️', title: 'Animal Welfare',     desc: 'We prioritize the health and wellbeing of every cow on our farm.' },
-  { icon: '🌍', title: 'Local Community',    desc: 'Proudly serving Mwanza and surrounding communities with fresh dairy products.' },
+  { icon: <Leaf size={32} />,        title: 'Natural Feeding',  desc: 'Our cows graze on natural pastures and are fed high-quality feed for optimal milk production.' },
+  { icon: <FlaskConical size={32} />, title: 'Quality Tested',  desc: 'Every batch is tested for purity and quality before reaching your hands.' },
+  { icon: <Heart size={32} />,        title: 'Animal Welfare',  desc: 'We prioritize the health and wellbeing of every cow on our farm.' },
+  { icon: <Globe size={32} />,        title: 'Local Community', desc: 'Proudly serving Mwanza and surrounding communities with fresh dairy products.' },
 ]
 
 export default function FarmPage() {
@@ -87,7 +88,7 @@ export default function FarmPage() {
               borderRight: i < STATS.length - 1 ? '1px solid var(--ink-10)' : 'none',
               opacity: 0, transform: 'translateY(20px)',
             }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
+              <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--green-600)', marginBottom: 8 }}>{s.icon}</div>
               <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--green-600)', lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 13, color: 'var(--ink-60)', marginTop: 4 }}>{s.label}</div>
             </div>
@@ -149,7 +150,7 @@ export default function FarmPage() {
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.borderColor = 'var(--green-400)' }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = 'var(--ink-10)' }}
               >
-                <div style={{ fontSize: 32, marginBottom: 14 }}>{v.icon}</div>
+                <div style={{ color: 'var(--green-600)', marginBottom: 14 }}>{v.icon}</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>{v.title}</div>
                 <div style={{ fontSize: 13, color: 'var(--ink-60)', lineHeight: 1.65 }}>{v.desc}</div>
               </div>
