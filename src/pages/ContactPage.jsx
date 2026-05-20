@@ -79,7 +79,7 @@ export default function ContactPage() {
               padding: '13px 24px', borderRadius: 10, fontSize: 15, fontWeight: 700,
               textDecoration: 'none', transition: 'opacity 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
