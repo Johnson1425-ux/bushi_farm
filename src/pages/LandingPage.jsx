@@ -15,14 +15,6 @@ export default function LandingPage() {
   const [stats, setStats] = useState(null)
   const [mobileMenu, setMobileMenu] = useState(false)
 
-  useEffect(() => {
-    const base = import.meta.env.VITE_API_URL || ''
-    fetch(`${base}/api/public/stats`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setStats(d) })
-      .catch(() => {})
-  }, [])
-
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', color: 'var(--ink)', fontFamily: "'Outfit', sans-serif", overflowX: 'hidden' }}>
 
@@ -76,44 +68,6 @@ export default function LandingPage() {
           >
             View Products
           </button>
-        </div>
-
-        {/* ── Live stats card ── */}
-        <div style={{
-          background: 'var(--surface)', borderRadius: 16,
-          border: '1px solid var(--ink-10)', padding: 24,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.07)',
-          maxWidth: 560, margin: '0 auto',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Farm at a Glance</span>
-            <span style={{ fontSize: 12, color: 'var(--ink-30)' }}>{stats ? 'Live data' : 'Loading…'}</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-            {[
-              { label: 'Total Cows',   value: stats ? stats.total_cows : '—' },
-              { label: 'Avg / Cow',    value: stats ? parseFloat(stats.overall_avg).toFixed(1) + ' L' : '—' },
-              { label: 'Days Tracked', value: stats ? stats.days_tracked : '—' },
-            ].map(s => (
-              <div key={s.label} style={{ background: 'var(--green-50)', borderRadius: 10, padding: 12 }}>
-                <div style={{ fontSize: 11, color: 'var(--ink-60)', fontWeight: 500, marginBottom: 4 }}>{s.label}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ background: 'var(--green-900)', borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: 500, marginBottom: 2 }}>Total Milk Collected</div>
-              <div style={{ fontSize: 26, fontWeight: 700, color: '#fff' }}>
-                {stats
-                  ? parseFloat(stats.total_litres) >= 1000
-                    ? (parseFloat(stats.total_litres) / 1000).toFixed(1) + 'k L'
-                    : parseFloat(stats.total_litres).toFixed(0) + ' L'
-                  : '—'}
-              </div>
-            </div>
-            <span style={{ fontSize: 36 }}>🥛</span>
-          </div>
         </div>
       </section>
 
