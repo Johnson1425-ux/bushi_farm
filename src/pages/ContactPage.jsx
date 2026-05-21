@@ -3,8 +3,8 @@ import { Phone, MapPin, Clock } from 'lucide-react'
 
 const CONTACT_INFO = [
   { icon: <Phone size={22} />, label: 'Phone / WhatsApp', value: '+255 655 763 844', href: 'tel:+255655763844' },
-  { icon: <MapPin size={22} />, label: 'Location', value: 'Maduka Tisa Stand, Mwanza, Tanzania', href: 'https://maps.google.com/?q=Mwanza,Tanzania' },
-  { icon: <Clock size={22} />, label: 'Working Hours', value: 'Monday – Saturday, 6:00am – 6:00pm', href: null },
+  { icon: <MapPin size={22} />, label: 'Location', value: 'Maduka Tisa Stand, Mwanza, Tanzania', href: 'https://maps.app.goo.gl/kRNAm4aguMB5Cnx26' },
+  { icon: <Clock size={22} />, label: 'Working Hours', value: 'Monday – Saturday, 8:00am – 11:00pm', href: null },
 ]
 
 export default function ContactPage() {
