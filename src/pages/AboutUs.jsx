@@ -15,7 +15,7 @@ const VALUES = [
   { icon: <Globe size={32} />,        title: 'Local Community', desc: 'Proudly serving Mwanza and surrounding communities with fresh dairy products.' },
 ]
 
-export default function FarmPage() {
+export default function AboutUs() {
   const statsRef = useRef(null)
 
   useEffect(() => {

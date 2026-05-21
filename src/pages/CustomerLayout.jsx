@@ -5,7 +5,7 @@ import { Milk } from 'lucide-react'
 
 const NAV = [
   { path: '/',     label: 'Home' },
-  { path: '/farm',     label: 'Our Farm' },
+  { path: '/about-us',     label: 'About Us' },
   { path: '/products', label: 'Products' },
   { path: '/contact',  label: 'Contact' },
 ]

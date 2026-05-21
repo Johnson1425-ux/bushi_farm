@@ -19,7 +19,7 @@ import Health         from './pages/Health'
 import HealthRecords  from './pages/HealthRecords'
 import Pregnancies    from './pages/Pregnancies'
 import ProcessingUnit from './pages/ProcessingUnit'
-import FarmPage       from './pages/FarmPage'
+import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
 import ContactPage    from './pages/ContactPage'
 import CustomerLayout from './pages/CustomerLayout'
@@ -137,7 +137,7 @@ export default function App() {
 
         <Route element={<CustomerLayout />}>
           <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-          <Route path="/farm"     element={<FarmPage />} />
+          <Route path="/about-us"     element={<AboutUs />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/contact"  element={<ContactPage />} />
         </Route>

@@ -41,7 +41,7 @@ export default function LandingPage() {
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 52 }}>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/about-us')}
             style={{
               background: 'var(--green-600)', color: '#fff', border: 'none',
               padding: '13px 28px', borderRadius: 10, fontSize: 16, fontWeight: 700,
@@ -52,7 +52,7 @@ export default function LandingPage() {
             onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-800)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'var(--green-600)'; e.currentTarget.style.transform = 'translateY(0)' }}
           >
-            Get Started →
+            About Us →
           </button>
           <button
             onClick={() => navigate('/products')}
