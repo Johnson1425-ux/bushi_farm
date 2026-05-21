@@ -135,14 +135,11 @@ export default function LandingPage() {
       {/* ── CTA Banner ── */}
       <section style={{ background: 'var(--green-900)', textAlign: 'center', padding: '70px 24px' }}>
         <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, color: '#fff', marginBottom: 12, letterSpacing: '-0.5px' }}>
-          Ready to take control of your farm?
+          Reach out and grow with us.
         </h2>
-        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.65)', marginBottom: 32 }}>
-          Log in and see your herd's full story.
-        </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/contact')}
             style={{
               background: 'var(--green-600)', color: '#fff',
               border: '2px solid rgba(255,255,255,0.2)',
@@ -153,7 +150,7 @@ export default function LandingPage() {
             onMouseEnter={e => e.currentTarget.style.background = 'var(--green-400)'}
             onMouseLeave={e => e.currentTarget.style.background = 'var(--green-600)'}
           >
-            Go to Dashboard →
+            Contact Us →
           </button>
           <button
             onClick={() => navigate('/products')}
