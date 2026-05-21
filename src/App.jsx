@@ -116,7 +116,6 @@ export default function App() {
     <>
       <Routes>
         {/* Public */}
-        <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
         <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
 
         {/* Protected */}
@@ -137,6 +136,7 @@ export default function App() {
         </Route>
 
         <Route element={<CustomerLayout />}>
+          <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
           <Route path="/farm"     element={<FarmPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/contact"  element={<ContactPage />} />

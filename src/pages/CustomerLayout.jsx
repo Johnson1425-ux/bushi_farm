@@ -4,6 +4,7 @@ import { useTheme } from '../lib/ThemeContext'
 import { Milk } from 'lucide-react'
 
 const NAV = [
+  { path: '/',     label: 'Home' },
   { path: '/farm',     label: 'Our Farm' },
   { path: '/products', label: 'Products' },
   { path: '/contact',  label: 'Contact' },
@@ -14,6 +15,27 @@ export default function CustomerLayout() {
   const location  = useLocation()
   const { dark, toggle } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
+
+  const navBtn = (label, onClick, variant = 'ghost') => {
+    const base = {
+      border: 'none', cursor: 'pointer', borderRadius: 8,
+      fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
+      fontFamily: "'Outfit', sans-serif",
+    }
+    if (variant === 'ghost') return {
+      ...base, background: 'transparent', color: 'var(--ink-60)',
+      padding: '7px 14px',
+    }
+    if (variant === 'outline') return {
+      ...base, background: 'transparent',
+      border: '1.5px solid var(--green-600)',
+      color: 'var(--green-600)', padding: '7px 16px',
+    }
+    if (variant === 'solid') return {
+      ...base, background: 'var(--green-600)',
+      color: '#fff', padding: '7px 16px',
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--cream)', color: 'var(--ink)', fontFamily: "'Outfit', sans-serif" }}>
@@ -28,7 +50,7 @@ export default function CustomerLayout() {
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
 
           {/* Logo */}
-          <button onClick={() => navigate('/farm')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 26 }}>
               <Milk size={24} color="var(--green-600)" />
             </span>
@@ -39,32 +61,39 @@ export default function CustomerLayout() {
           </button>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-1 flex-1 justify-center">
             {NAV.map(n => (
               <button
                 key={n.path}
                 onClick={() => navigate(n.path)}
                 style={{
-                  background: location.pathname === n.path ? 'var(--green-600)' : 'transparent',
-                  border: '1.5px solid var(--green-600)', cursor: 'pointer',
-                  padding: '7px 18px', borderRadius: 8, fontSize: 14, fontWeight: 600,
-                  color: location.pathname === n.path ? '#fff' : 'var(--green-600)',
-                  transition: 'all 0.2s',
+                  cursor: 'pointer',
+                  padding: '7px 18px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: location.pathname === n.path ? 'var(--green-600)' : 'var(--ink-60)',
+                  background: 'transparent',
+                  transition: 'color 0.15s, background 0.15s',
                 }}
                 onMouseEnter={e => {
                   if (location.pathname !== n.path) {
-                    e.currentTarget.style.background = 'var(--green-600)';
-                    e.currentTarget.style.color = '#fff';
+                    e.currentTarget.style.background = 'var(--green-50)';
+                    e.currentTarget.style.color = 'var(--green-600)';
                   }
                 }}
                 onMouseLeave={e => {
                   if (location.pathname !== n.path) {
                     e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = 'var(--green-600)';
+                    e.currentTarget.style.color = 'var(--ink-60)';
                   }
                 }}
               >
-                {n.label}
+                <span style={{
+                  borderBottom: location.pathname === n.path ? '2px solid var(--green-600)' : '2px solid transparent',
+                  paddingBottom: 2,
+                }}>
+                  {n.label}
+                </span>
               </button>
             ))}
           </div>
@@ -78,7 +107,17 @@ export default function CustomerLayout() {
                 borderRadius: 8, width: 36, height: 36, display: 'flex', alignItems: 'center',
                 justifyContent: 'center', cursor: 'pointer', fontSize: 16, transition: 'all 0.2s',
               }}
-            >{dark ? '☀' : '☾'}</button>
+            >{dark ? '☀' : '☾'}
+            </button>
+
+            <button
+              onClick={() => navigate('/login')}
+              style={navBtn(null, null, 'outline')}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-600)'; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--green-600)' }}
+            >
+              Staff Login
+            </button>
 
             {/* Mobile hamburger */}
             <button
