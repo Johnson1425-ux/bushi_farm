@@ -129,19 +129,6 @@ function UserFooter({ user, logout, online, summary }) {
   const s = summary || {}
   return (
     <>
-      {/* Status */}
-      <div className="px-6 pb-3 text-[11px] text-white/40 flex items-center gap-1.5">
-        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${online ? 'bg-green-400' : 'bg-red-400'}`} />
-        {online ? (
-          <>
-            <span className="text-white/70 font-medium">{parseInt(s.total_cows) || 0}</span>
-            <span> cows · </span>
-            <span className="text-white/70 font-medium">{parseInt(s.days_tracked) || 0}</span>
-            <span> days</span>
-          </>
-        ) : 'Cannot reach server'}
-      </div>
-
       {/* User + logout */}
       <div className="px-4 py-3 border-t border-white/10 flex items-center gap-2.5">
         <div className="w-[30px] h-[30px] rounded-full bg-green-600 text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0">
