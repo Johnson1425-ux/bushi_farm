@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { Phone, MapPin, Clock } from 'lucide-react'
 
+const mobileStyles = `
+  @media (max-width: 640px) {
+    .contact-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
+`
+
 const CONTACT_INFO = [
   { icon: <Phone size={22} />, label: 'Phone / WhatsApp', value: '+255 655 763 844', href: 'tel:+255655763844' },
   { icon: <MapPin size={22} />, label: 'Location', value: 'Maduka Tisa Stand, Mwanza, Tanzania', href: 'https://maps.app.goo.gl/kRNAm4aguMB5Cnx26' },
@@ -27,6 +35,7 @@ export default function ContactPage() {
 
   return (
     <div>
+      <style>{mobileStyles}</style>
       {/* ── Hero ── */}
       <section style={{ background: 'linear-gradient(135deg, var(--green-900) 0%, #1a5c38 100%)', padding: '72px 24px 60px', textAlign: 'center', color: '#fff' }}>
         <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--green-400)', marginBottom: 12 }}>Get In Touch</p>
@@ -39,7 +48,7 @@ export default function ContactPage() {
       </section>
 
       {/* ── Content ── */}
-      <section style={{ maxWidth: 1000, margin: '0 auto', padding: '64px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'start' }}>
+      <section className="contact-grid" style={{ maxWidth: 1000, margin: '0 auto', padding: '64px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'start' }}>
 
         {/* Contact Info */}
         <div>
