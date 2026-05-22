@@ -111,6 +111,7 @@ export default function CustomerLayout() {
             </button>
 
             <button
+              className="hidden md:inline-flex"
               onClick={() => navigate('/login')}
               style={navBtn(null, null, 'outline')}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-600)'; e.currentTarget.style.color = '#fff' }}
@@ -165,6 +166,22 @@ export default function CustomerLayout() {
                 {n.label}
               </button>
             ))}
+            <div style={{ borderTop: '1px solid var(--ink-10)', marginTop: 8, paddingTop: 12 }}>
+              <button
+                onClick={() => { navigate('/login'); setMenuOpen(false) }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  background: 'none', border: '1.5px solid var(--green-600)',
+                  cursor: 'pointer', padding: '12px 16px',
+                  borderRadius: 8, fontSize: 15, fontWeight: 600,
+                  color: 'var(--green-600)', fontFamily: "'Outfit', sans-serif",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-600)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--green-600)' }}
+              >
+                Staff Login
+              </button>
+            </div>
           </div>
         )}
       </nav>
