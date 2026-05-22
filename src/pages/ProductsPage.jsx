@@ -167,7 +167,22 @@ export default function ProductsPage() {
 
       {/* ── Quality badge strip ── */}
       <section style={{ background: 'var(--green-900)', padding: '48px 24px' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 24, textAlign: 'center' }}>
+        <style>{`
+          @media (max-width: 640px) {
+            .badges-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          }
+        `}</style>
+        <div
+          className="badges-grid"
+          style={{
+            maxWidth: 800,
+            margin: '0 auto',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 24,
+            textAlign: 'center',
+          }}
+        >
           {[
             { icon: <Leaf size={28} />, label: 'No Preservatives' },
             { icon: <Snowflake size={28} />, label: 'Always Fresh' },
