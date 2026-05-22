@@ -77,13 +77,11 @@ export default function CustomerLayout() {
                 }}
                 onMouseEnter={e => {
                   if (location.pathname !== n.path) {
-                    e.currentTarget.style.background = 'var(--green-50)';
                     e.currentTarget.style.color = 'var(--green-600)';
                   }
                 }}
                 onMouseLeave={e => {
                   if (location.pathname !== n.path) {
-                    e.currentTarget.style.background = 'transparent';
                     e.currentTarget.style.color = 'var(--ink-60)';
                   }
                 }}
