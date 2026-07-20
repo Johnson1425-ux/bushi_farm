@@ -108,7 +108,7 @@ export default function CustomerLayout() {
             >{dark ? '☀' : '☾'}
             </button>
 
-            <button
+            {/* <button
               className="hidden md:inline-flex"
               onClick={() => navigate('/login')}
               style={navBtn(null, null, 'outline')}
@@ -116,7 +116,7 @@ export default function CustomerLayout() {
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--green-600)' }}
             >
               Staff Login
-            </button>
+            </button> */}
 
             {/* Mobile hamburger */}
             <button
@@ -164,7 +164,7 @@ export default function CustomerLayout() {
                 {n.label}
               </button>
             ))}
-            <div style={{ borderTop: '1px solid var(--ink-10)', marginTop: 8, paddingTop: 12 }}>
+            {/* <div style={{ borderTop: '1px solid var(--ink-10)', marginTop: 8, paddingTop: 12 }}>
               <button
                 onClick={() => { navigate('/login'); setMenuOpen(false) }}
                 style={{
@@ -179,7 +179,7 @@ export default function CustomerLayout() {
               >
                 Staff Login
               </button>
-            </div>
+            </div> */}
           </div>
         )}
       </nav>

@@ -93,6 +93,8 @@ export default function Users() {
                 <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                   <option value="viewer">Viewer</option>
                   <option value="admin">Admin</option>
+                  <option value="manager">Manager</option>
+                  <option value="veteran">Veteran</option>
                 </select>
               </div>
             </div>

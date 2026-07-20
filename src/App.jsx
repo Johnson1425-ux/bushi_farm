@@ -53,7 +53,7 @@ function Loader() {
 // ── App shell ─────────────────────────────────────────────────────────────────
 
 function AppShell() {
-  useAlerts()
+  // useAlerts()
   const navigate = useNavigate()
   const location = useLocation()
   const [cows,    setCows]    = useState([])

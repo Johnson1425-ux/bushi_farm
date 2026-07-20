@@ -41,10 +41,11 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
   const [dragging,  setDragging]  = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState(null)
+  const [warnings,  setWarnings]  = useState([])
   const fileRef = useRef()
 
   const doUpload = async (file) => {
-    setUploading(true); setError(null)
+    setUploading(true); setError(null); setWarnings([])
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -56,6 +57,7 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload failed')
+      if (data.warnings?.length) setWarnings(data.warnings)
       onUploaded?.(data)
     } catch (e) {
       setError(e.message)
@@ -88,6 +90,11 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
               onChange={e => { const f = e.target.files[0]; if (f) doUpload(f); e.target.value = '' }} />
           </label>
           {error && <div className="text-xs mt-1" style={{ color: 'var(--red)' }}>✗ {error}</div>}
+          {warnings.length > 0 && (
+            <div className="text-xs mt-1" style={{ color: 'var(--amber)', maxWidth: 320 }}>
+              {warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -146,9 +153,10 @@ export default function ProcessingUnit() {
     const packedUnits = sum(data.packed,   'units')
     const packedL     = sum(data.packed,   'litres')
     const issuedUnits = sum(data.issued,   'units')
+    const damagedUnits = sum(data.damaged || [], 'units')
     const stockUnits  = sum(data.stock,    'units')
     const eff = packedUnits > 0 ? ((issuedUnits / packedUnits) * 100).toFixed(1) + '%' : '—'
-    return { farm, purchased, packedUnits, packedL, issuedUnits, stockUnits, eff }
+    return { farm, purchased, packedUnits, packedL, issuedUnits, damagedUnits, stockUnits, eff }
   })() : null
 
   // ── chart data ──
@@ -177,12 +185,17 @@ export default function ProcessingUnit() {
     const map = {}
     const key = r => `${r.product}||${r.size}`
     data.packed.forEach(r => {
-      if (!map[key(r)]) map[key(r)] = { product: r.product, size: r.size, packed: 0, issued: 0, stock: null }
+      if (!map[key(r)]) map[key(r)] = { product: r.product, size: r.size, packed: 0, packedL: 0, issued: 0, damaged: 0, stock: null }
       map[key(r)].packed += parseInt(r.units) || 0
+      map[key(r)].packedL += parseFloat(r.litres) || 0
     })
     data.issued.forEach(r => {
-      if (!map[key(r)]) map[key(r)] = { product: r.product, size: r.size, packed: 0, issued: 0, stock: null }
+      if (!map[key(r)]) map[key(r)] = { product: r.product, size: r.size, packed: 0, packedL: 0, issued: 0, damaged: 0, stock: null }
       map[key(r)].issued += parseInt(r.units) || 0
+    })
+    ;(data.damaged || []).forEach(r => {
+      if (!map[key(r)]) map[key(r)] = { product: r.product, size: r.size, packed: 0, packedL: 0, issued: 0, damaged: 0, stock: null }
+      map[key(r)].damaged += parseInt(r.units) || 0
     })
     data.stock.forEach(r => {
       if (map[key(r)]) map[key(r)].stock = parseInt(r.units) || 0
@@ -220,7 +233,7 @@ export default function ProcessingUnit() {
 
       {/* Tabs */}
       <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
-        {[['overview','Overview'], ['production','Production'], ['stock','Stock'], ['uploads','Uploads']].map(([v, l]) => (
+        {[['overview','Overview'], ['production','Production'], ['stock','Stock'], ['damage','Damage'], ['uploads','Uploads']].map(([v, l]) => (
           <TabBtn key={v} label={l} active={tab === v} onClick={() => setTab(v)} />
         ))}
       </div>
@@ -248,6 +261,7 @@ export default function ProcessingUnit() {
               { label: 'Packed (units)',   value: fmt(stats.packedUnits, 0), unit: 'units', color: 'var(--amber)' },
               { label: 'Packed (litres)',  value: fmt(stats.packedL),     unit: 'L',     color: 'var(--amber)' },
               { label: 'Issued (units)',   value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)' },
+              { label: 'Damaged (units)',  value: fmt(stats.damagedUnits, 0), unit: 'units', color: 'var(--red)' },
               { label: 'Stock Balance',    value: fmt(stats.stockUnits, 0), unit: 'units', color: 'var(--green-400)' },
               { label: 'Distribution Eff',value: stats.eff,                              color: 'var(--red)' },
             ].map(k => (
@@ -310,12 +324,12 @@ export default function ProcessingUnit() {
             <thead>
               <tr>
                 <TH>Product</TH><TH>Size</TH>
-                <TH>Packed (units)</TH><TH>Issued</TH><TH>Stock</TH>
+                <TH>Packed (units)</TH><TH>Packed (L)</TH><TH>Issued</TH><TH>Damaged</TH><TH>Stock</TH>
               </tr>
             </thead>
             <tbody>
               {productBreakdown.length === 0 && (
-                <tr><td colSpan={5}><EmptyState>No data.</EmptyState></td></tr>
+                <tr><td colSpan={7}><EmptyState>No data.</EmptyState></td></tr>
               )}
               {productBreakdown.map((row, i) => {
                 const s  = row.stock
@@ -327,8 +341,12 @@ export default function ProcessingUnit() {
                     <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                       <StatBadge color="amber">{row.packed}</StatBadge>
                     </td>
+                    <TD mono>{row.packedL ? fmt(row.packedL) : '—'}</TD>
                     <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                       <StatBadge color="blue">{row.issued}</StatBadge>
+                    </td>
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      {row.damaged > 0 ? <StatBadge color="red">{row.damaged}</StatBadge> : <span style={{ color: 'var(--ink-30)' }}>—</span>}
                     </td>
                     <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                       <StatBadge color={sc}>{s ?? '—'}</StatBadge>
@@ -390,6 +408,41 @@ export default function ProcessingUnit() {
         </div>
       )}
 
+      {/* ── DAMAGE ── */}
+      {tab === 'damage' && data && !loading && (
+        <div>
+          <Card noPad>
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr><TH>Product</TH><TH>Size</TH><TH>Damaged (units)</TH></tr>
+              </thead>
+              <tbody>
+                {(!data.damaged || data.damaged.length === 0) && (
+                  <tr><td colSpan={3}><EmptyState>No damaged stock recorded for this period.</EmptyState></td></tr>
+                )}
+                {(() => {
+                  const map = {}
+                  ;(data.damaged || []).forEach(r => {
+                    const k = `${r.product}||${r.size}`
+                    map[k] = map[k] || { product: r.product, size: r.size, units: 0 }
+                    map[k].units += parseInt(r.units) || 0
+                  })
+                  return Object.values(map).sort((a, b) => b.units - a.units).map((row, i) => (
+                    <TR key={i} i={i}>
+                      <TD>{row.product}</TD>
+                      <TD mono>{row.size}</TD>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                        <StatBadge color="red">{row.units}</StatBadge>
+                      </td>
+                    </TR>
+                  ))
+                })()}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+
       {/* ── UPLOADS ── */}
       {tab === 'uploads' && (
         <div>
@@ -398,7 +451,7 @@ export default function ProcessingUnit() {
               <CardTitle>Upload New Period</CardTitle>
               <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
                 Upload the monthly Excel file (e.g. <code style={{ fontFamily: "'DM Mono', monospace", background: 'var(--cream-dark)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>BUSH_PROCESSING_UNIT.xlsx</code>).
-                The parser reads milk received, packed, issued, and stock automatically.
+                The parser reads milk received, packed, issued, stock, and a matching "DAMEGE" sheet automatically.
               </p>
               <UploadSelector uploads={[]} selectedId={null} onSelect={() => {}} onUploaded={handleUploaded} isAdmin={true} />
             </Card>
