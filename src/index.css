@@ -133,3 +133,9 @@ input:focus {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Caret shown while AI text is still streaming in */
+@keyframes blink {
+  0%, 45%   { opacity: 1; }
+  55%, 100% { opacity: 0; }
+}

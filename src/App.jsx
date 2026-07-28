@@ -19,6 +19,7 @@ import Health         from './pages/Health'
 import HealthRecords  from './pages/HealthRecords'
 import Pregnancies    from './pages/Pregnancies'
 import ProcessingUnit from './pages/ProcessingUnit'
+import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
 import ContactPage    from './pages/ContactPage'
@@ -105,6 +106,7 @@ function HealthRecordsPage(){ return <HealthRecords /> }
 function PregPage()         { return <Pregnancies /> }
 function ProcessingPage()   { return <ProcessingUnit /> }
 function DailyRecordsPage() { return <DailyRecords /> }
+function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
@@ -121,6 +123,7 @@ export default function App() {
         {/* Protected */}
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="/dashboard"     element={<DashboardPage />} />
+          <Route path="/ai-reports"    element={<AIReportsPage />} />
           <Route path="/cows"          element={<CowsPage />} />
           <Route path="/compare"       element={<ComparePage />} />
           <Route path="/records"       element={<RecordsPage />} />

@@ -41,11 +41,12 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
   const [dragging,  setDragging]  = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState(null)
+  const [issues,    setIssues]    = useState([])
   const [warnings,  setWarnings]  = useState([])
   const fileRef = useRef()
 
   const doUpload = async (file) => {
-    setUploading(true); setError(null); setWarnings([])
+    setUploading(true); setError(null); setIssues([]); setWarnings([])
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -56,7 +57,11 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
         body: fd,
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      if (!res.ok) {
+        // A 422 from the parser carries a list of specific problems to fix.
+        if (data.issues?.length) setIssues(data.issues)
+        throw new Error(data.error || 'Upload failed')
+      }
       if (data.warnings?.length) setWarnings(data.warnings)
       onUploaded?.(data)
     } catch (e) {
@@ -90,6 +95,12 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
               onChange={e => { const f = e.target.files[0]; if (f) doUpload(f); e.target.value = '' }} />
           </label>
           {error && <div className="text-xs mt-1" style={{ color: 'var(--red)' }}>✗ {error}</div>}
+          {issues.length > 0 && (
+            <div className="text-xs mt-1" style={{ color: 'var(--red)', maxWidth: 360 }}>
+              <div className="font-semibold mb-0.5">Fix these and re-upload:</div>
+              {issues.map((it, i) => <div key={i}>• {it}</div>)}
+            </div>
+          )}
           {warnings.length > 0 && (
             <div className="text-xs mt-1" style={{ color: 'var(--amber)', maxWidth: 320 }}>
               {warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}

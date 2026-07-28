@@ -3,6 +3,7 @@ import { Chart, BarElement, LineElement, PointElement, CategoryScale, LinearScal
 import { Bar, Line } from 'react-chartjs-2'
 import { apiFetch, statusClass, initials } from '../lib/api'
 import { MetricCard, Card, CardTitle, Badge, Btn, PageHeader } from '../components/ui'
+import DailyBriefing from '../components/DailyBriefing'
 
 Chart.register(BarElement, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
@@ -185,6 +186,9 @@ export default function Dashboard({ cows, summary, setPage }) {
           note={top ? `${parseFloat(top.avg_litres).toFixed(1)} L avg/day` : ''}
         />
       </div>
+
+      {/* AI briefing — renders nothing when AI is not configured */}
+      <DailyBriefing />
 
       {/* Charts row */}
       <div className="grid grid-cols-2 gap-5 mb-5">

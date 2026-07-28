@@ -8,7 +8,8 @@ const NAV_GROUPS = [
     name: 'overview',
     label: 'Overview',
     items: [
-      { id: 'dashboard', icon: '📈', label: 'Dashboard' },
+      { id: 'dashboard',  icon: '📈', label: 'Dashboard' },
+      { id: 'ai-reports', icon: '✨', label: 'AI Reports' },
     ],
   },
   {

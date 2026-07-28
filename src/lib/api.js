@@ -20,6 +20,16 @@ export async function apiFetch(path, opts = {}) {
   if (opts.body instanceof FormData) delete headers['Content-Type']
 
   const r = await fetch(BASE + path, { ...opts, headers })
+
+  // Tokens last 7 days. Without this, a session that expires while the tab is
+  // open just fails every call inline and never returns the user to sign-in.
+  if (r.status === 401 && token) {
+    localStorage.removeItem('mt_token')
+    if (window.location.pathname !== '/login') {
+      window.location.replace('/login')
+    }
+  }
+
   if (!r.ok) {
     const e = await r.json().catch(() => ({}))
     throw new Error(e.error || r.statusText)
