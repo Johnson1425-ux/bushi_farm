@@ -18,7 +18,7 @@ export default function Users() {
   const { user: me } = useAuth()
   const [users,    setUsers]    = useState([])
   const [showForm, setShowForm] = useState(false)
-  const [form,     setForm]     = useState({ username: '', password: '', role: 'viewer' })
+  const [form,     setForm]     = useState({ username: '', password: '', role: 'veteran' })
   const [pwdModal, setPwdModal] = useState(null)
   const [newPwd,   setNewPwd]   = useState('')
   const [error,    setError]    = useState('')
@@ -36,7 +36,7 @@ export default function Users() {
     e.preventDefault()
     try {
       await apiFetch('/users', { method: 'POST', body: JSON.stringify(form) })
-      setForm({ username: '', password: '', role: 'viewer' })
+      setForm({ username: '', password: '', role: 'veteran' })
       setShowForm(false); load()
       flash(`User "${form.username}" created.`)
     } catch (err) { flash(err.message, true) }
@@ -91,11 +91,15 @@ export default function Users() {
               <div>
                 <label className="block text-xs text-ink-60 font-medium mb-1.5">Role</label>
                 <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                  <option value="viewer">Viewer</option>
-                  <option value="admin">Admin</option>
-                  <option value="manager">Manager</option>
-                  <option value="veteran">Veteran</option>
+                  <option value="veteran">Veteran — animal health only</option>
+                  <option value="manager">Manager — production, sales, stock, processing</option>
+                  <option value="admin">Admin — full access</option>
                 </select>
+                <div className="text-[11px] text-ink-30 mt-1.5">
+                  {form.role === 'veteran' && 'Sees the dashboard, the herd list, and the animal health pages.'}
+                  {form.role === 'manager' && 'Sees production, sales, inventory and processing. No health records.'}
+                  {form.role === 'admin'   && 'Full access, including AI reports and user management.'}
+                </div>
               </div>
             </div>
             <div className="mt-4 flex gap-2">
@@ -154,8 +158,10 @@ export default function Users() {
 
       {/* Legend */}
       <div className="mt-4 text-xs text-ink-30 leading-relaxed">
-        <strong className="text-ink-60">Admin</strong> — full access: import data, delete records, manage users.&nbsp;&nbsp;
-        <strong className="text-ink-60">Viewer</strong> — read-only: browse dashboard, cows, records, and compare.
+        <strong className="text-ink-60">Admin</strong> — everything, including AI reports and user management.&nbsp;&nbsp;
+        <strong className="text-ink-60">Manager</strong> — production records, imports, sales, inventory and the processing unit.&nbsp;&nbsp;
+        <strong className="text-ink-60">Veteran</strong> — diseases and treatments, individual health records and pregnancies.
+        <div className="mt-1">All roles can see the dashboard and the herd list.</div>
       </div>
 
       {/* Change password modal */}

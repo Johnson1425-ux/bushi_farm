@@ -2,50 +2,56 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { useTheme } from '../lib/ThemeContext'
 
-// ─── Nav groups ──────────────────────────────────────────────────────────────
+/* ─── Nav groups ──────────────────────────────────────────────────────────────
+   `roles` lists who may see an item. Omitting it means every signed-in role.
+   This only decides what is convenient to show — the API enforces the same
+   boundaries independently, so hiding an item here is not the permission. */
+const ALL = ['admin', 'manager', 'veteran']
+
 const NAV_GROUPS = [
   {
     name: 'overview',
     label: 'Overview',
     items: [
       { id: 'dashboard',  icon: '📈', label: 'Dashboard' },
-      { id: 'ai-reports', icon: '✨', label: 'AI Reports' },
+      { id: 'ai-reports', icon: '✨', label: 'AI Reports', roles: ['admin'] },
     ],
   },
   {
     name: 'production',
     label: 'Production',
     items: [
-      { id: 'cows',          icon: '🐄',  label: 'All Cows' },
-      { id: 'compare',       icon: '↔️',  label: 'Compare' },
-      { id: 'records',       icon: '≡',   label: 'Records' },
-      { id: 'daily-records', icon: '🗒️', label: 'Daily Records' },
-      { id: 'import',        icon: '⬆️',  label: 'Import Data' },
+      // Vets need the herd list to find an animal, but not the production detail.
+      { id: 'cows',          icon: '🐄',  label: 'All Cows', roles: ALL },
+      { id: 'compare',       icon: '↔️',  label: 'Compare',      roles: ['admin', 'manager'] },
+      { id: 'records',       icon: '≡',   label: 'Records',      roles: ['admin', 'manager'] },
+      { id: 'daily-records', icon: '🗒️', label: 'Daily Records', roles: ['admin', 'manager'] },
+      { id: 'import',        icon: '⬆️',  label: 'Import Data',  roles: ['admin', 'manager'] },
     ],
   },
   {
     name: 'health',
     label: 'Animal Health',
     items: [
-      { id: 'health',          icon: '🩺', label: 'Diseases & Treatment' },
-      { id: 'health-records',  icon: '📋', label: 'Individual Records' },
-      { id: 'pregnancies',     icon: '🤰', label: 'Pregnancies' },
+      { id: 'health',         icon: '🩺', label: 'Diseases & Treatment', roles: ['admin', 'veteran'] },
+      { id: 'health-records', icon: '📋', label: 'Individual Records',   roles: ['admin', 'veteran'] },
+      { id: 'pregnancies',    icon: '🤰', label: 'Pregnancies',          roles: ['admin', 'veteran'] },
     ],
   },
   {
     name: 'business',
     label: 'Business',
     items: [
-      { id: 'sales',      icon: '💰', label: 'Sales' },
-      { id: 'inventory',  icon: '🗃️', label: 'Inventory' },
-      { id: 'processing', icon: '🏭', label: 'Processing Unit' },
+      { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
+      { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
+      { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
     ],
   },
   {
     name: 'system',
     label: 'System',
     items: [
-      { id: 'users', icon: '👤', label: 'Users', adminOnly: true },
+      { id: 'users', icon: '👤', label: 'Users', roles: ['admin'] },
       { id: 'theme-toggle', type: 'custom' },
     ],
   },
@@ -157,11 +163,12 @@ export default function Sidebar({ page, setPage, summary, online }) {
   const { dark, toggle } = useTheme()
   const [open, setOpen] = useState(false)
 
-  // Filter admin-only items based on role
+  // Hide items this role has no access to, then drop groups left empty.
+  // The theme toggle carries no `roles` and so stays visible to everyone.
   const visibleGroups = NAV_GROUPS.map(group => ({
     ...group,
-    items: group.items.filter(n => !n.adminOnly || user?.role === 'admin'),
-  })).filter(group => group.items.length > 0)
+    items: group.items.filter(n => !n.roles || n.roles.includes(user?.role)),
+  })).filter(group => group.items.some(n => n.type !== 'custom') || group.name === 'system')
 
   const handleNav = (id) => {
     setPage(id)

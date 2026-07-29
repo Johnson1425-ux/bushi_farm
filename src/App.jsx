@@ -36,10 +36,21 @@ function ProtectedRoute({ children }) {
   return children
 }
 
-function AdminRoute({ children }) {
+/**
+ * Restrict a route to specific roles. Anyone else is bounced to the dashboard,
+ * which every signed-in role can see.
+ *
+ * This is convenience, not security — the API enforces the same boundaries, so
+ * a hand-crafted request from the wrong role is rejected there regardless.
+ */
+function RoleRoute({ roles, children }) {
   const { user } = useAuth()
-  return user?.role === 'admin' ? children : <Navigate to="/dashboard" replace />
+  return roles.includes(user?.role) ? children : <Navigate to="/dashboard" replace />
 }
+
+const AdminRoute      = ({ children }) => <RoleRoute roles={['admin']}>{children}</RoleRoute>
+const ProductionRoute = ({ children }) => <RoleRoute roles={['admin', 'manager']}>{children}</RoleRoute>
+const HealthRoute     = ({ children }) => <RoleRoute roles={['admin', 'veteran']}>{children}</RoleRoute>
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -122,20 +133,27 @@ export default function App() {
 
         {/* Protected */}
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+          {/* Everyone signed in */}
           <Route path="/dashboard"     element={<DashboardPage />} />
-          <Route path="/ai-reports"    element={<AIReportsPage />} />
           <Route path="/cows"          element={<CowsPage />} />
-          <Route path="/compare"       element={<ComparePage />} />
-          <Route path="/records"       element={<RecordsPage />} />
-          <Route path="/daily-records" element={<DailyRecordsPage />} />
-          <Route path="/import"        element={<AdminRoute><ImportPage /></AdminRoute>} />
-          <Route path="/sales"         element={<SalesPage />} />
-          <Route path="/inventory"     element={<InventoryPage />} />
-          <Route path="/health"        element={<HealthPage />} />
-          <Route path="/health-records"element={<HealthRecordsPage />} />
-          <Route path="/pregnancies"   element={<PregPage />} />
-          <Route path="/processing"    element={<ProcessingPage />} />
+
+          {/* Admin only */}
+          <Route path="/ai-reports"    element={<AdminRoute><AIReportsPage /></AdminRoute>} />
           <Route path="/users"         element={<AdminRoute><UsersPage /></AdminRoute>} />
+
+          {/* Production and commercial — admin and manager */}
+          <Route path="/compare"       element={<ProductionRoute><ComparePage /></ProductionRoute>} />
+          <Route path="/records"       element={<ProductionRoute><RecordsPage /></ProductionRoute>} />
+          <Route path="/daily-records" element={<ProductionRoute><DailyRecordsPage /></ProductionRoute>} />
+          <Route path="/import"        element={<ProductionRoute><ImportPage /></ProductionRoute>} />
+          <Route path="/sales"         element={<ProductionRoute><SalesPage /></ProductionRoute>} />
+          <Route path="/inventory"     element={<ProductionRoute><InventoryPage /></ProductionRoute>} />
+          <Route path="/processing"    element={<ProductionRoute><ProcessingPage /></ProductionRoute>} />
+
+          {/* Animal health — admin and vet */}
+          <Route path="/health"        element={<HealthRoute><HealthPage /></HealthRoute>} />
+          <Route path="/health-records"element={<HealthRoute><HealthRecordsPage /></HealthRoute>} />
+          <Route path="/pregnancies"   element={<HealthRoute><PregPage /></HealthRoute>} />
         </Route>
 
         <Route element={<CustomerLayout />}>
