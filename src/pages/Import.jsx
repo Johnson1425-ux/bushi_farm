@@ -21,9 +21,23 @@ export default function ImportData({ onImported }) {
         body: fd,
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Upload failed')
-      const monthInfo = data.detected_month ? ` (${data.detected_month}/${data.detected_year})` : ''
-      addLog('ok', `✓ ${file.name}: ${data.added} records saved, ${data.skipped} skipped${monthInfo}`)
+      if (!res.ok) {
+        // When no sheet held a readings grid, the server says what it found on
+        // each one. That is the difference between "fix your file" and knowing
+        // the readings were simply on a tab further along.
+        if (data.sheets_checked?.length) {
+          addLog('err', `✗ ${file.name}: ${data.error}`)
+          data.sheets_checked.forEach(s => addLog('err', `    "${s.sheet}" — ${s.found}`))
+          return
+        }
+        throw new Error(data.error || 'Upload failed')
+      }
+      /* Which sheet was read matters: these workbooks carry a month-by-month
+         summary alongside the daily grid, and both have a cow column. */
+      const monthInfo = data.detected_month ? ` for ${data.detected_month}/${data.detected_year}` : ''
+      const sheetInfo = data.sheet ? ` from sheet "${data.sheet}"` : ''
+      const cowInfo   = data.cows ? ` across ${data.cows} cows` : ''
+      addLog('ok', `✓ ${file.name}: ${data.added} readings saved${cowInfo}${monthInfo}${sheetInfo}`)
       onImported?.()
     } catch (e) {
       addLog('err', `✗ ${file.name}: ${e.message}`)
@@ -54,7 +68,9 @@ export default function ImportData({ onImported }) {
 
       <div style={{ background: 'var(--green-50)', border: '1px solid var(--green-100)', borderRadius: 10, padding: '14px 18px', fontSize: 12.5, color: 'var(--green-800)', marginBottom: 18, lineHeight: 1.7 }}>
         <strong>Expected format:</strong> A column named <em>COW</em> (or similar), plus numeric day columns (1–31) for that month's readings.
-        Month and year are auto-detected from the filename (e.g. <em>january2025.xlsx</em>). Duplicates are updated automatically.
+        The sheet holding that grid is found automatically, wherever it sits in the workbook — a month-by-month
+        summary tab in front of it is ignored. Month and year are auto-detected from the filename
+        (e.g. <em>january2025.xlsx</em>). Duplicates are updated automatically.
       </div>
 
       <div
