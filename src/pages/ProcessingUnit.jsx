@@ -1,10 +1,40 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { apiFetch, BASE } from '../lib/api'
-import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { streamAi } from '../lib/aiApi'
+import Markdown from '../components/Markdown'
 
 const fmt = (n, dec = 1) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: dec })
+const num = (v) => Number(v) || 0
+
+/**
+ * Download a file from an authenticated endpoint.
+ *
+ * A plain <a href> cannot carry the bearer token, so the response is fetched
+ * and handed to the browser as a blob instead.
+ */
+async function downloadAuthed(path, fallbackName) {
+  const token = localStorage.getItem('mt_token')
+  const res = await fetch(BASE + path, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    throw new Error(e.error || `Download failed (${res.status})`)
+  }
+  const disposition = res.headers.get('Content-Disposition') || ''
+  const match = /filename="?([^"]+)"?/.exec(disposition)
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = match ? match[1] : fallbackName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
 
 const TooltipStyle = {
   background: 'var(--surface)', border: '1.5px solid var(--ink-10)',
@@ -38,15 +68,15 @@ function StatBadge({ children, color = 'green' }) {
 }
 
 function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) {
-  const [dragging,  setDragging]  = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState(null)
   const [issues,    setIssues]    = useState([])
   const [warnings,  setWarnings]  = useState([])
+  const [imported,  setImported]  = useState([])
   const fileRef = useRef()
 
   const doUpload = async (file) => {
-    setUploading(true); setError(null); setIssues([]); setWarnings([])
+    setUploading(true); setError(null); setIssues([]); setWarnings([]); setImported([])
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -60,9 +90,13 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
       if (!res.ok) {
         // A 422 from the parser carries a list of specific problems to fix.
         if (data.issues?.length) setIssues(data.issues)
+        if (data.warnings?.length) setWarnings(data.warnings)
         throw new Error(data.error || 'Upload failed')
       }
+      // Warnings do not block the import, so they stay on screen next to the
+      // months that were brought in — they are usually about one of them.
       if (data.warnings?.length) setWarnings(data.warnings)
+      setImported(data.months || [])
       onUploaded?.(data)
     } catch (e) {
       setError(e.message)
@@ -71,8 +105,17 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
     }
   }
 
+  const downloadTemplate = async () => {
+    setError(null)
+    try {
+      await downloadAuthed('/processing/template', 'MilkTrack_Processing.xlsx')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-start gap-3">
       {uploads.length > 0 && (
         <select
           value={selectedId || ''}
@@ -87,28 +130,93 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
       )}
       {isAdmin && (
         <div>
-          <label>
-            <Btn size="sm" onClick={() => fileRef.current?.click()}>
+          <div className="flex items-center gap-2">
+            <Btn size="sm" onClick={downloadTemplate}>↓ Template</Btn>
+            <Btn size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
               {uploading ? 'Uploading…' : '↑ Upload Excel'}
             </Btn>
             <input ref={fileRef} type="file" accept=".xlsx,.xls" hidden
               onChange={e => { const f = e.target.files[0]; if (f) doUpload(f); e.target.value = '' }} />
-          </label>
+          </div>
           {error && <div className="text-xs mt-1" style={{ color: 'var(--red)' }}>✗ {error}</div>}
+          {imported.length > 0 && (
+            <div className="text-xs mt-1" style={{ color: 'var(--green-600)', maxWidth: 380 }}>
+              {imported.map((m, i) => (
+                <div key={i}>
+                  ✓ {m.label} — {fmt(m.summary.packed_units, 0)} packed, {fmt(m.summary.issued_units, 0)} issued,
+                  {' '}{fmt(m.summary.damaged_units, 0)} damaged
+                </div>
+              ))}
+            </div>
+          )}
           {issues.length > 0 && (
-            <div className="text-xs mt-1" style={{ color: 'var(--red)', maxWidth: 360 }}>
+            <div className="text-xs mt-1" style={{ color: 'var(--red)', maxWidth: 420 }}>
               <div className="font-semibold mb-0.5">Fix these and re-upload:</div>
               {issues.map((it, i) => <div key={i}>• {it}</div>)}
             </div>
           )}
           {warnings.length > 0 && (
-            <div className="text-xs mt-1" style={{ color: 'var(--amber)', maxWidth: 320 }}>
+            <div className="text-xs mt-1" style={{ color: 'var(--amber)', maxWidth: 420 }}>
+              <div className="font-semibold mb-0.5">Worth checking against the sheet:</div>
               {warnings.map((w, i) => <div key={i}>⚠ {w}</div>)}
             </div>
           )}
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Streamed AI report for the selected month.
+ *
+ * Kept on this page rather than only under AI Reports because the reading
+ * this report gives — yield, damage rate, whether the stock balance holds —
+ * is only useful next to the figures it is drawn from.
+ */
+function ProcessingReport({ label }) {
+  const [text,    setText]    = useState('')
+  const [running, setRunning] = useState(false)
+  const [error,   setError]   = useState(null)
+  const abortRef = useRef(null)
+
+  // A report belongs to the month it was generated for; switching months
+  // must not leave the previous month's text sitting under the new heading.
+  useEffect(() => {
+    abortRef.current?.()
+    abortRef.current = null
+    setText(''); setError(null); setRunning(false)
+  }, [label])
+
+  useEffect(() => () => abortRef.current?.(), [])
+
+  const generate = () => {
+    setText(''); setError(null); setRunning(true)
+    abortRef.current = streamAi('/ai/reports/processing', { month: label }, {
+      onDelta: (t) => setText(prev => prev + t),
+      onDone:  () => { setRunning(false); abortRef.current = null },
+      onError: (e) => { setError(e.error); setRunning(false); abortRef.current = null },
+    })
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <CardTitle>AI review — {label}</CardTitle>
+        {running
+          ? <Btn size="sm" onClick={() => { abortRef.current?.(); setRunning(false) }}>Stop</Btn>
+          : <Btn size="sm" variant="primary" onClick={generate}>{text ? 'Regenerate' : 'Generate'}</Btn>}
+      </div>
+      {error && <div className="text-xs mb-2" style={{ color: 'var(--red)' }}>✗ {error}</div>}
+      {!text && !running && !error && (
+        <p className="text-sm" style={{ color: 'var(--ink-60)' }}>
+          Reconciles milk taken in against packs produced, weighs the write-offs, and checks
+          whether the closing stock for this month adds up.
+        </p>
+      )}
+      {running && !text && <Spinner />}
+      {text && <Markdown text={text} />}
+    </Card>
   )
 }
 
@@ -156,25 +264,40 @@ export default function ProcessingUnit() {
     if (String(id) === selectedId) { setSelectedId(null); setData(null) }
   }
 
-  // ── derived stats ──
+  /* ── derived stats ──
+     Yield is the figure that actually says whether the unit ran well: the
+     litres that came back out as sealed packs against the litres available
+     to it, carried-in milk included. Litres for packs are derived from the
+     pack size on import, so they cannot drift from the unit counts. */
   const stats = data ? (() => {
-    const sum = (arr, key) => arr.reduce((a, r) => a + (parseFloat(r[key]) || 0), 0)
-    const farm        = sum(data.received, 'farm_litres')
-    const purchased   = sum(data.received, 'purchased_litres')
-    const packedUnits = sum(data.packed,   'units')
-    const packedL     = sum(data.packed,   'litres')
-    const issuedUnits = sum(data.issued,   'units')
-    const damagedUnits = sum(data.damaged || [], 'units')
-    const stockUnits  = sum(data.stock,    'units')
-    const eff = packedUnits > 0 ? ((issuedUnits / packedUnits) * 100).toFixed(1) + '%' : '—'
-    return { farm, purchased, packedUnits, packedL, issuedUnits, damagedUnits, stockUnits, eff }
+    const sum = (arr, key) => (arr || []).reduce((a, r) => a + num(r[key]), 0)
+    const farm         = sum(data.received, 'farm_litres') + sum(data.received, 'mwabulugu_litres')
+    const purchased    = sum(data.received, 'purchased_litres')
+    const openingFresh = num(data.upload?.opening_fresh_litres)
+    const available    = farm + purchased + openingFresh
+    const packedUnits  = sum(data.packed,  'units')
+    const packedL      = sum(data.packed,  'litres')
+    const issuedUnits  = sum(data.issued,  'units')
+    const damagedUnits = sum(data.damaged, 'units')
+    const stockUnits   = sum(data.stock,   'units')
+    /* The month total lives on the upload row; the per-day damaged_litres in
+       `received` is the same loss broken out by date, so only one is summed. */
+    const freshDamaged = num(data.upload?.fresh_damage_litres)
+    const pct = (part, whole) => (whole > 0 ? ((part / whole) * 100).toFixed(1) + '%' : '—')
+    return {
+      farm, purchased, openingFresh, available,
+      packedUnits, packedL, issuedUnits, damagedUnits, stockUnits, freshDamaged,
+      yieldPct: pct(packedL, available),
+      damagePct: pct(damagedUnits, packedUnits),
+      negativeLines: (data.stock || []).filter(s => num(s.units) < 0),
+    }
   })() : null
 
   // ── chart data ──
   const receivedChart = (data?.received || []).map(r => ({
     day: `D${r.day}`,
-    Farm: parseFloat(r.farm_litres) || 0,
-    Purchased: parseFloat(r.purchased_litres) || 0,
+    Farm: num(r.farm_litres) + num(r.mwabulugu_litres),
+    Purchased: num(r.purchased_litres),
   }))
 
   const productionChart = (() => {
@@ -264,17 +387,47 @@ export default function ProcessingUnit() {
       {/* ── OVERVIEW ── */}
       {tab === 'overview' && data && !loading && (
         <div>
+          {/* A line closing below zero cannot be stock — more was issued or
+              written off than was ever made, so it is a counting error on the
+              source sheet. Surfaced here because it invalidates the balance
+              above it, and would otherwise only show on the Stock tab. */}
+          {stats.negativeLines.length > 0 && (
+            <div className="rounded-lg border p-3 mb-4 text-[13px]"
+              style={{ background: 'rgba(217,64,64,0.06)', borderColor: 'var(--red)', color: 'var(--ink)' }}>
+              <div className="font-semibold mb-1" style={{ color: 'var(--red)' }}>
+                {stats.negativeLines.length === 1
+                  ? 'One product closes below zero'
+                  : `${stats.negativeLines.length} products close below zero`}
+              </div>
+              <div style={{ color: 'var(--ink-60)' }}>
+                More was issued or written off than was ever produced, so the figures for{' '}
+                {stats.negativeLines.map(s => `${s.product} ${s.size} (${fmt(s.units, 0)})`).join(', ')}
+                {' '}need checking against the original sheet.
+              </div>
+            </div>
+          )}
+
+          {data.upload?.source === 'legacy' && (
+            <div className="text-xs mb-4" style={{ color: 'var(--ink-60)' }}>
+              Read from the farm's own workbook layout. Litres are worked out from the pack
+              size rather than taken from the sheet's own litres columns.
+            </div>
+          )}
+
           {/* KPI strip */}
           <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
             {[
-              { label: 'Farm Milk',        value: fmt(stats.farm),        unit: 'L',     color: 'var(--green-600)' },
-              { label: 'Purchased Milk',   value: fmt(stats.purchased),   unit: 'L',     color: 'var(--ink-60)' },
-              { label: 'Packed (units)',   value: fmt(stats.packedUnits, 0), unit: 'units', color: 'var(--amber)' },
-              { label: 'Packed (litres)',  value: fmt(stats.packedL),     unit: 'L',     color: 'var(--amber)' },
-              { label: 'Issued (units)',   value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)' },
-              { label: 'Damaged (units)',  value: fmt(stats.damagedUnits, 0), unit: 'units', color: 'var(--red)' },
-              { label: 'Stock Balance',    value: fmt(stats.stockUnits, 0), unit: 'units', color: 'var(--green-400)' },
-              { label: 'Distribution Eff',value: stats.eff,                              color: 'var(--red)' },
+              { label: 'Farm Milk',       value: fmt(stats.farm),           unit: 'L',     color: 'var(--green-600)' },
+              { label: 'Purchased Milk',  value: fmt(stats.purchased),      unit: 'L',     color: 'var(--ink-60)' },
+              { label: 'Carried In',      value: fmt(stats.openingFresh),   unit: 'L',     color: 'var(--ink-60)' },
+              { label: 'Packed (units)',  value: fmt(stats.packedUnits, 0), unit: 'units', color: 'var(--amber)' },
+              { label: 'Packed (litres)', value: fmt(stats.packedL),        unit: 'L',     color: 'var(--amber)' },
+              { label: 'Yield',           value: stats.yieldPct,                           color: 'var(--green-600)' },
+              { label: 'Issued (units)',  value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)' },
+              { label: 'Damaged (units)', value: fmt(stats.damagedUnits, 0), unit: 'units', color: 'var(--red)' },
+              { label: 'Damage Rate',     value: stats.damagePct,                          color: 'var(--red)' },
+              { label: 'Fresh Milk Lost', value: fmt(stats.freshDamaged),   unit: 'L',     color: 'var(--red)' },
+              { label: 'Stock Balance',   value: fmt(stats.stockUnits, 0),  unit: 'units', color: 'var(--green-400)' },
             ].map(k => (
               <div key={k.label} className="rounded-lg border p-4" style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)' }}>
                 <div className="text-[11px] uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
@@ -325,6 +478,8 @@ export default function ProcessingUnit() {
               ) : <EmptyState>No production data.</EmptyState>}
             </Card>
           </div>
+
+          {isAdmin && data.upload?.label && <ProcessingReport label={data.upload.label} />}
         </div>
       )}
 
@@ -391,25 +546,42 @@ export default function ProcessingUnit() {
             ) : <EmptyState>No stock data.</EmptyState>}
           </Card>
 
+          {/* The full working, not just the answer: a balance nobody can
+              trace back to its movements is a balance nobody trusts. */}
           <Card noPad>
+            <div className="px-5 pt-4 pb-1">
+              <CardTitle>Stock Reconciliation</CardTitle>
+              <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
+                Opening + packed − issued − damaged. Litres follow from the pack size.
+              </p>
+            </div>
             <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr><TH>Product</TH><TH>Size</TH><TH>Units in Stock</TH></tr>
+                <tr>
+                  <TH>Product</TH><TH>Size</TH><TH>Opening</TH><TH>Packed</TH>
+                  <TH>Issued</TH><TH>Damaged</TH><TH>Closing</TH><TH>Closing (L)</TH>
+                </tr>
               </thead>
               <tbody>
-                {data.stock.filter(s => s.units > 0).length === 0 && (
-                  <tr><td colSpan={3}><EmptyState>No stock data.</EmptyState></td></tr>
+                {(data.stock || []).length === 0 && (
+                  <tr><td colSpan={8}><EmptyState>No stock data.</EmptyState></td></tr>
                 )}
-                {data.stock.filter(s => s.units > 0).map((s, i) => {
-                  const u  = parseInt(s.units)
-                  const sc = u > 400 ? 'green' : u > 100 ? 'amber' : 'red'
+                {(data.stock || []).map((s, i) => {
+                  const closing = num(s.units)
+                  // Below zero is not a low balance, it is an impossible one.
+                  const sc = closing < 0 ? 'red' : closing > 400 ? 'green' : closing > 100 ? 'amber' : 'ink'
                   return (
                     <TR key={i} i={i}>
                       <TD>{s.product}</TD>
                       <TD mono>{s.size}</TD>
+                      <TD mono>{fmt(s.opening_units, 0)}</TD>
+                      <TD mono>{fmt(s.packed_units, 0)}</TD>
+                      <TD mono>{fmt(s.issued_units, 0)}</TD>
+                      <TD mono>{num(s.damaged_units) > 0 ? fmt(s.damaged_units, 0) : '—'}</TD>
                       <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <StatBadge color={sc}>{u}</StatBadge>
+                        <StatBadge color={sc}>{fmt(closing, 0)}</StatBadge>
                       </td>
+                      <TD mono>{fmt(s.litres)}</TD>
                     </TR>
                   )
                 })}
@@ -460,9 +632,16 @@ export default function ProcessingUnit() {
           {isAdmin && (
             <Card>
               <CardTitle>Upload New Period</CardTitle>
+              <p className="text-sm mb-2" style={{ color: 'var(--ink-60)' }}>
+                Two layouts work. <strong>Download template</strong> gives a blank workbook with a
+                sheet per month covering opening balance, milk received, packed, issued, damaged
+                and fresh milk lost — fill the yellow cells and upload it back.
+              </p>
               <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
-                Upload the monthly Excel file (e.g. <code style={{ fontFamily: "'DM Mono', monospace", background: 'var(--cream-dark)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>BUSH_PROCESSING_UNIT.xlsx</code>).
-                The parser reads milk received, packed, issued, stock, and a matching "DAMEGE" sheet automatically.
+                The farm's own <code style={{ fontFamily: "'DM Mono', monospace", background: 'var(--cream-dark)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>BUSH_PROCESSING_UNIT.xlsx</code>{' '}
+                is read as-is: month sheets, their matching "DAMEGE" sheets, and the B/D carry-in
+                column. Its SUMMARY sheet is ignored, since everything on it is recalculated here.
+                Re-uploading a month replaces it.
               </p>
               <UploadSelector uploads={[]} selectedId={null} onSelect={() => {}} onUploaded={handleUploaded} isAdmin={true} />
             </Card>
