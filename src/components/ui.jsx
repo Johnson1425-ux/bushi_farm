@@ -1,5 +1,43 @@
 import React from 'react'
 import { statusClass } from '../lib/api'
+import logo from '../assets/logo.png'
+
+/**
+ * The Bushi Milk House mark.
+ *
+ * One component so the logo cannot drift between the sidebar, the public
+ * header and the sign-in screen — every brand mark in the app renders this.
+ *
+ * `plate` puts the mark on a white rounded chip. The logo is dark blue and
+ * the sidebar is dark green, so at 26–30px the two tones sit too close
+ * together to read; the chip restores the contrast the mark was drawn for.
+ * Leave it off on the cream and surface backgrounds, where the blue already
+ * has plenty of separation.
+ */
+export function Logo({ size = 32, plate = false, className = '', style = {} }) {
+  const img = (
+    <img
+      src={logo}
+      alt="Bushi Milk House"
+      width={size}
+      height={size}
+      style={{ display: 'block', width: size, height: size, objectFit: 'contain' }}
+    />
+  )
+  if (!plate) return <span className={className} style={style}>{img}</span>
+  return (
+    <span
+      className={className}
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        background: '#fff', borderRadius: size * 0.28, padding: size * 0.12,
+        ...style,
+      }}
+    >
+      {img}
+    </span>
+  )
+}
 
 export function Btn({ children, variant = 'default', size = 'md', onClick, className = '', disabled }) {
   const base = [

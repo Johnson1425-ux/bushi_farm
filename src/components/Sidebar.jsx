@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '../lib/AuthContext'
 import { useTheme } from '../lib/ThemeContext'
+import { Logo } from './ui'
 
 /* ─── Nav groups ──────────────────────────────────────────────────────────────
    `roles` lists who may see an item. Omitting it means every signed-in role.
@@ -203,9 +204,12 @@ export default function Sidebar({ page, setPage, summary, online }) {
           DESKTOP — always visible
       ═══════════════════════════════ */}
       <aside className="hidden md:flex w-[220px] min-h-screen bg-green-900 text-white flex-col fixed top-0 left-0 bottom-0 z-10">
-        <div className="px-6 py-3 border-b border-white/10">
-          <div className="font-serif text-[22px] text-white">🐄 Bushi Farm</div>
-          <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
+        <div className="px-6 py-3 border-b border-white/10 flex items-center gap-2.5">
+          <Logo size={30} plate />
+          <div>
+            <div className="font-serif text-[22px] text-white leading-tight">Bushi Farm</div>
+            <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
+          </div>
         </div>
         <NavItems groups={visibleGroups} page={page} onNav={handleNav} dark={dark} toggle={toggle} />
         <UserFooter user={user} logout={logout} online={online} summary={summary} />
@@ -222,7 +226,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
           style={{ background: 'var(--green-900)', height: 56, borderBottom: '1px solid rgba(255,255,255,0.1)' }}
         >
           <div className="flex items-center gap-2">
-            <span style={{ fontSize: 20 }}>🐄</span>
+            <Logo size={26} plate />
             <span className="font-serif text-white text-[18px]">Bushi Farm</span>
           </div>
           <div className="flex items-center gap-1">
@@ -262,9 +266,12 @@ export default function Sidebar({ page, setPage, summary, online }) {
         >
           {/* Logo + close */}
           <div className="px-6 py-6 border-b border-white/10 flex items-center justify-between">
-            <div>
-              <div className="font-serif text-[22px] text-white">🐄 Bushi Farm</div>
-              <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
+            <div className="flex items-center gap-2.5">
+              <Logo size={30} plate />
+              <div>
+                <div className="font-serif text-[22px] text-white leading-tight">Bushi Farm</div>
+                <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
+              </div>
             </div>
             <button
               onClick={() => setOpen(false)}
