@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useTheme } from '../lib/ThemeContext'
-import { Milk } from 'lucide-react'
+import { Logo } from '../components/ui'
 
 const NAV = [
   { path: '/',     label: 'Home' },
@@ -51,9 +51,7 @@ export default function CustomerLayout() {
 
           {/* Logo */}
           <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 26 }}>
-              <Milk size={24} color="var(--green-600)" />
-            </span>
+            <Logo size={38} />
             <div style={{ textAlign: 'left' }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green-600)', lineHeight: 1.2, letterSpacing: '-0.3px' }}>Bushi Dairy Farm</div>
               <div style={{ fontSize: 10, color: 'var(--ink-30)', textTransform: 'uppercase', letterSpacing: 1 }}>Mwanza, Tanzania</div>
@@ -191,7 +189,7 @@ export default function CustomerLayout() {
       <footer style={{ borderTop: '1px solid var(--ink-10)', marginTop: 80 }}>
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px', display: 'flex', flexWrap: 'wrap', gap: 24, justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 22 }}>🐄</span>
+            <Logo size={30} />
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--green-600)' }}>Bushi Dairy Farm</div>
               <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2 }}>Mwanza, Maduka Tisa Stand</div>

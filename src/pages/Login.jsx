@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
+import { Logo } from '../components/ui'
 
 export default function Login() {
   const { login }  = useAuth()
@@ -43,7 +44,9 @@ export default function Login() {
 
         {/* Logo */}
         <div className="text-center" style={{ marginBottom: 36 }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>🐄</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+            <Logo size={64} />
+          </div>
           <div className="font-serif text-[26px] text-ink">Bushi Farm</div>
           <div className="text-[12px] text-ink-30 uppercase tracking-[0.5px]" style={{ marginTop: 4 }}>Farm Analytics</div>
         </div>
