@@ -14,7 +14,7 @@ import logo from '../assets/logo.png'
  * Leave it off on the cream and surface backgrounds, where the blue already
  * has plenty of separation.
  */
-export function Logo({ size = 32, plate = false, className = '', style = {} }) {
+export function Logo({ size = 32, plate = true, className = '', style = {} }) {
   const img = (
     <img
       src={logo}
@@ -24,7 +24,7 @@ export function Logo({ size = 32, plate = false, className = '', style = {} }) {
       style={{ display: 'block', width: size, height: size, objectFit: 'contain' }}
     />
   )
-  if (!plate) return <span className={className} style={style}>{img}</span>
+  if (plate) return <span className={className} style={style}>{img}</span>
   return (
     <span
       className={className}

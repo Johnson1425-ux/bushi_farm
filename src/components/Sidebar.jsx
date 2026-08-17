@@ -205,10 +205,10 @@ export default function Sidebar({ page, setPage, summary, online }) {
       ═══════════════════════════════ */}
       <aside className="hidden md:flex w-[220px] min-h-screen bg-green-900 text-white flex-col fixed top-0 left-0 bottom-0 z-10">
         <div className="px-6 py-3 border-b border-white/10 flex items-center gap-2.5">
-          <Logo size={30} plate />
+          <Logo size={40} plate />
           <div>
-            <div className="font-serif text-[22px] text-white leading-tight">Bushi Farm</div>
-            <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
+            <div className="font-serif text-[20px] text-white leading-tight">Bushi Farm</div>
+            <div className="text-[10px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
           </div>
         </div>
         <NavItems groups={visibleGroups} page={page} onNav={handleNav} dark={dark} toggle={toggle} />
