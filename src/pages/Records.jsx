@@ -170,11 +170,33 @@ function ManualEntryPanel({ cows, onSaved }) {
   )
 }
 
+/**
+ * A cow's full record history, as a modal.
+ *
+ * This used to sit in a column beside the cow list, which meant selecting a
+ * cow squeezed the list from 560px to 320px and left the detail — month
+ * tabs, four stat tiles and a four-column table — in whatever space was
+ * left. Both halves ended up too narrow to read. A modal gives the detail
+ * the full width of the screen and leaves the list alone underneath.
+ */
 function CowRecordsCard({ cow, overall, onClose }) {
   const [records,     setRecords]     = useState([])
   const [months,      setMonths]      = useState([])
   const [activeMonth, setActiveMonth] = useState('all')
   const [loading,     setLoading]     = useState(true)
+
+  /* Escape closes, and the page behind must not scroll while this is open —
+     otherwise dismissing the modal leaves the list somewhere unexpected. */
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [onClose])
 
   useEffect(() => {
     setLoading(true); setRecords([]); setMonths([])
@@ -215,81 +237,104 @@ function CowRecordsCard({ cow, overall, onClose }) {
   }
 
   return (
-    <Card className="mb-0 sticky top-8">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-[15px] flex-shrink-0">
-          {initials(cow.name)}
-        </div>
-        <div className="flex-1">
-          <div className="font-serif text-[20px]">{cow.name}</div>
-          <div className="text-xs text-ink-60 mt-0.5">
-            {cow.breed || 'No breed set'}{cow.tag ? ` · #${cow.tag}` : ''}
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      style={{ background: 'rgba(10,30,20,0.55)', backdropFilter: 'blur(4px)' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Records for ${cow.name}`}
+    >
+      <div
+        className="rounded-[16px] flex flex-col w-full max-w-3xl max-h-[90vh]"
+        style={{ background: 'var(--surface)' }}
+      >
+        {/* Header — stays put while the records scroll */}
+        <div className="flex items-center gap-3 flex-shrink-0 px-6 pt-6 pb-4">
+          <div className="w-11 h-11 rounded-full bg-green-600 text-white flex items-center justify-center font-bold text-[15px] flex-shrink-0">
+            {initials(cow.name)}
           </div>
-        </div>
-        <button onClick={onClose} className="bg-transparent border-0 cursor-pointer text-[18px] text-ink-30 hover:text-ink transition-colors p-1 leading-none">✕</button>
-      </div>
-
-      <div className="flex gap-1.5 flex-wrap mb-5">
-        <MonthTab label="All" active={activeMonth === 'all'} onClick={() => setActiveMonth('all')} />
-        {months.map(m => (
-          <MonthTab key={m} label={formatMonth(m)} active={activeMonth === m} onClick={() => setActiveMonth(m)} />
-        ))}
-      </div>
-
-      {!loading && filtered.length > 0 && (
-        <div className="grid grid-cols-2 gap-2.5 mb-5">
-          {[
-            ['Avg / day',  monthAvg.toFixed(1)   + ' L'],
-            ['Total',      monthTotal.toFixed(0) + ' L'],
-            ['Best day',   monthMax.toFixed(1)   + ' L'],
-            ['Worst day',  monthMin.toFixed(1)   + ' L'],
-          ].map(([label, val]) => (
-            <div key={label} className="bg-cream rounded-lg px-3.5 py-2.5">
-              <div className="text-[11px] text-ink-60 uppercase tracking-wider font-medium">{label}</div>
-              <div className="text-xl font-semibold text-ink mt-0.5">{val}</div>
+          <div className="flex-1 min-w-0">
+            <div className="font-serif text-[20px] truncate">{cow.name}</div>
+            <div className="text-xs text-ink-60 mt-0.5">
+              {cow.breed || 'No breed set'}{cow.tag ? ` · #${cow.tag}` : ''}
             </div>
-          ))}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="bg-transparent border-0 cursor-pointer text-[18px] text-ink-30 hover:text-ink transition-colors p-1 leading-none"
+          >✕</button>
         </div>
-      )}
 
-      {loading
-        ? <div className="text-center py-6 text-ink-30 text-[13px]">Loading…</div>
-        : filtered.length === 0
-          ? <div className="text-center py-6 text-ink-30 text-[13px]">No records for this period.</div>
-          : (
-            <div className="overflow-y-auto max-h-[380px]">
-              <table className="w-full border-collapse text-[13px]">
-                <thead className="sticky top-0 bg-surface z-[1]">
-                  <tr>
-                    {['Date', 'Litres', 'vs avg', 'Status'].map(h => (
-                      <th key={h} className="text-left px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(r => {
-                    const cls = statusClass(parseFloat(r.litres), overall)
-                    return (
-                      <tr key={r.id} className="hover:bg-cream-dark transition-colors">
-                        <td className="px-2.5 py-2 border-b border-ink-10 font-mono text-[12px]">{toDateStr(r.date)}</td>
-                        <td className="px-2.5 py-2 border-b border-ink-10 font-semibold">{parseFloat(r.litres).toFixed(1)} L</td>
-                        <td className="px-2.5 py-2 border-b border-ink-10"><InlineBar litres={parseFloat(r.litres)} overall={overall} /></td>
-                        <td className="px-2.5 py-2 border-b border-ink-10"><Badge cls={cls} /></td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+        {/* Body — the only scrolling region, so there is never a scrollbar
+            inside a scrollbar. */}
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="flex gap-1.5 flex-wrap mb-5">
+            <MonthTab label="All" active={activeMonth === 'all'} onClick={() => setActiveMonth('all')} />
+            {months.map(m => (
+              <MonthTab key={m} label={formatMonth(m)} active={activeMonth === m} onClick={() => setActiveMonth(m)} />
+            ))}
+          </div>
+
+          {!loading && filtered.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+              {[
+                ['Avg / day',  monthAvg.toFixed(1)   + ' L'],
+                ['Total',      monthTotal.toFixed(0) + ' L'],
+                ['Best day',   monthMax.toFixed(1)   + ' L'],
+                ['Worst day',  monthMin.toFixed(1)   + ' L'],
+              ].map(([label, val]) => (
+                <div key={label} className="bg-cream rounded-lg px-3.5 py-2.5">
+                  <div className="text-[11px] text-ink-60 uppercase tracking-wider font-medium">{label}</div>
+                  <div className="text-xl font-semibold text-ink mt-0.5">{val}</div>
+                </div>
+              ))}
             </div>
-          )
-      }
+          )}
 
-      {!loading && filtered.length > 0 && (
-        <div className="mt-4 pt-3.5 border-t border-ink-10">
-          <Btn size="sm" onClick={exportCSV}>Export {formatMonth(activeMonth)} CSV</Btn>
+          {loading
+            ? <div className="text-center py-6 text-ink-30 text-[13px]">Loading…</div>
+            : filtered.length === 0
+              ? <div className="text-center py-6 text-ink-30 text-[13px]">No records for this period.</div>
+              : (
+                <table className="w-full border-collapse text-[13px] mb-2">
+                  <thead className="sticky top-0 z-[1]" style={{ background: 'var(--surface)' }}>
+                    <tr>
+                      {/* The vs-avg bar is the widest column and the least
+                          essential, so it steps aside on a phone rather than
+                          pushing Status off the edge. */}
+                      {[['Date', ''], ['Litres', ''], ['vs avg', 'hidden sm:table-cell'], ['Status', '']].map(([h, extra]) => (
+                        <th key={h} className={`text-left px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10 ${extra}`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(r => {
+                      const cls = statusClass(parseFloat(r.litres), overall)
+                      return (
+                        <tr key={r.id} className="hover:bg-cream-dark transition-colors">
+                          <td className="px-2.5 py-2 border-b border-ink-10 font-mono text-[12px] whitespace-nowrap">{toDateStr(r.date)}</td>
+                          <td className="px-2.5 py-2 border-b border-ink-10 font-semibold whitespace-nowrap">{parseFloat(r.litres).toFixed(1)} L</td>
+                          <td className="px-2.5 py-2 border-b border-ink-10 hidden sm:table-cell"><InlineBar litres={parseFloat(r.litres)} overall={overall} /></td>
+                          <td className="px-2.5 py-2 border-b border-ink-10"><Badge cls={cls} /></td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              )
+          }
         </div>
-      )}
-    </Card>
+
+        {/* Footer */}
+        {!loading && filtered.length > 0 && (
+          <div className="flex-shrink-0 px-6 py-4 mt-1 border-t border-ink-10">
+            <Btn size="sm" onClick={exportCSV}>Export {formatMonth(activeMonth)} CSV</Btn>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -341,10 +386,9 @@ export default function Records({ cows, summary }) {
 
       {/* ── BROWSE TAB ── */}
       {tab === 'browse' && (
-        <div
-          className="grid gap-6 items-start"
-          style={{ gridTemplateColumns: selectedCow ? '320px 1fr' : '560px' }}
-        >
+        <div className="grid gap-6 items-start" style={{ gridTemplateColumns: 'minmax(0, 560px)' }}>
+          {/* The list keeps its width whether or not a cow is open — the
+              detail is a modal now, so nothing has to make room for it. */}
           <div>
             <input
               type="text"
