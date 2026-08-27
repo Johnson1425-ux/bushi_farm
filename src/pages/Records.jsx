@@ -1,8 +1,39 @@
 import React, { useState, useEffect } from 'react'
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { apiFetch, toDateStr, statusClass, initials } from '../lib/api'
-import { Card, Badge, InlineBar, Btn, PageHeader, EmptyState } from '../components/ui'
+import { Card, CardTitle, Badge, InlineBar, Btn, PageHeader, EmptyState } from '../components/ui'
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+/** '2026-07' → 'July 2026'. Shared by the per-cow tabs and the monthly view. */
+const formatMonth = (m) => {
+  if (m === 'all') return 'All time'
+  const [y, mo] = String(m).split('-')
+  return new Date(+y, +mo - 1).toLocaleString('default', { month: 'long', year: 'numeric' })
+}
+
+const fmt = (n, dec = 1) =>
+  Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: dec })
+
+/** '2026-08' → '2026-07'. Used to tell a real gap from a missing month. */
+const previousMonthOf = (m) => {
+  const [y, mo] = String(m).split('-').map(Number)
+  const d = new Date(Date.UTC(y, mo - 2, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+const daysInMonth = (m) => {
+  const [y, mo] = String(m).split('-').map(Number)
+  return new Date(Date.UTC(y, mo, 0)).getUTCDate()
+}
+
+/** Trigger a CSV download without a round trip to the server. */
+function downloadCSV(filename, rows) {
+  const a = document.createElement('a')
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.join('\n'))
+  a.download = filename
+  a.click()
+}
 
 function CowListItem({ cow, selected, onClick, overall }) {
   const cls        = statusClass(parseFloat(cow.avg_litres) || 0, overall)
@@ -222,12 +253,6 @@ function CowRecordsCard({ cow, overall, onClose }) {
   const monthMax   = filtered.length ? Math.max(...filtered.map(r => parseFloat(r.litres))) : 0
   const monthMin   = filtered.length ? Math.min(...filtered.map(r => parseFloat(r.litres))) : 0
 
-  const formatMonth = (m) => {
-    if (m === 'all') return 'All time'
-    const [y, mo] = m.split('-')
-    return new Date(+y, +mo - 1).toLocaleString('default', { month: 'long', year: 'numeric' })
-  }
-
   const exportCSV = () => {
     const csv = ['Date,Litres', ...filtered.map(r => `${toDateStr(r.date)},${r.litres}`)].join('\n')
     const a = document.createElement('a')
@@ -338,6 +363,221 @@ function CowRecordsCard({ cow, overall, onClose }) {
   )
 }
 
+/**
+ * Whole-farm production, one row per calendar month.
+ *
+ * The per-cow card already breaks a single animal down by month; this is the
+ * same view for the herd. Everything is served pre-aggregated rather than
+ * summed in the browser, so the figures cannot drift from what the reports
+ * and the AI read.
+ *
+ * Archived cows are included. A cow that has since died still produced the
+ * milk credited to the month she produced it in, and leaving her out would
+ * make last year's totals move every time an animal leaves the herd.
+ */
+function MonthlyTotals() {
+  const [months,  setMonths]  = useState([])
+  const [loading, setLoading] = useState(true)
+  const [open,    setOpen]    = useState(null)     // month whose cows are shown
+  const [breakdown, setBreakdown] = useState({})   // month -> rows
+
+  useEffect(() => {
+    setLoading(true)
+    apiFetch('/analytics/monthly')
+      .then(setMonths)
+      .catch(() => setMonths([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const toggle = async (month) => {
+    if (open === month) { setOpen(null); return }
+    setOpen(month)
+    if (breakdown[month]) return
+    try {
+      const rows = await apiFetch(`/analytics/monthly/${month}`)
+      setBreakdown(prev => ({ ...prev, [month]: rows }))
+    } catch {
+      setBreakdown(prev => ({ ...prev, [month]: [] }))
+    }
+  }
+
+  // The API returns newest first, which suits the table; the chart reads
+  // left to right in time order.
+  const chart = [...months].reverse().map(m => ({
+    month: formatMonth(m.month).replace(' 20', " '"),
+    Litres: Number(m.total_litres) || 0,
+  }))
+
+  const exportCSV = () => downloadCSV('monthly_production.csv', [
+    'Month,Total litres,Avg per day,Cows milked,Days recorded,Records',
+    ...months.map(m => [
+      m.month, m.total_litres, m.avg_per_day, m.cows_milked, m.days_recorded, m.records,
+    ].join(',')),
+  ])
+
+  if (loading) return <div className="text-center py-16 text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
+  if (!months.length) return <EmptyState>No production has been recorded yet.</EmptyState>
+
+  const grandTotal = months.reduce((s, m) => s + Number(m.total_litres), 0)
+  const best = months.reduce((a, b) => (Number(b.total_litres) > Number(a.total_litres) ? b : a))
+
+  return (
+    <div>
+      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+        {[
+          ['Months recorded', String(months.length), ''],
+          ['Total produced',  fmt(grandTotal, 0),    'litres'],
+          ['Best month',      formatMonth(best.month), `${fmt(best.total_litres, 0)} L`],
+        ].map(([label, value, note]) => (
+          <div key={label} className="rounded-lg border p-4"
+            style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)' }}>
+            <div className="text-[11px] uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--ink-60)' }}>{label}</div>
+            <div className="font-semibold" style={{ fontSize: 20, color: 'var(--ink)', lineHeight: 1.2 }}>{value}</div>
+            {note && <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-30)' }}>{note}</div>}
+          </div>
+        ))}
+      </div>
+
+      <Card>
+        <CardTitle>Total litres by month</CardTitle>
+        <div style={{ height: 260 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chart} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--ink-10)" vertical={false} />
+              <XAxis dataKey="month" tick={{ fill: 'var(--ink-60)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--ink-60)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <Tooltip
+                formatter={(v) => [`${fmt(v)} L`, 'Total']}
+                contentStyle={{
+                  background: 'var(--surface)', border: '1.5px solid var(--ink-10)',
+                  borderRadius: 10, fontSize: 12, color: 'var(--ink)',
+                }}
+                cursor={{ fill: 'var(--cream-dark)' }}
+              />
+              <Bar dataKey="Litres" fill="var(--green-400)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
+
+      <Card noPad>
+        <div className="px-5 pt-4 pb-1 flex items-center justify-between">
+          <CardTitle>Month by month</CardTitle>
+          <Btn size="sm" onClick={exportCSV}>↓ Export CSV</Btn>
+        </div>
+        <table className="w-full border-collapse text-[13px]">
+          <thead>
+            <tr>
+              {[['Month', ''], ['Total', ''], ['Avg / day', ''],
+                ['vs previous', 'hidden sm:table-cell'],
+                ['Cows', 'hidden sm:table-cell'], ['Days', 'hidden sm:table-cell']]
+                .map(([h, extra]) => (
+                  <th key={h} className={`text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b ${extra}`}
+                    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
+                ))}
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m, i) => {
+              /* Compare on litres per day, not on the monthly total.
+
+                 A month still being filled in has far fewer days recorded than
+                 the one before it, so comparing totals reports a collapse that
+                 did not happen — six days of August against all of July reads
+                 as -80% when the herd is actually producing slightly more each
+                 day. Per-day is also immune to February being short.
+
+                 Only against the month immediately before: the API returns the
+                 previous month *with data*, which can be a year earlier, and a
+                 percentage across that gap means nothing. */
+              const prev = months[i + 1]
+              const adjacent = prev && prev.month === previousMonthOf(m.month)
+              const change = adjacent && Number(prev.avg_per_day) > 0
+                ? ((Number(m.avg_per_day) - Number(prev.avg_per_day)) / Number(prev.avg_per_day)) * 100
+                : null
+              const partial = m.days_recorded < daysInMonth(m.month)
+              const rows = breakdown[m.month]
+              return (
+                <React.Fragment key={m.month}>
+                  <tr
+                    onClick={() => toggle(m.month)}
+                    className="cursor-pointer transition-colors"
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}
+                  >
+                    <td className="px-5 py-3 border-b font-medium" style={{ borderColor: 'var(--ink-10)' }}>
+                      <span className="inline-block w-3 mr-1" style={{ color: 'var(--ink-30)' }}>
+                        {open === m.month ? '▾' : '▸'}
+                      </span>
+                      {formatMonth(m.month)}
+                      {partial && (
+                        <span className="text-[11px] ml-2" style={{ color: 'var(--ink-30)' }}>
+                          {m.days_recorded} of {daysInMonth(m.month)} days
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 border-b font-semibold" style={{ borderColor: 'var(--ink-10)' }}>
+                      {fmt(m.total_litres, 0)} L
+                    </td>
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                      {fmt(m.avg_per_day)} L
+                    </td>
+                    <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)' }}>
+                      {change === null
+                        ? <span style={{ color: 'var(--ink-30)' }} title={prev ? 'No data for the month before this one' : ''}>—</span>
+                        : <span style={{ color: change >= 0 ? 'var(--green-600)' : 'var(--red)' }}>
+                            {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+                          </span>}
+                    </td>
+                    <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                      {m.cows_milked}
+                    </td>
+                    <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                      {m.days_recorded}
+                    </td>
+                  </tr>
+
+                  {open === m.month && (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-4 border-b" style={{ borderColor: 'var(--ink-10)', background: 'var(--cream)' }}>
+                        {!rows
+                          ? <div className="text-[13px]" style={{ color: 'var(--ink-30)' }}>Loading…</div>
+                          : rows.length === 0
+                            ? <div className="text-[13px]" style={{ color: 'var(--ink-30)' }}>No cows recorded this month.</div>
+                            : (
+                              <>
+                                <div className="text-[11px] uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--ink-60)' }}>
+                                  Who produced it — {rows.length} cows
+                                </div>
+                                <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
+                                  {rows.map(c => (
+                                    <div key={c.id} className="flex items-baseline justify-between gap-2 rounded-lg px-3 py-2"
+                                      style={{ background: 'var(--surface)' }}>
+                                      <span className="text-[13px] truncate">
+                                        {c.name}
+                                        {c.status && c.status !== 'active' && (
+                                          <span className="text-[10px] ml-1" style={{ color: 'var(--ink-30)' }}>({c.status})</span>
+                                        )}
+                                      </span>
+                                      <span className="text-[13px] font-semibold whitespace-nowrap">{fmt(c.total_litres, 0)} L</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </Card>
+    </div>
+  )
+}
+
 export default function Records({ cows, summary }) {
   const [selectedCow, setSelectedCow] = useState(null)
   const [search,      setSearch]      = useState('')
@@ -371,7 +611,7 @@ export default function Records({ cows, summary }) {
 
       {/* Tabs */}
       <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
-        {[['browse', '📋 Browse Records'], ['entry', '📝 Manual Entry']].map(([v, l]) => (
+        {[['browse', '📋 Browse Records'], ['monthly', '📅 Monthly Totals'], ['entry', '📝 Manual Entry']].map(([v, l]) => (
           <button
             key={v}
             onClick={() => setTab(v)}
@@ -415,6 +655,9 @@ export default function Records({ cows, summary }) {
           )}
         </div>
       )}
+
+      {/* ── MONTHLY TOTALS TAB ── */}
+      {tab === 'monthly' && <MonthlyTotals />}
 
       {/* ── MANUAL ENTRY TAB ── */}
       {tab === 'entry' && (
