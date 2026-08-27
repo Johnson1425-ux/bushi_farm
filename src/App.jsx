@@ -105,7 +105,7 @@ function AppShell() {
 // ── Page wrappers ─────────────────────────────────────────────────────────────
 
 function DashboardPage()    { const { cows, summary, setPage } = useOutletContext(); return <Dashboard cows={cows} summary={summary} setPage={setPage} /> }
-function CowsPage()         { const { cows } = useOutletContext(); return <Cows cows={cows} /> }
+function CowsPage()         { const { cows, loadData } = useOutletContext(); return <Cows cows={cows} onChanged={loadData} /> }
 function ComparePage()      { const { cows } = useOutletContext(); return <Compare cows={cows} /> }
 function RecordsPage()      { const { cows, summary } = useOutletContext(); return <Records cows={cows} summary={summary} /> }
 function ImportPage()       { const { loadData } = useOutletContext(); return <ImportData onImported={loadData} /> }
