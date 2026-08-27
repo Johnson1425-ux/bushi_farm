@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { apiFetch, toDateStr, statusClass, initials } from '../lib/api'
 import { Card, CardTitle, Badge, InlineBar, Btn, PageHeader, EmptyState } from '../components/ui'
@@ -10,6 +10,24 @@ const formatMonth = (m) => {
   if (m === 'all') return 'All time'
   const [y, mo] = String(m).split('-')
   return new Date(+y, +mo - 1).toLocaleString('default', { month: 'long', year: 'numeric' })
+}
+
+/** '2026-07' → 'Jul'. The year is already named by the row above it. */
+const shortMonth = (m) => {
+  const [y, mo] = String(m).split('-')
+  return new Date(+y, +mo - 1).toLocaleString('default', { month: 'short' })
+}
+
+/**
+ * Label for whatever slice of history is being shown.
+ *
+ * A scope is 'all', a year ('2025') or a month ('2025-06'). Because record
+ * dates are 'YYYY-MM-DD', the same string prefix-matches all three, so one
+ * filter covers every case.
+ */
+const scopeLabel = (scope) => {
+  if (scope === 'all') return 'All time'
+  return /^\d{4}$/.test(scope) ? scope : formatMonth(scope)
 }
 
 const fmt = (n, dec = 1) =>
@@ -211,10 +229,22 @@ function ManualEntryPanel({ cows, onSaved }) {
  * the full width of the screen and leaves the list alone underneath.
  */
 function CowRecordsCard({ cow, overall, onClose }) {
-  const [records,     setRecords]     = useState([])
-  const [months,      setMonths]      = useState([])
-  const [activeMonth, setActiveMonth] = useState('all')
-  const [loading,     setLoading]     = useState(true)
+  const [records, setRecords] = useState([])
+  const [months,  setMonths]  = useState([])
+  const [loading, setLoading] = useState(true)
+
+  /* Two pieces of state, not one.
+     `scope` is what is being shown — 'all', a year, or a month.
+     `year` is only which year's months are on offer, so switching to All time
+     does not collapse the month row and make the card jump. */
+  const [scope, setScope] = useState('all')
+  const [year,  setYear]  = useState(null)
+  const bodyRef = useRef(null)
+
+  /* Back to the top when the scope changes. Choosing a month is two clicks
+     now, and after scrolling through a year of records the second click
+     would otherwise land you halfway down the new list. */
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0 }, [scope])
 
   /* Escape closes, and the page behind must not scroll while this is open —
      otherwise dismissing the modal leaves the list somewhere unexpected. */
@@ -238,15 +268,21 @@ function CowRecordsCard({ cow, overall, onClose }) {
         r.forEach(rec => seen.add(toDateStr(rec.date).slice(0, 7)))
         const sorted = [...seen].sort((a, b) => b.localeCompare(a))
         setMonths(sorted)
-        setActiveMonth(sorted[0] || 'all')
+        // Open on the most recent month, as before.
+        setScope(sorted[0] || 'all')
+        setYear(sorted[0] ? sorted[0].slice(0, 4) : null)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [cow.id])
 
-  const filtered = activeMonth === 'all'
+  // 'YYYY-MM' keys keep years apart, so these come out already ordered.
+  const years = [...new Set(months.map(m => m.slice(0, 4)))]
+  const monthsOfYear = months.filter(m => m.startsWith(year || ''))
+
+  const filtered = scope === 'all'
     ? records
-    : records.filter(r => toDateStr(r.date).startsWith(activeMonth))
+    : records.filter(r => toDateStr(r.date).startsWith(scope))
 
   const monthAvg   = filtered.length ? filtered.reduce((s, r) => s + parseFloat(r.litres), 0) / filtered.length : 0
   const monthTotal = filtered.reduce((s, r) => s + parseFloat(r.litres), 0)
@@ -257,7 +293,7 @@ function CowRecordsCard({ cow, overall, onClose }) {
     const csv = ['Date,Litres', ...filtered.map(r => `${toDateStr(r.date)},${r.litres}`)].join('\n')
     const a = document.createElement('a')
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
-    a.download = `${cow.name.replace(/\s+/g, '_')}_${activeMonth}.csv`
+    a.download = `${cow.name.replace(/\s+/g, '_')}_${scope}.csv`
     a.click()
   }
 
@@ -294,13 +330,33 @@ function CowRecordsCard({ cow, overall, onClose }) {
 
         {/* Body — the only scrolling region, so there is never a scrollbar
             inside a scrollbar. */}
-        <div className="flex-1 overflow-y-auto px-6">
-          <div className="flex gap-1.5 flex-wrap mb-5">
-            <MonthTab label="All" active={activeMonth === 'all'} onClick={() => setActiveMonth('all')} />
-            {months.map(m => (
-              <MonthTab key={m} label={formatMonth(m)} active={activeMonth === m} onClick={() => setActiveMonth(m)} />
+        <div ref={bodyRef} className="flex-1 overflow-y-auto px-6">
+          {/* Year row, then the months of that year. */}
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            <MonthTab label="All time" active={scope === 'all'} onClick={() => setScope('all')} />
+            {years.map(y => (
+              <MonthTab
+                key={y}
+                label={y}
+                active={scope === y}
+                /* Picking a year both selects the whole year and swaps the
+                   month row below to that year's months. */
+                onClick={() => { setYear(y); setScope(y) }}
+              />
             ))}
           </div>
+
+          {/* Months of the selected year. Bounded at twelve however many
+              years of history a cow accumulates — the flat list of every
+              month ran to five rows after three years and pushed the
+              records themselves off the bottom of the card. */}
+          {monthsOfYear.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap mb-5">
+              {monthsOfYear.map(m => (
+                <MonthTab key={m} label={shortMonth(m)} active={scope === m} onClick={() => setScope(m)} />
+              ))}
+            </div>
+          )}
 
           {!loading && filtered.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
@@ -355,7 +411,7 @@ function CowRecordsCard({ cow, overall, onClose }) {
         {/* Footer */}
         {!loading && filtered.length > 0 && (
           <div className="flex-shrink-0 px-6 py-4 mt-1 border-t border-ink-10">
-            <Btn size="sm" onClick={exportCSV}>Export {formatMonth(activeMonth)} CSV</Btn>
+            <Btn size="sm" onClick={exportCSV}>Export {scopeLabel(scope)} CSV</Btn>
           </div>
         )}
       </div>
