@@ -46,12 +46,22 @@ export default function ImportData({ onImported }) {
 
   const handleFiles = (files) => [...files].forEach(uploadFile)
 
+  /* One request, one transaction. This used to fetch the herd and delete
+     each cow in turn, which stopped at the first animal with records once
+     per-cow deletes started guarding against wiping production history —
+     and, before that, could leave the farm half deleted if it failed
+     midway. The confirm parameter is what marks this as the deliberate
+     "yes, all of it" case rather than a retire-one-animal mistake. */
   const confirmClear = async () => {
-    if (!confirm('Delete ALL cows and records from the database?')) return
+    if (!confirm(
+      'Delete ALL cows and every milk record, health record, pregnancy and '
+      + 'event attached to them?\n\nThis cannot be undone. To retire a single '
+      + 'animal that has died or been sold, archive her on the All Cows page '
+      + 'instead — that keeps her history.'
+    )) return
     try {
-      const cows = await apiFetch('/cows')
-      for (const c of cows) await apiFetch(`/cows/${c.id}`, { method: 'DELETE' })
-      addLog('ok', 'All data cleared.')
+      const { deleted } = await apiFetch('/cows?confirm=DELETE_ALL', { method: 'DELETE' })
+      addLog('ok', `All data cleared — ${deleted} cows removed.`)
       onImported?.()
     } catch (e) {
       addLog('err', 'Error: ' + e.message)
