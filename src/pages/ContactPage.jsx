@@ -23,7 +23,7 @@ export default function ContactPage() {
     e.preventDefault()
     // Build WhatsApp message
     const text = encodeURIComponent(
-      `Hello Bushi Dairy Farm! 🐄\n\n` +
+      `Milktrack! 🐄\n\n` +
       `Name: ${form.name}\n` +
       `Phone: ${form.phone}\n` +
       `Product of interest: ${form.product || 'General inquiry'}\n\n` +

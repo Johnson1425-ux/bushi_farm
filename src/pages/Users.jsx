@@ -60,7 +60,7 @@ export default function Users() {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Users" sub="Manage who can access Bushi Farm">
+      <PageHeader title="Users" sub="Manage who can access Milktrack">
         <Btn size="sm" variant="primary" onClick={() => setShowForm(v => !v)}>
           {showForm ? 'Cancel' : '+ New user'}
         </Btn>

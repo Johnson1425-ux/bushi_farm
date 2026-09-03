@@ -56,7 +56,7 @@ export default function AboutUs() {
             <span style={{ color: 'var(--green-400)' }}>straight to you.</span>
           </h1>
           <p style={{ fontSize: 18, color: 'rgba(255,255,255,0.7)', maxWidth: 520, margin: '0 auto 36px', lineHeight: 1.65 }}>
-            Bushi Dairy Farm is Mwanza's trusted source for fresh, natural dairy products. From our herd to your home — quality you can taste.
+            Milktrack is Mwanza's trusted source for fresh, natural dairy products. From our herd to your home — quality you can taste.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="/products" style={{
@@ -105,7 +105,7 @@ export default function AboutUs() {
               A farm built on passion for quality dairy.
             </h2>
             <p style={{ fontSize: 15, color: 'var(--ink-60)', lineHeight: 1.8, marginBottom: 16 }}>
-              Located in the heart of Mwanza at Maduka Tisa Stand, Bushi Dairy Farm has been serving the community with fresh, high-quality dairy products. Our farm combines modern dairy management with a deep commitment to animal welfare.
+              Located in the heart of Mwanza at Maduka Tisa Stand, Milktrack has been serving the community with fresh, high-quality dairy products. Our farm combines modern dairy management with a deep commitment to animal welfare.
             </p>
             <p style={{ fontSize: 15, color: 'var(--ink-60)', lineHeight: 1.8 }}>
               With over 52 cows producing hundreds of litres daily, we process fresh milk into a range of products including yoghurt, mtindi, and packaged milk — all made with care and no artificial additives.
@@ -139,7 +139,7 @@ export default function AboutUs() {
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--green-600)', marginBottom: 10 }}>Our Values</p>
-            <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Why choose Bushi Dairy?</h2>
+            <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Why choose Milktrack?</h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
             {VALUES.map(v => (

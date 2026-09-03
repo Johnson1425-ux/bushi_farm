@@ -53,7 +53,7 @@ export default function CustomerLayout() {
           <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
             <Logo size={38} />
             <div style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green-600)', lineHeight: 1.2, letterSpacing: '-0.3px' }}>Bushi Dairy Farm</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--green-600)', lineHeight: 1.2, letterSpacing: '-0.3px' }}>Milktrack</div>
               <div style={{ fontSize: 10, color: 'var(--ink-30)', textTransform: 'uppercase', letterSpacing: 1 }}>Mwanza, Tanzania</div>
             </div>
           </button>
@@ -191,7 +191,7 @@ export default function CustomerLayout() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Logo size={30} />
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--green-600)' }}>Bushi Dairy Farm</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--green-600)' }}>Milktrack</div>
               <div style={{ fontSize: 12, color: 'var(--ink-30)', marginTop: 2 }}>Mwanza, Maduka Tisa Stand</div>
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function CustomerLayout() {
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--ink-30)' }}>© {new Date().getFullYear()} Bushi Dairy Farm</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-30)' }}>© {new Date().getFullYear()} Miltrack</div>
         </div>
       </footer>
     </div>

@@ -47,7 +47,7 @@ export default function Login() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
             <Logo size={64} />
           </div>
-          <div className="font-serif text-[26px] text-ink">Bushi Farm</div>
+          <div className="font-serif text-[26px] text-ink">Milktrack</div>
           <div className="text-[12px] text-ink-30 uppercase tracking-[0.5px]" style={{ marginTop: 4 }}>Farm Analytics</div>
         </div>
 

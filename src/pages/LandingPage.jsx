@@ -36,7 +36,7 @@ export default function LandingPage() {
         </h1>
 
         <p style={{ fontSize: 18, color: 'var(--ink-60)', maxWidth: 540, margin: '0 auto 36px', lineHeight: 1.65 }}>
-          Bushi Dairy Farm gives dairy farmers a complete picture — from daily milk logs to herd analytics — so every decision is backed by real data.
+          Miltrack gives dairy farmers a complete picture — from daily milk logs to herd analytics — so every decision is backed by real data.
         </p>
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 52 }}>
@@ -84,7 +84,7 @@ export default function LandingPage() {
         </div>
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
           {[
-            { path: '/farm',     icon: '🏡', title: 'Our Farm',  desc: 'Learn about Bushi Dairy Farm — our story, location, and values.' },
+            { path: '/farm',     icon: '🏡', title: 'Our Farm',  desc: 'Learn about Milktrack — our story, location, and values.' },
             { path: '/products', icon: '🥛', title: 'Products',  desc: 'Browse our fresh milk, vanilla & strawberry yoghurt, and Mtindi Bonge.' },
             { path: '/contact',  icon: '📞', title: 'Contact Us', desc: 'Place an order or ask a question. We respond via WhatsApp.' },
           ].map(c => (

@@ -222,7 +222,7 @@ function UploadModal({ cows, onClose, onSuccess }) {
               {file ? file.name : 'Click or drag & drop a .docx file here'}
             </div>
             <div className="text-xs mt-1" style={{ color: 'var(--ink-30)' }}>
-              Bushi Dairy Farm Individual Health Record form
+              Milktrack Individual Health Record form
             </div>
             <input ref={inputRef} type="file" accept=".docx,.doc" className="hidden"
               onChange={e => setFile(e.target.files[0])} />

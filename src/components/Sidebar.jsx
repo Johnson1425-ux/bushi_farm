@@ -207,7 +207,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
         <div className="px-6 py-3 border-b border-white/10 flex items-center gap-2.5">
           <Logo size={40} plate />
           <div>
-            <div className="font-serif text-[20px] text-white leading-tight">Bushi Farm</div>
+            <div className="font-serif text-[20px] text-white leading-tight">Milktrack</div>
             <div className="text-[10px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
         >
           <div className="flex items-center gap-2">
             <Logo size={26} plate />
-            <span className="font-serif text-white text-[18px]">Bushi Farm</span>
+            <span className="font-serif text-white text-[18px]">Milktrack</span>
           </div>
           <div className="flex items-center gap-1">
             {/* Dark mode toggle */}
@@ -269,7 +269,7 @@ export default function Sidebar({ page, setPage, summary, online }) {
             <div className="flex items-center gap-2.5">
               <Logo size={30} plate />
               <div>
-                <div className="font-serif text-[22px] text-white leading-tight">Bushi Farm</div>
+                <div className="font-serif text-[22px] text-white leading-tight">Milktrack</div>
                 <div className="text-[11px] text-white/45 mt-0.5 tracking-wide uppercase">Farm Analytics</div>
               </div>
             </div>

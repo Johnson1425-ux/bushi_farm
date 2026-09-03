@@ -181,7 +181,7 @@ function PeriodReportTab({ canGenerate, onSaved }) {
         <Card>
           <CardTitle>
             <span>Farm report — {from} to {to}</span>
-            {!busy && <ResultActions content={text} filename={`bushi-report-${from}_${to}.md`} />}
+            {!busy && <ResultActions content={text} filename={`milktrack-report-${from}_${to}.md`} />}
           </CardTitle>
           <Markdown text={text} />
           {busy && <Caret />}

@@ -3,7 +3,7 @@ import { statusClass } from '../lib/api'
 import logo from '../assets/logo.png'
 
 /**
- * The Bushi Milk House mark.
+ * The Milktrack mark.
  *
  * One component so the logo cannot drift between the sidebar, the public
  * header and the sign-in screen — every brand mark in the app renders this.
@@ -18,7 +18,7 @@ export function Logo({ size = 32, plate = true, className = '', style = {} }) {
   const img = (
     <img
       src={logo}
-      alt="Bushi Milk House"
+      alt="Milktrack"
       width={size}
       height={size}
       style={{ display: 'block', width: size, height: size, objectFit: 'contain' }}
