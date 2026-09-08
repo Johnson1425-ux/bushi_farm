@@ -38,76 +38,76 @@ function ExpandedChart({ cows, overall, barSort, setBarSort, onClose }) {
   // Dynamic height — ~20px per cow, min 400px
   const chartH = Math.max(400, sortedCows.length * 11)
 
-  return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: 'rgba(10,30,20,0.55)', backdropFilter: 'blur(4px)' }}
-    >
-      <div
-        className="rounded-[16px] flex flex-col w-full max-w-5xl max-h-[90vh]"
-        style={{ background: 'var(--surface)', padding: '24px' }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 flex-shrink-0">
-          <div>
-            <div className="font-serif text-[20px]" style={{ color: 'var(--ink)' }}>
-              Production by Cow (avg)
-            </div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--ink-60)' }}>
-              All {sortedCows.length} cows
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <select
-              value={barSort}
-              onChange={e => setBarSort(e.target.value)}
-              className="text-xs px-2 py-1"
-            >
-              <option value="desc">Highest first</option>
-              <option value="asc">Lowest first</option>
-              <option value="name">Name A–Z</option>
-            </select>
-            <button
-              onClick={onClose}
-              className="border-0 bg-transparent cursor-pointer text-xl p-1 leading-none hover:opacity-60"
-              style={{ color: 'var(--ink-30)' }}
-            >✕</button>
-          </div>
-        </div>
+  // return (
+  //   <div
+  //     onClick={e => { if (e.target === e.currentTarget) onClose() }}
+  //     className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+  //     style={{ background: 'rgba(10,30,20,0.55)', backdropFilter: 'blur(4px)' }}
+  //   >
+  //     <div
+  //       className="rounded-[16px] flex flex-col w-full max-w-5xl max-h-[90vh]"
+  //       style={{ background: 'var(--surface)', padding: '24px' }}
+  //     >
+  //       {/* Header */}
+  //       <div className="flex items-center justify-between mb-4 flex-shrink-0">
+  //         <div>
+  //           <div className="font-serif text-[20px]" style={{ color: 'var(--ink)' }}>
+  //             Production by Cow (avg)
+  //           </div>
+  //           <div className="text-xs mt-0.5" style={{ color: 'var(--ink-60)' }}>
+  //             All {sortedCows.length} cows
+  //           </div>
+  //         </div>
+  //         <div className="flex items-center gap-3">
+  //           <select
+  //             value={barSort}
+  //             onChange={e => setBarSort(e.target.value)}
+  //             className="text-xs px-2 py-1"
+  //           >
+  //             <option value="desc">Highest first</option>
+  //             <option value="asc">Lowest first</option>
+  //             <option value="name">Name A–Z</option>
+  //           </select>
+  //           <button
+  //             onClick={onClose}
+  //             className="border-0 bg-transparent cursor-pointer text-xl p-1 leading-none hover:opacity-60"
+  //             style={{ color: 'var(--ink-30)' }}
+  //           >✕</button>
+  //         </div>
+  //       </div>
 
-        {/* Scrollable chart area */}
-        <div className="overflow-y-auto flex-1">
-          <div style={{ height: chartH, minWidth: 0 }}>
-            <Bar data={barData} options={chartOpts} />
-          </div>
-        </div>
+  //       {/* Scrollable chart area */}
+  //       <div className="overflow-y-auto flex-1">
+  //         <div style={{ height: chartH, minWidth: 0 }}>
+  //           <Bar data={barData} options={chartOpts} />
+  //         </div>
+  //       </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 pt-3 flex-shrink-0" style={{ borderTop: '1px solid var(--ink-10)' }}>
-          {[
-            { color: '#4db882', label: 'High (≥110% avg)' },
-            { color: '#e8a020', label: 'Average' },
-            { color: '#d94040', label: 'Low (≤85% avg)' },
-          ].map(l => (
-            <div key={l.label} className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: l.color }} />
-              <span className="text-xs" style={{ color: 'var(--ink-60)' }}>{l.label}</span>
-            </div>
-          ))}
-          <div className="ml-auto text-xs" style={{ color: 'var(--ink-30)' }}>
-            Herd avg: {overall.toFixed(1)} L/day
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+  //       {/* Legend */}
+  //       <div className="flex items-center gap-4 mt-4 pt-3 flex-shrink-0" style={{ borderTop: '1px solid var(--ink-10)' }}>
+  //         {[
+  //           { color: '#4db882', label: 'High (≥110% avg)' },
+  //           { color: '#e8a020', label: 'Average' },
+  //           { color: '#d94040', label: 'Low (≤85% avg)' },
+  //         ].map(l => (
+  //           <div key={l.label} className="flex items-center gap-1.5">
+  //             <span className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: l.color }} />
+  //             <span className="text-xs" style={{ color: 'var(--ink-60)' }}>{l.label}</span>
+  //           </div>
+  //         ))}
+  //         <div className="ml-auto text-xs" style={{ color: 'var(--ink-30)' }}>
+  //           Herd avg: {overall.toFixed(1)} L/day
+  //         </div>
+  //       </div>
+  //     </div>
+  //   </div>
+  // )
 }
 
 export default function Dashboard({ cows, summary, setPage }) {
   const [trend,    setTrend]    = useState([])
   const [barSort,  setBarSort]  = useState('desc')
-  const [expanded, setExpanded] = useState(false)
+  // const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     apiFetch('/analytics/trend?days=30').then(setTrend).catch(() => {})
@@ -120,26 +120,26 @@ export default function Dashboard({ cows, summary, setPage }) {
     ? cows.reduce((acc, c) => acc + (parseFloat(c.avg_litres) || 0), 0) / cows.length
     : 0
 
-  const sortedCows = [...(cows || [])].sort((a, b) => {
-    if (barSort === 'asc')  return parseFloat(a.avg_litres) - parseFloat(b.avg_litres)
-    if (barSort === 'name') return a.name.localeCompare(b.name)
-    return parseFloat(b.avg_litres) - parseFloat(a.avg_litres)
-  })
+  // const sortedCows = [...(cows || [])].sort((a, b) => {
+  //   if (barSort === 'asc')  return parseFloat(a.avg_litres) - parseFloat(b.avg_litres)
+  //   if (barSort === 'name') return a.name.localeCompare(b.name)
+  //   return parseFloat(b.avg_litres) - parseFloat(a.avg_litres)
+  // })
 
   // Dashboard shows top 10 only
-  const previewCows = sortedCows.slice(0, 10)
+  // const previewCows = sortedCows.slice(0, 10)
 
-  const makeBarData = (list) => ({
-    labels: list.map(c => c.name),
-    datasets: [{
-      data: list.map(c => parseFloat(c.avg_litres) || 0),
-      backgroundColor: list.map(c => {
-        const cls = statusClass(parseFloat(c.avg_litres) || 0, overall)
-        return cls === 'high' ? '#4db882' : cls === 'low' ? '#d94040' : '#e8a020'
-      }),
-      borderRadius: 6, borderSkipped: false,
-    }]
-  })
+  // const makeBarData = (list) => ({
+  //   labels: list.map(c => c.name),
+  //   datasets: [{
+  //     data: list.map(c => parseFloat(c.avg_litres) || 0),
+  //     backgroundColor: list.map(c => {
+  //       const cls = statusClass(parseFloat(c.avg_litres) || 0, overall)
+  //       return cls === 'high' ? '#4db882' : cls === 'low' ? '#d94040' : '#e8a020'
+  //     }),
+  //     borderRadius: 6, borderSkipped: false,
+  //   }]
+  // })
 
   const trendData = {
     labels: trend.map(t => t.date?.slice(5)),
@@ -191,9 +191,9 @@ export default function Dashboard({ cows, summary, setPage }) {
       <DailyBriefing />
 
       {/* Charts row */}
-      <div className="grid grid-cols-2 gap-5 mb-5">
+      <div className="grid grid-cols-1 gap-5 mb-5">
         {/* Production bar chart — clickable to expand */}
-        <Card>
+        {/* <Card>
           <CardTitle>
             <span>Production by cow (avg)</span>
             <div className="flex items-center gap-2">
@@ -215,18 +215,18 @@ export default function Dashboard({ cows, summary, setPage }) {
                 </button>
               )}
             </div>
-          </CardTitle>
+          </CardTitle> */}
 
           {/* Clickable chart area */}
-          <div
+          {/* <div
             className="h-[280px] relative rounded-lg transition-all"
             onClick={() => setExpanded(true)}
             style={{ cursor: 'pointer' }}
             title="Click to expand"
           >
-            {cows?.length ? <Bar data={makeBarData(previewCows)} options={chartOpts} /> : null}
+            {cows?.length ? <Bar data={makeBarData(previewCows)} options={chartOpts} /> : null} */}
             {/* Overlay hint */}
-            {cows?.length > 10 && (
+            {/* {cows?.length > 10 && (
               <div
                 className="absolute bottom-2 right-2 text-[11px] font-medium px-2 py-0.5 rounded pointer-events-none"
                 style={{ background: 'var(--ink-10)', color: 'var(--ink-60)' }}
@@ -234,8 +234,8 @@ export default function Dashboard({ cows, summary, setPage }) {
                 Showing 10 of {cows.length} · click to expand
               </div>
             )}
-          </div>
-        </Card>
+          </div> */}
+        {/* </Card> */}
 
         <Card>
           <CardTitle>Herd trend (last 30 days)</CardTitle>
@@ -291,7 +291,7 @@ export default function Dashboard({ cows, summary, setPage }) {
       </Card>
 
       {/* Expanded chart modal */}
-      {expanded && (
+      {/* {expanded && (
         <ExpandedChart
           cows={cows || []}
           overall={overall}
@@ -299,7 +299,7 @@ export default function Dashboard({ cows, summary, setPage }) {
           setBarSort={setBarSort}
           onClose={() => setExpanded(false)}
         />
-      )}
+      )} */}
     </div>
   )
 }

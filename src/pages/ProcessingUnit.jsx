@@ -128,7 +128,6 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
           ))}
         </select>
       )}
-      {isAdmin && (
         <div>
           <div className="flex items-center gap-2">
             <Btn size="sm" onClick={downloadTemplate}>↓ Template</Btn>
@@ -162,7 +161,6 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
             </div>
           )}
         </div>
-      )}
     </div>
   )
 }
