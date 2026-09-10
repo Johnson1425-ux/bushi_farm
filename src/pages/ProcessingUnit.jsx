@@ -142,7 +142,7 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
             <div className="text-xs mt-1" style={{ color: 'var(--green-600)', maxWidth: 380 }}>
               {imported.map((m, i) => (
                 <div key={i}>
-                  ✓ {m.label} — {fmt(m.summary.packed_units, 0)} packed, {fmt(m.summary.issued_units, 0)} issued,
+                  ✓ {m.label} — {fmt(m.summary.packed_units, 0)} packed,
                   {' '}{fmt(m.summary.damaged_units, 0)} damaged
                 </div>
               ))}
@@ -266,7 +266,11 @@ export default function ProcessingUnit() {
      Yield is the figure that actually says whether the unit ran well: the
      litres that came back out as sealed packs against the litres available
      to it, carried-in milk included. Litres for packs are derived from the
-     pack size on import, so they cannot drift from the unit counts. */
+     pack size on import, so they cannot drift from the unit counts.
+
+     Issued figures do not come from the workbook. They are the issue notes
+     raised on Stock & Issuing for the days this month covers, which is why
+     a month can still change after it has been uploaded. */
   const stats = data ? (() => {
     const sum = (arr, key) => (arr || []).reduce((a, r) => a + num(r[key]), 0)
     const farm         = sum(data.received, 'farm_litres') + sum(data.received, 'mwabulugu_litres')
@@ -405,40 +409,6 @@ export default function ProcessingUnit() {
             </div>
           )}
 
-          {/* The workbook's issued figure against what the app actually sent
-              to branches. Since issuing moved onto the Stock & Issuing page,
-              the ledger is the record of what happened and this column of the
-              sheet is a second, independent count of the same thing — so the
-              two agreeing is worth something, and the products they disagree
-              on are where to go looking. Months from before the cutover have
-              no ledger activity and report nothing. */}
-          {data.issued_control && (
-            <div className="rounded-lg border p-3 mb-4 text-[13px]"
-              style={{
-                background: data.issued_control.lines.length ? 'rgba(232,160,32,0.08)' : 'var(--green-50)',
-                borderColor: data.issued_control.lines.length ? 'var(--amber)' : 'var(--green-100)',
-              }}>
-              <div className="font-semibold mb-1"
-                style={{ color: data.issued_control.lines.length ? 'var(--amber)' : 'var(--green-800)' }}>
-                {data.issued_control.lines.length === 0
-                  ? 'Issued figures agree with the branch issue notes'
-                  : `${data.issued_control.lines.length} product${data.issued_control.lines.length > 1 ? 's differ' : ' differs'} from the branch issue notes`}
-              </div>
-              <div style={{ color: 'var(--ink-60)' }}>
-                Workbook {fmt(data.issued_control.excel_units, 0)} units · issue notes{' '}
-                {fmt(data.issued_control.ledger_units, 0)} units.
-                {data.issued_control.lines.length > 0 && (
-                  <> Check{' '}
-                    {data.issued_control.lines.slice(0, 6).map(l =>
-                      `${l.product} ${l.size} (${l.variance > 0 ? '+' : ''}${fmt(l.variance, 0)})`
-                    ).join(', ')}
-                    {data.issued_control.lines.length > 6 && ` and ${data.issued_control.lines.length - 6} more`}.
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
           {data.upload?.source === 'legacy' && (
             <div className="text-xs mb-4" style={{ color: 'var(--ink-60)' }}>
               Read from the farm's own workbook layout. Litres are worked out from the pack
@@ -455,7 +425,7 @@ export default function ProcessingUnit() {
               { label: 'Packed (units)',  value: fmt(stats.packedUnits, 0), unit: 'units', color: 'var(--amber)' },
               { label: 'Packed (litres)', value: fmt(stats.packedL),        unit: 'L',     color: 'var(--amber)' },
               { label: 'Yield',           value: stats.yieldPct,                           color: 'var(--green-600)' },
-              { label: 'Issued (units)',  value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)' },
+              { label: 'Issued to branches', value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)' },
               { label: 'Damaged (units)', value: fmt(stats.damagedUnits, 0), unit: 'units', color: 'var(--red)' },
               { label: 'Damage Rate',     value: stats.damagePct,                          color: 'var(--red)' },
               { label: 'Fresh Milk Lost', value: fmt(stats.freshDamaged),   unit: 'L',     color: 'var(--red)' },
@@ -584,7 +554,9 @@ export default function ProcessingUnit() {
             <div className="px-5 pt-4 pb-1">
               <CardTitle>Stock Reconciliation</CardTitle>
               <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
-                Opening + packed − issued − damaged. Litres follow from the pack size.
+                Opening + packed − issued − damaged. Opening, packed and damaged come from the
+                uploaded workbook; issued comes from the branch issue notes raised for this month,
+                so this balance moves as stock goes out. Litres follow from the pack size.
               </p>
             </div>
             <table className="w-full border-collapse text-[13px]">
@@ -672,8 +644,9 @@ export default function ProcessingUnit() {
               <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
                 The farm's own <code style={{ fontFamily: "'DM Mono', monospace", background: 'var(--cream-dark)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>BUSH_PROCESSING_UNIT.xlsx</code>{' '}
                 is read as-is: month sheets, their matching "DAMEGE" sheets, and the B/D carry-in
-                column. Its SUMMARY sheet is ignored, since everything on it is recalculated here.
-                Re-uploading a month replaces it.
+                column. Its SUMMARY sheet is ignored, since everything on it is recalculated here,
+                and so is its ISSUED block — that figure now comes from the issue notes, which know
+                which branch took the stock. Re-uploading a month replaces it.
               </p>
               <UploadSelector uploads={[]} selectedId={null} onSelect={() => {}} onUploaded={handleUploaded} isAdmin={true} />
             </Card>
