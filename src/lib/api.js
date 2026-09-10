@@ -32,7 +32,15 @@ export async function apiFetch(path, opts = {}) {
 
   if (!r.ok) {
     const e = await r.json().catch(() => ({}))
-    throw new Error(e.error || r.statusText)
+    /* The message alone loses everything the API said beyond it — the
+       shortfall list behind a refused dispatch, the parser's issue list
+       behind a rejected upload. Callers that want the detail read
+       err.body; callers that only want to show something read err.message
+       exactly as before. */
+    const err = new Error(e.error || r.statusText)
+    err.status = r.status
+    err.body   = e
+    throw err
   }
   return r.json()
 }

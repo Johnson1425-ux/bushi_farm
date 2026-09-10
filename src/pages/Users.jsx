@@ -14,11 +14,20 @@ function RoleBadge({ role }) {
   )
 }
 
+const ROLE_OPTIONS = [
+  ['veteran',   'Veteran — animal health only',                   'Sees the dashboard, the herd list, and the animal health pages.'],
+  ['manager',   'Manager — production, sales, stock, processing',  'Sees production, sales, inventory, processing and every branch. No health records.'],
+  ['attendant', 'Attendant — one branch counter',                  'Sees only their own branch: its stock, the deliveries coming to it, and its till.'],
+  ['admin',     'Admin — full access',                             'Full access, including AI reports and user management.'],
+]
+
 export default function Users() {
   const { user: me } = useAuth()
   const [users,    setUsers]    = useState([])
   const [showForm, setShowForm] = useState(false)
-  const [form,     setForm]     = useState({ username: '', password: '', role: 'veteran' })
+  const [form,     setForm]     = useState({ username: '', password: '', role: 'veteran', branch_id: '' })
+  const [branches, setBranches] = useState([])
+  const [editing,  setEditing]  = useState(null)
   const [pwdModal, setPwdModal] = useState(null)
   const [newPwd,   setNewPwd]   = useState('')
   const [error,    setError]    = useState('')
@@ -26,6 +35,10 @@ export default function Users() {
 
   const load = () => apiFetch('/users').then(setUsers).catch(() => {})
   useEffect(() => { load() }, [])
+
+  /* Needed only to assign an attendant. If it fails the picker is empty and
+     the API refuses the account anyway, which is the same answer. */
+  useEffect(() => { apiFetch('/branches').then(setBranches).catch(() => {}) }, [])
 
   const flash = (msg, isErr = false) => {
     if (isErr) { setError(msg); setTimeout(() => setError(''), 4000) }
@@ -35,8 +48,11 @@ export default function Users() {
   const createUser = async (e) => {
     e.preventDefault()
     try {
-      await apiFetch('/users', { method: 'POST', body: JSON.stringify(form) })
-      setForm({ username: '', password: '', role: 'veteran' })
+      await apiFetch('/users', {
+        method: 'POST',
+        body: JSON.stringify({ ...form, branch_id: form.branch_id ? Number(form.branch_id) : null }),
+      })
+      setForm({ username: '', password: '', role: 'veteran', branch_id: '' })
       setShowForm(false); load()
       flash(`User "${form.username}" created.`)
     } catch (err) { flash(err.message, true) }
@@ -47,6 +63,17 @@ export default function Users() {
     try {
       await apiFetch(`/users/${u.id}`, { method: 'DELETE' })
       load(); flash(`User "${u.username}" deleted.`)
+    } catch (err) { flash(err.message, true) }
+  }
+
+  const saveRole = async (u, role, branch_id) => {
+    try {
+      await apiFetch(`/users/${u.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role, branch_id: branch_id ? Number(branch_id) : null }),
+      })
+      setEditing(null); load()
+      flash(`${u.username} updated.`)
     } catch (err) { flash(err.message, true) }
   }
 
@@ -91,17 +118,28 @@ export default function Users() {
               <div>
                 <label className="block text-xs text-ink-60 font-medium mb-1.5">Role</label>
                 <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-                  <option value="veteran">Veteran — animal health only</option>
-                  <option value="manager">Manager — production, sales, stock, processing</option>
-                  <option value="admin">Admin — full access</option>
+                  {ROLE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </select>
                 <div className="text-[11px] text-ink-30 mt-1.5">
-                  {form.role === 'veteran' && 'Sees the dashboard, the herd list, and the animal health pages.'}
-                  {form.role === 'manager' && 'Sees production, sales, inventory and processing. No health records.'}
-                  {form.role === 'admin'   && 'Full access, including AI reports and user management.'}
+                  {ROLE_OPTIONS.find(([v]) => v === form.role)?.[2]}
                 </div>
               </div>
             </div>
+            {form.role === 'attendant' && (
+              <div className="mt-3" style={{ maxWidth: 280 }}>
+                <label className="block text-xs text-ink-60 font-medium mb-1.5">Branch</label>
+                <select required value={form.branch_id}
+                  onChange={e => setForm(f => ({ ...f, branch_id: e.target.value }))} className="w-full">
+                  <option value="">Choose a branch…</option>
+                  {branches.filter(b => b.active).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+                <div className="text-[11px] text-ink-30 mt-1.5">
+                  {branches.length === 0
+                    ? 'No branches exist yet — add one under Stock & Issuing first.'
+                    : 'The account is fixed to this branch and cannot reach any other.'}
+                </div>
+              </div>
+            )}
             <div className="mt-4 flex gap-2">
               <Btn variant="primary" size="sm" onClick={createUser}>Create user</Btn>
               <Btn size="sm" onClick={() => setShowForm(false)}>Cancel</Btn>
@@ -115,7 +153,7 @@ export default function Users() {
         <table className="w-full border-collapse text-[13px]">
           <thead>
             <tr>
-              {['User', 'Role', 'Created', 'Actions'].map(h => (
+              {['User', 'Role', 'Branch', 'Created', 'Actions'].map(h => (
                 <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10">
                   {h}
                 </th>
@@ -136,17 +174,52 @@ export default function Users() {
                     </div>
                   </div>
                 </td>
-                <td className="px-5 py-3.5 border-b border-ink-10"><RoleBadge role={u.role} /></td>
+                <td className="px-5 py-3.5 border-b border-ink-10">
+                  {editing?.id === u.id ? (
+                    <select value={editing.role}
+                      onChange={e => setEditing(ed => ({ ...ed, role: e.target.value }))}>
+                      {ROLE_OPTIONS.map(([value]) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  ) : <RoleBadge role={u.role} />}
+                </td>
+                <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 text-xs">
+                  {editing?.id === u.id ? (
+                    editing.role === 'attendant' ? (
+                      <select value={editing.branch_id ?? ''}
+                        onChange={e => setEditing(ed => ({ ...ed, branch_id: e.target.value }))}>
+                        <option value="">Choose…</option>
+                        {branches.filter(b => b.active).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                    ) : <span className="text-ink-30">—</span>
+                  ) : (u.branch_name || <span className="text-ink-30">—</span>)}
+                </td>
                 <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 font-mono text-xs">
                   {u.created_at?.slice(0, 10)}
                 </td>
                 <td className="px-5 py-3.5 border-b border-ink-10">
-                  <div className="flex gap-2">
-                    <Btn size="sm" onClick={() => { setPwdModal(u); setNewPwd('') }}>
-                      Change password
-                    </Btn>
-                    {u.id !== me?.id && (
-                      <Btn size="sm" variant="danger" onClick={() => deleteUser(u)}>Delete</Btn>
+                  <div className="flex gap-2 flex-wrap">
+                    {editing?.id === u.id ? (
+                      <>
+                        <Btn size="sm" variant="primary"
+                          onClick={() => saveRole(u, editing.role, editing.branch_id)}>Save</Btn>
+                        <Btn size="sm" onClick={() => setEditing(null)}>Cancel</Btn>
+                      </>
+                    ) : (
+                      <>
+                        {/* Changing your own role is refused by the API — the
+                            last admin demoting themselves locks everyone out. */}
+                        {u.id !== me?.id && (
+                          <Btn size="sm" onClick={() => setEditing({ id: u.id, role: u.role, branch_id: u.branch_id ?? '' })}>
+                            Change role
+                          </Btn>
+                        )}
+                        <Btn size="sm" onClick={() => { setPwdModal(u); setNewPwd('') }}>
+                          Change password
+                        </Btn>
+                        {u.id !== me?.id && (
+                          <Btn size="sm" variant="danger" onClick={() => deleteUser(u)}>Delete</Btn>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
@@ -160,8 +233,12 @@ export default function Users() {
       <div className="mt-4 text-xs text-ink-30 leading-relaxed">
         <strong className="text-ink-60">Admin</strong> — everything, including AI reports and user management.&nbsp;&nbsp;
         <strong className="text-ink-60">Manager</strong> — production records, imports, sales, inventory and the processing unit.&nbsp;&nbsp;
-        <strong className="text-ink-60">Veteran</strong> — diseases and treatments, individual health records and pregnancies.
-        <div className="mt-1">All roles can see the dashboard and the herd list.</div>
+        <strong className="text-ink-60">Veteran</strong> — diseases and treatments, individual health records and pregnancies.&nbsp;&nbsp;
+        <strong className="text-ink-60">Attendant</strong> — one branch: its stock, its incoming deliveries and its till.
+        <div className="mt-1">
+          Admin, manager and veteran accounts all see the dashboard and the herd list. An attendant
+          sees neither — they are scoped to the branch on their account.
+        </div>
       </div>
 
       {/* Change password modal */}

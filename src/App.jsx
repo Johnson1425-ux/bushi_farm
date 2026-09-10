@@ -19,6 +19,8 @@ import Health         from './pages/Health'
 import HealthRecords  from './pages/HealthRecords'
 import Pregnancies    from './pages/Pregnancies'
 import ProcessingUnit from './pages/ProcessingUnit'
+import StockIssuing   from './pages/StockIssuing'
+import BranchStock    from './pages/BranchStock'
 import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
@@ -37,20 +39,34 @@ function ProtectedRoute({ children }) {
 }
 
 /**
- * Restrict a route to specific roles. Anyone else is bounced to the dashboard,
- * which every signed-in role can see.
+ * Where a role lands when it has nowhere else to be.
+ *
+ * The dashboard used to be the answer for everyone, because every signed-in
+ * role could see it. An attendant cannot: they run one branch and the farm
+ * overview is not theirs, so bouncing them to it would put a page they are
+ * not allowed to read in front of them on every wrong turn.
+ */
+const homeFor = (role) => (role === 'attendant' ? '/branch' : '/dashboard')
+
+/**
+ * Restrict a route to specific roles. Anyone else is bounced to their own
+ * home page.
  *
  * This is convenience, not security — the API enforces the same boundaries, so
  * a hand-crafted request from the wrong role is rejected there regardless.
  */
 function RoleRoute({ roles, children }) {
   const { user } = useAuth()
-  return roles.includes(user?.role) ? children : <Navigate to="/dashboard" replace />
+  return roles.includes(user?.role) ? children : <Navigate to={homeFor(user?.role)} replace />
 }
 
 const AdminRoute      = ({ children }) => <RoleRoute roles={['admin']}>{children}</RoleRoute>
 const ProductionRoute = ({ children }) => <RoleRoute roles={['admin', 'manager']}>{children}</RoleRoute>
 const HealthRoute     = ({ children }) => <RoleRoute roles={['admin', 'veteran']}>{children}</RoleRoute>
+/** The farm-wide pages: everyone except an attendant, who is scoped to a branch. */
+const FarmRoute       = ({ children }) => <RoleRoute roles={['admin', 'manager', 'veteran']}>{children}</RoleRoute>
+/** A branch counter — its attendant, and the managers who oversee it. */
+const BranchRoute     = ({ children }) => <RoleRoute roles={['admin', 'manager', 'attendant']}>{children}</RoleRoute>
 
 // ── Loader ────────────────────────────────────────────────────────────────────
 
@@ -116,6 +132,8 @@ function HealthPage()       { return <Health /> }
 function HealthRecordsPage(){ return <HealthRecords /> }
 function PregPage()         { return <Pregnancies /> }
 function ProcessingPage()   { return <ProcessingUnit /> }
+function StockPage()        { return <StockIssuing /> }
+function BranchPage()       { return <BranchStock /> }
 function DailyRecordsPage() { return <DailyRecords /> }
 function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
@@ -129,13 +147,16 @@ export default function App() {
     <>
       <Routes>
         {/* Public */}
-        <Route path="/login" element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+        <Route path="/login" element={user ? <Navigate to={homeFor(user.role)} replace /> : <Login />} />
 
         {/* Protected */}
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
-          {/* Everyone signed in */}
-          <Route path="/dashboard"     element={<DashboardPage />} />
-          <Route path="/cows"          element={<CowsPage />} />
+          {/* Everyone signed in, except an attendant — see homeFor() */}
+          <Route path="/dashboard"     element={<FarmRoute><DashboardPage /></FarmRoute>} />
+          <Route path="/cows"          element={<FarmRoute><CowsPage /></FarmRoute>} />
+
+          {/* A branch counter */}
+          <Route path="/branch"        element={<BranchRoute><BranchPage /></BranchRoute>} />
 
           {/* Admin only */}
           <Route path="/ai-reports"    element={<AdminRoute><AIReportsPage /></AdminRoute>} />
@@ -149,6 +170,7 @@ export default function App() {
           <Route path="/sales"         element={<ProductionRoute><SalesPage /></ProductionRoute>} />
           <Route path="/inventory"     element={<ProductionRoute><InventoryPage /></ProductionRoute>} />
           <Route path="/processing"    element={<ProductionRoute><ProcessingPage /></ProductionRoute>} />
+          <Route path="/stock"         element={<ProductionRoute><StockPage /></ProductionRoute>} />
 
           {/* Animal health — admin and vet */}
           <Route path="/health"        element={<HealthRoute><HealthPage /></HealthRoute>} />
@@ -157,7 +179,7 @@ export default function App() {
         </Route>
 
         <Route element={<CustomerLayout />}>
-          <Route path="/"      element={user ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
+          <Route path="/"      element={user ? <Navigate to={homeFor(user.role)} replace /> : <LandingPage />} />
           <Route path="/about-us"     element={<AboutUs />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/contact"  element={<ContactPage />} />

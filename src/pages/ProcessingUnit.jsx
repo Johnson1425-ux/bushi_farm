@@ -405,6 +405,40 @@ export default function ProcessingUnit() {
             </div>
           )}
 
+          {/* The workbook's issued figure against what the app actually sent
+              to branches. Since issuing moved onto the Stock & Issuing page,
+              the ledger is the record of what happened and this column of the
+              sheet is a second, independent count of the same thing — so the
+              two agreeing is worth something, and the products they disagree
+              on are where to go looking. Months from before the cutover have
+              no ledger activity and report nothing. */}
+          {data.issued_control && (
+            <div className="rounded-lg border p-3 mb-4 text-[13px]"
+              style={{
+                background: data.issued_control.lines.length ? 'rgba(232,160,32,0.08)' : 'var(--green-50)',
+                borderColor: data.issued_control.lines.length ? 'var(--amber)' : 'var(--green-100)',
+              }}>
+              <div className="font-semibold mb-1"
+                style={{ color: data.issued_control.lines.length ? 'var(--amber)' : 'var(--green-800)' }}>
+                {data.issued_control.lines.length === 0
+                  ? 'Issued figures agree with the branch issue notes'
+                  : `${data.issued_control.lines.length} product${data.issued_control.lines.length > 1 ? 's differ' : ' differs'} from the branch issue notes`}
+              </div>
+              <div style={{ color: 'var(--ink-60)' }}>
+                Workbook {fmt(data.issued_control.excel_units, 0)} units · issue notes{' '}
+                {fmt(data.issued_control.ledger_units, 0)} units.
+                {data.issued_control.lines.length > 0 && (
+                  <> Check{' '}
+                    {data.issued_control.lines.slice(0, 6).map(l =>
+                      `${l.product} ${l.size} (${l.variance > 0 ? '+' : ''}${fmt(l.variance, 0)})`
+                    ).join(', ')}
+                    {data.issued_control.lines.length > 6 && ` and ${data.issued_control.lines.length - 6} more`}.
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {data.upload?.source === 'legacy' && (
             <div className="text-xs mb-4" style={{ color: 'var(--ink-60)' }}>
               Read from the farm's own workbook layout. Litres are worked out from the pack
