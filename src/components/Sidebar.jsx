@@ -46,6 +46,9 @@ const NAV_GROUPS = [
       { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
       { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
       { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
+      { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },
+      // An attendant's only page. Managers reach it to look over a branch.
+      { id: 'branch',     icon: '🏪', label: 'My Branch',       roles: ['admin', 'manager', 'attendant'] },
     ],
   },
   {
@@ -144,7 +147,9 @@ function UserFooter({ user, logout, online, summary }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-[12px] font-medium text-white truncate">{user?.username}</div>
-          <div className="text-[10px] text-white/40 uppercase tracking-wider">{user?.role}</div>
+          <div className="text-[10px] text-white/40 uppercase tracking-wider truncate">
+            {user?.branch_name ? `${user.role} · ${user.branch_name}` : user?.role}
+          </div>
         </div>
         <button
           onClick={logout}
