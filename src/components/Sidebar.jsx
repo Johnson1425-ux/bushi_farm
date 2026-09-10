@@ -47,7 +47,8 @@ const NAV_GROUPS = [
       { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
       { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
       { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },
-      // An attendant's only page. Managers reach it to look over a branch.
+      // An attendant's two pages. Managers reach both to oversee a branch.
+      { id: 'till',       icon: '🧾', label: 'Till',            roles: ['admin', 'manager', 'attendant'] },
       { id: 'branch',     icon: '🏪', label: 'My Branch',       roles: ['admin', 'manager', 'attendant'] },
     ],
   },
