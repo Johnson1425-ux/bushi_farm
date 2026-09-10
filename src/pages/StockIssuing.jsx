@@ -548,13 +548,22 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
     } catch (err) { onNotice({ kind: 'error', text: err.message }) }
   }
 
+  /* Both lists are edited on one row and saved together: they are two
+     prices for the same pack, and setting one without looking at the other
+     is how a wholesale price ends up above its retail price. */
   const savePrice = async (p) => {
-    const value = prices[p.id]
-    if (value === undefined) return
+    const edit = prices[p.id]
+    if (!edit) return
     try {
-      await apiFetch(`/products/${p.id}`, { method: 'PATCH', body: JSON.stringify({ unit_price: num(value) }) })
+      await apiFetch(`/products/${p.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          retail_price:    num(edit.retail    ?? p.retail_price),
+          wholesale_price: num(edit.wholesale ?? p.wholesale_price),
+        }),
+      })
       setPrices(prev => { const next = { ...prev }; delete next[p.id]; return next })
-      onNotice({ kind: 'success', text: `${p.product} ${p.size} price updated.` })
+      onNotice({ kind: 'success', text: `${p.product} ${p.size} prices updated.` })
       onChanged()
     } catch (err) { onNotice({ kind: 'error', text: err.message }) }
   }
@@ -635,26 +644,52 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
         <div className="px-5 pt-4 pb-1">
           <CardTitle>Selling prices</CardTitle>
           <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
-            What a branch charges per pack. Set them here and the till will have a price to read
-            when the sales side goes live.
+            Retail is what a shop charges over the counter; wholesale is what an agent pays for a
+            crate. Leave wholesale at zero and the till simply charges the retail price — an unset
+            price is never treated as free.
           </p>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr><TH>Product</TH><TH>Size</TH><TH right>Price (TSh)</TH><TH></TH></tr>
+              <tr>
+                <TH>Product</TH><TH>Size</TH>
+                <TH right>Retail (TSh)</TH><TH right>Wholesale (TSh)</TH><TH></TH>
+              </tr>
             </thead>
             <tbody>
               {products.map(p => {
-                const edited = prices[p.id] !== undefined && num(prices[p.id]) !== num(p.unit_price)
+                const edit = prices[p.id]
+                const retail    = edit?.retail    ?? p.retail_price
+                const wholesale = edit?.wholesale ?? p.wholesale_price
+                const edited = !!edit
+                  && (num(retail) !== num(p.retail_price) || num(wholesale) !== num(p.wholesale_price))
+                /* Wholesale above retail is almost certainly the two typed
+                   into the wrong boxes, so it is flagged before it is saved
+                   rather than discovered in a month's takings. */
+                const inverted = num(wholesale) > 0 && num(wholesale) > num(retail)
+                const setField = (field, value) =>
+                  setPrices(prev => ({
+                    ...prev,
+                    [p.id]: { retail, wholesale, ...(prev[p.id] || {}), [field]: value },
+                  }))
                 return (
                   <tr key={p.id}>
                     <TD>{p.product}</TD>
                     <TD mono>{p.size}</TD>
                     <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
                       <input type="number" min="0" step="any" style={{ width: 110, textAlign: 'right' }}
-                        value={prices[p.id] ?? p.unit_price}
-                        onChange={e => setPrices(prev => ({ ...prev, [p.id]: e.target.value }))} />
+                        value={retail}
+                        onChange={e => setField('retail', e.target.value)} />
+                    </td>
+                    <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
+                      <input type="number" min="0" step="any"
+                        style={{ width: 110, textAlign: 'right', borderColor: inverted ? 'var(--amber)' : undefined }}
+                        value={wholesale}
+                        onChange={e => setField('wholesale', e.target.value)} />
+                      {inverted && (
+                        <div className="text-[10px] mt-0.5" style={{ color: 'var(--amber)' }}>above retail</div>
+                      )}
                     </td>
                     <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
                       {edited && <Btn size="sm" variant="primary" onClick={() => savePrice(p)}>Save</Btn>}

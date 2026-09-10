@@ -44,6 +44,7 @@ const NAV_GROUPS = [
     label: 'Business',
     items: [
       { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
+      { id: 'reports',    icon: '📊', label: 'Reports',         roles: ['admin', 'manager'] },
       { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
       { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
       { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },

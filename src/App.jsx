@@ -22,6 +22,7 @@ import ProcessingUnit from './pages/ProcessingUnit'
 import StockIssuing   from './pages/StockIssuing'
 import BranchStock    from './pages/BranchStock'
 import Till           from './pages/Till'
+import Reports        from './pages/Reports'
 import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
@@ -137,6 +138,7 @@ function ProcessingPage()   { return <ProcessingUnit /> }
 function StockPage()        { return <StockIssuing /> }
 function BranchPage()       { return <BranchStock /> }
 function TillPage()         { return <Till /> }
+function ReportsPage()      { return <Reports /> }
 function DailyRecordsPage() { return <DailyRecords /> }
 function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
@@ -175,6 +177,7 @@ export default function App() {
           <Route path="/inventory"     element={<ProductionRoute><InventoryPage /></ProductionRoute>} />
           <Route path="/processing"    element={<ProductionRoute><ProcessingPage /></ProductionRoute>} />
           <Route path="/stock"         element={<ProductionRoute><StockPage /></ProductionRoute>} />
+          <Route path="/reports"       element={<ProductionRoute><ReportsPage /></ProductionRoute>} />
 
           {/* Animal health — admin and vet */}
           <Route path="/health"        element={<HealthRoute><HealthPage /></HealthRoute>} />
