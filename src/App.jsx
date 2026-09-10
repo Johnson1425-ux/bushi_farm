@@ -23,6 +23,7 @@ import StockIssuing   from './pages/StockIssuing'
 import BranchStock    from './pages/BranchStock'
 import Till           from './pages/Till'
 import Reports        from './pages/Reports'
+import Debtors        from './pages/Debtors'
 import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
@@ -139,6 +140,7 @@ function StockPage()        { return <StockIssuing /> }
 function BranchPage()       { return <BranchStock /> }
 function TillPage()         { return <Till /> }
 function ReportsPage()      { return <Reports /> }
+function DebtorsPage()      { return <Debtors /> }
 function DailyRecordsPage() { return <DailyRecords /> }
 function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
@@ -163,6 +165,7 @@ export default function App() {
           {/* A branch counter */}
           <Route path="/branch"        element={<BranchRoute><BranchPage /></BranchRoute>} />
           <Route path="/till"          element={<BranchRoute><TillPage /></BranchRoute>} />
+          <Route path="/debtors"       element={<BranchRoute><DebtorsPage /></BranchRoute>} />
 
           {/* Admin only */}
           <Route path="/ai-reports"    element={<AdminRoute><AIReportsPage /></AdminRoute>} />

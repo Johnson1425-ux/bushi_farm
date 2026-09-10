@@ -16,6 +16,11 @@ import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
                         the drawer should therefore have held.
      Products           what sold, with counter trade and agent trade
                         side by side rather than added together.
+     Debtors            who owes what, aged by how long the account has
+                        been quiet. The paper book carries a balance and
+                        nothing else, so a debt from March reads exactly
+                        like one from last week — the ages are the whole
+                        point of putting it on a screen.
 
    These are reconciliation reports, so they are tables. A chart would
    read faster and answer none of the questions actually being asked of
@@ -420,6 +425,152 @@ function Products({ from, to, branches }) {
   )
 }
 
+
+/* ── who owes what ── */
+function DebtorsReport({ to }) {
+  const [data,  setData]  = useState(null)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    setData(null); setError(null)
+    apiFetch(`/reports/debtors?as_of=${to}`).then(setData).catch(e => setError(e.message))
+  }, [to])
+
+  if (error) return <Card><EmptyState>{error}</EmptyState></Card>
+  if (!data) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
+
+  const owing = data.debtors.filter(d => d.balance > 0.005)
+  const credit = data.debtors.filter(d => d.balance < -0.005)
+
+  const exportCsv = () => downloadCsv(`debtors-${to}.csv`, [
+    ['Account', 'Phone', 'Branch', 'Charged', 'Paid', 'Balance', 'Days quiet', 'Age'],
+    ...data.debtors.map(d => [d.name, d.phone || '', d.branch_name || '',
+      d.charged, d.paid, d.balance, d.days_since_activity ?? '', d.age_bucket]),
+    ['TOTAL', '', '', '', '', data.totals.owed, '', ''],
+  ])
+
+  return (
+    <div>
+      <div className="flex flex-wrap gap-3 items-center justify-between rounded-lg mb-4 p-4" style={{ background: 'var(--cream-dark)' }}>
+        <span className="text-xs" style={{ color: 'var(--ink-60)' }}>
+          Balances as they stood on <strong>{data.as_of}</strong>.
+        </span>
+        <Btn size="sm" onClick={exportCsv}>↓ CSV</Btn>
+      </div>
+
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+        {[
+          { label: 'Owed to the farm', value: fmtTsh(data.totals.owed),                  color: 'var(--red)' },
+          { label: 'Accounts owing',   value: fmt(data.totals.owing_count),              color: 'var(--ink)' },
+          { label: 'Paid in advance',  value: fmtTsh(Math.abs(data.totals.in_credit)),   color: 'var(--green-600)' },
+          { label: 'In credit',        value: fmt(data.totals.in_credit_count),          color: 'var(--ink-60)' },
+        ].map(k => (
+          <div key={k.label} className="rounded-lg border" style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)', padding: '16px 20px' }}>
+            <div className="text-[11px] uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
+            <div className="text-[20px] font-semibold" style={{ color: k.color }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {data.ageing.length > 0 && (
+        <Card noPad>
+          <div className="px-5 pt-4 pb-1">
+            <CardTitle>How long it has been owed</CardTitle>
+            <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
+              Measured from the last movement on the account, not from each charge. A running
+              account is paid down as a whole, so per-charge ageing would describe a way of trading
+              the farm does not do.
+            </p>
+          </div>
+          <table className="w-full border-collapse text-[13px]">
+            <thead><tr><TH>Age</TH><TH right>Accounts</TH><TH right>Amount</TH><TH right>Share</TH></tr></thead>
+            <tbody>
+              {data.ageing.map(a => (
+                <tr key={a.bucket}>
+                  <TD>{a.bucket}</TD>
+                  <TD right mono>{fmt(a.count)}</TD>
+                  <TD right mono style={{ color: 'var(--red)' }}>{fmt(a.amount)}</TD>
+                  <TD right mono style={{ color: 'var(--ink-60)' }}>
+                    {data.totals.owed > 0 ? `${((a.amount / data.totals.owed) * 100).toFixed(1)}%` : '—'}
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      <Card noPad>
+        <div className="px-5 pt-4 pb-1"><CardTitle>Accounts owing</CardTitle></div>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr>
+                <TH sticky>Account</TH><TH>Branch</TH>
+                <TH right>Charged</TH><TH right>Paid</TH><TH right>Balance</TH><TH right>Quiet for</TH>
+              </tr>
+            </thead>
+            <tbody>
+              {owing.length === 0 && (
+                <tr><td colSpan={6}><EmptyState>Nobody owes anything.</EmptyState></td></tr>
+              )}
+              {owing.map(d => (
+                <tr key={d.id}>
+                  <TD sticky>{d.name}</TD>
+                  <TD style={{ color: 'var(--ink-60)' }}>{d.branch_name || '—'}</TD>
+                  <TD right mono style={{ color: 'var(--ink-60)' }}>{cell(d.charged)}</TD>
+                  <TD right mono style={{ color: 'var(--green-600)' }}>{cell(d.paid)}</TD>
+                  <TD right mono style={{ color: 'var(--red)', fontWeight: 600 }}>{fmt(d.balance)}</TD>
+                  <TD right mono style={{
+                    color: d.days_since_activity > 60 ? 'var(--red)'
+                         : d.days_since_activity > 30 ? 'var(--amber)' : 'var(--ink-60)',
+                  }}>
+                    {d.days_since_activity == null ? '—' : `${d.days_since_activity} d`}
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+            {owing.length > 0 && (
+              <tfoot>
+                <tr style={{ background: 'var(--cream-dark)' }}>
+                  <TD sticky style={{ fontWeight: 600, background: 'var(--cream-dark)' }}>TOTAL</TD>
+                  <TD /><TD /><TD />
+                  <TD right mono style={{ fontWeight: 700, color: 'var(--red)' }}>{fmt(data.totals.owed)}</TD>
+                  <TD />
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      </Card>
+
+      {credit.length > 0 && (
+        <Card noPad>
+          <div className="px-5 pt-4 pb-1">
+            <CardTitle>Paid in advance</CardTitle>
+            <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
+              Milk owed to the customer. Kept apart from the figures above rather than netted off —
+              subtracting them would make both numbers wrong.
+            </p>
+          </div>
+          <table className="w-full border-collapse text-[13px]">
+            <thead><tr><TH>Account</TH><TH>Branch</TH><TH right>In credit</TH></tr></thead>
+            <tbody>
+              {credit.map(d => (
+                <tr key={d.id}>
+                  <TD>{d.name}</TD>
+                  <TD style={{ color: 'var(--ink-60)' }}>{d.branch_name || '—'}</TD>
+                  <TD right mono style={{ color: 'var(--green-600)', fontWeight: 600 }}>{fmt(Math.abs(d.balance))}</TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+    </div>
+  )
+}
+
 /* ── quick period presets, because these are the periods people ask for ── */
 const PRESETS = [
   ['This month',  () => [monthStart(), today()]],
@@ -465,11 +616,13 @@ export default function Reports() {
         <TabBtn label="Income by branch" active={tab === 'branch'}   onClick={() => setTab('branch')} />
         <TabBtn label="Cash book"        active={tab === 'cash'}     onClick={() => setTab('cash')} />
         <TabBtn label="Products"         active={tab === 'products'} onClick={() => setTab('products')} />
+        <TabBtn label="Debtors"          active={tab === 'debtors'}  onClick={() => setTab('debtors')} />
       </div>
 
       {tab === 'branch'   && <ByBranch from={from} to={to} />}
       {tab === 'cash'     && <CashBook from={from} to={to} branches={branches} />}
       {tab === 'products' && <Products from={from} to={to} branches={branches} />}
+      {tab === 'debtors'  && <DebtorsReport to={to} />}
     </div>
   )
 }

@@ -184,12 +184,14 @@ function StoreTab({ stock, onChanged, uploads, onNotice }) {
                     <TD>{s.product}</TD>
                     <TD mono>{s.size}</TD>
                     <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
-                      <input type="number" min="0" step="1" style={{ width: 90, textAlign: 'right' }}
+                      <input type="number" min="0" step={s.sold_by === 'litre' ? 'any' : '1'}
+                        style={{ width: 90, textAlign: 'right' }}
                         value={rows[s.product_id]?.packed ?? ''}
                         onChange={e => setCell(s.product_id, 'packed', e.target.value)} />
                     </td>
                     <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
-                      <input type="number" min="0" step="1" style={{ width: 90, textAlign: 'right' }}
+                      <input type="number" min="0" step={s.sold_by === 'litre' ? 'any' : '1'}
+                        style={{ width: 90, textAlign: 'right' }}
                         value={rows[s.product_id]?.damaged ?? ''}
                         onChange={e => setCell(s.product_id, 'damaged', e.target.value)} />
                     </td>
@@ -335,7 +337,8 @@ function IssueTab({ stock, branches, onIssued, onNotice }) {
                           <span style={{ color: s.units <= 0 ? 'var(--ink-30)' : 'var(--ink-60)' }}>{fmt(s.units)}</span>
                         </TD>
                         <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
-                          <input type="number" min="0" max={Math.max(s.units, 0)} step="1"
+                          <input type="number" min="0" max={Math.max(s.units, 0)}
+                            step={s.sold_by === 'litre' ? 'any' : '1'}
                             style={{
                               width: 100, textAlign: 'right',
                               borderColor: over ? 'var(--red)' : undefined,
@@ -527,6 +530,25 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
   const [form, setForm] = useState({ name: '', code: '', location: '', phone: '' })
   const [prices, setPrices] = useState({})
   const [busy, setBusy] = useState(false)
+  const [showBulk, setShowBulk] = useState(false)
+  const [bulkForm, setBulkForm] = useState({ product: '', size: 'LTR', retail_price: '', wholesale_price: '' })
+
+  const addBulk = async () => {
+    setBusy(true)
+    try {
+      await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify({
+          product: bulkForm.product, size: bulkForm.size || 'LTR', sold_by: 'litre',
+          retail_price: num(bulkForm.retail_price), wholesale_price: num(bulkForm.wholesale_price),
+        }),
+      })
+      setBulkForm({ product: '', size: 'LTR', retail_price: '', wholesale_price: '' })
+      setShowBulk(false)
+      onNotice({ kind: 'success', text: 'Loose-milk line added.' })
+      onChanged()
+    } catch (err) { onNotice({ kind: 'error', text: err.message }) } finally { setBusy(false) }
+  }
 
   const create = async (e) => {
     e.preventDefault()
@@ -648,12 +670,45 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
             crate. Leave wholesale at zero and the till simply charges the retail price — an unset
             price is never treated as free.
           </p>
+          <div className="flex justify-end mb-2">
+            <Btn size="sm" onClick={() => setShowBulk(v => !v)}>
+              {showBulk ? 'Cancel' : '+ Loose milk line'}
+            </Btn>
+          </div>
+          {showBulk && (
+            <div className="rounded-lg p-4 mb-3" style={{ background: 'var(--cream-dark)' }}>
+              <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
+                Milk sold by the litre from the churn. Sealed products come from the processing
+                catalogue instead, so the workbook template and the parser stay aware of them.
+              </p>
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                {[
+                  ['product', 'Name', 'e.g. Fresh Milk', 'text'],
+                  ['size', 'Label', 'LTR', 'text'],
+                  ['retail_price', 'Retail / litre', '0', 'number'],
+                  ['wholesale_price', 'Wholesale / litre', '0', 'number'],
+                ].map(([key, label, ph, type]) => (
+                  <div key={key}>
+                    <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>{label}</label>
+                    <input type={type} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? '0' : undefined}
+                      className="w-full" placeholder={ph} value={bulkForm[key]}
+                      onChange={e => setBulkForm(f => ({ ...f, [key]: e.target.value }))} />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end mt-3">
+                <Btn size="sm" variant="primary" disabled={busy || !bulkForm.product.trim()} onClick={addBulk}>
+                  Add line
+                </Btn>
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
               <tr>
-                <TH>Product</TH><TH>Size</TH>
+                <TH>Product</TH><TH>Size</TH><TH>Sold by</TH>
                 <TH right>Retail (TSh)</TH><TH right>Wholesale (TSh)</TH><TH></TH>
               </tr>
             </thead>
@@ -677,6 +732,9 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
                   <tr key={p.id}>
                     <TD>{p.product}</TD>
                     <TD mono>{p.size}</TD>
+                    <TD style={{ color: p.sold_by === 'litre' ? 'var(--blue)' : 'var(--ink-60)', fontSize: 12 }}>
+                      {p.sold_by === 'litre' ? 'the litre' : 'the pack'}
+                    </TD>
                     <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
                       <input type="number" min="0" step="any" style={{ width: 110, textAlign: 'right' }}
                         value={retail}
