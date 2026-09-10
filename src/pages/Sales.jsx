@@ -81,17 +81,26 @@ const TD = ({ children, mono, right, style = {} }) => (
 )
 
 /* ── branch sales, from the till ── */
-function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
+function BranchSales({ from, to, branchId, branches, onBranch, products, onNotice }) {
   const [sales,   setSales]   = useState([])
   const [summary, setSummary] = useState(null)
   const [receipt, setReceipt] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [payment, setPayment] = useState('')
+  const [tier,    setTier]    = useState('')
+  const [product, setProduct] = useState('')
 
+  /* Every filter goes to the server rather than being applied to the rows
+     already fetched: the summary has to narrow with the list, and a total
+     computed over a page of results would not be the period's total. */
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const q = new URLSearchParams({ from, to })
       if (branchId) q.set('branch_id', branchId)
+      if (payment)  q.set('payment_method', payment)
+      if (tier)     q.set('price_tier', tier)
+      if (product)  q.set('product_id', product)
       const [s, sum] = await Promise.all([
         apiFetch(`/pos/sales?${q}`),
         apiFetch(`/pos/summary?${q}`),
@@ -100,7 +109,7 @@ function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
     } catch (e) {
       onNotice(e.message)
     } finally { setLoading(false) }
-  }, [from, to, branchId, onNotice])
+  }, [from, to, branchId, payment, tier, product, onNotice])
 
   useEffect(() => { load() }, [load])
 
@@ -120,13 +129,35 @@ function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-3 items-center rounded-lg mb-4 p-4" style={{ background: 'var(--cream-dark)' }}>
-        <span className="text-xs uppercase tracking-wider font-medium" style={{ color: 'var(--ink-60)' }}>Branch</span>
-        <select value={branchId || ''} onChange={e => onBranch(e.target.value)}>
-          <option value="">All branches</option>
-          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
+      <div className="flex flex-wrap gap-3 items-end rounded-lg mb-4 p-4" style={{ background: 'var(--cream-dark)' }}>
+        {[
+          ['Branch', branchId || '', onBranch,
+            [['', 'All branches'], ...branches.map(b => [String(b.id), b.name])]],
+          ['Payment', payment, setPayment,
+            [['', 'Any payment'], ['cash', 'Cash'], ['mobile', 'Mobile'], ['card', 'Card'], ['credit', 'Credit']]],
+          ['Price list', tier, setTier,
+            [['', 'Both lists'], ['retail', 'Retail'], ['wholesale', 'Wholesale']]],
+          ['Product', product, setProduct,
+            [['', 'All products'], ...products.map(p => [String(p.id), `${p.product} ${p.size}`])]],
+        ].map(([label, value, onChange, options]) => (
+          <div key={label}>
+            <label className="block text-[11px] uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--ink-60)' }}>{label}</label>
+            <select value={value} onChange={e => onChange(e.target.value)}>
+              {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        ))}
+        {(branchId || payment || tier || product) && (
+          <Btn size="sm" onClick={() => { onBranch(''); setPayment(''); setTier(''); setProduct('') }}>Clear</Btn>
+        )}
       </div>
+
+      {product && (
+        <div className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
+          Filtering by product keeps whole receipts, so a receipt's total may include other items.
+          The <strong>By product</strong> table below is the figure for that product alone.
+        </div>
+      )}
 
       <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         {[
@@ -154,6 +185,27 @@ function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
                   <TD>{b.branch_name}</TD>
                   <TD mono right>{fmt(b.receipts)}</TD>
                   <TD right style={{ color: 'var(--green-600)', fontWeight: 600 }}>{fmtTsh(b.revenue)}</TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      )}
+
+      {summary?.by_payment?.length > 0 && (
+        <Card noPad>
+          <div className="px-5 pt-4 pb-1"><CardTitle>How it was paid, and on which list</CardTitle></div>
+          <table className="w-full border-collapse text-[13px]">
+            <thead><tr><TH>Payment</TH><TH>Price list</TH><TH right>Receipts</TH><TH right>Revenue</TH></tr></thead>
+            <tbody>
+              {summary.by_payment.map((p, i) => (
+                <tr key={i}>
+                  <TD style={{ textTransform: 'capitalize' }}>{p.payment_method}</TD>
+                  <TD style={{ textTransform: 'capitalize', color: p.price_tier === 'wholesale' ? 'var(--blue)' : 'var(--ink-60)' }}>
+                    {p.price_tier}
+                  </TD>
+                  <TD mono right>{fmt(p.receipts)}</TD>
+                  <TD right style={{ color: 'var(--green-600)', fontWeight: 600 }}>{fmtTsh(p.revenue)}</TD>
                 </tr>
               ))}
             </tbody>
@@ -194,12 +246,12 @@ function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
             <thead>
               <tr>
                 <TH>Receipt</TH><TH>Date</TH><TH>Branch</TH><TH>Cashier</TH>
-                <TH>Paid</TH><TH right>Items</TH><TH right>Total</TH><TH></TH>
+                <TH>Paid</TH><TH>List</TH><TH right>Items</TH><TH right>Total</TH><TH></TH>
               </tr>
             </thead>
             <tbody>
               {sales.length === 0 && (
-                <tr><td colSpan={8}><EmptyState>No branch sales in this period.</EmptyState></td></tr>
+                <tr><td colSpan={9}><EmptyState>No branch sales in this period.</EmptyState></td></tr>
               )}
               {sales.map(s => (
                 <tr key={s.id} style={{ opacity: s.status === 'voided' ? 0.5 : 1 }}>
@@ -217,6 +269,9 @@ function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
                   <TD>{s.branch_name}</TD>
                   <TD>{s.cashier || '—'}</TD>
                   <TD style={{ textTransform: 'capitalize' }}>{s.payment_method}</TD>
+                  <TD style={{ textTransform: 'capitalize', color: s.price_tier === 'wholesale' ? 'var(--blue)' : 'var(--ink-60)' }}>
+                    {s.price_tier}
+                  </TD>
                   <TD mono right>{s.lines}</TD>
                   <TD right style={{ fontWeight: 600 }}>{fmtTsh(s.total)}</TD>
                   <td className="px-5 py-3 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
@@ -244,6 +299,7 @@ function BranchSales({ from, to, branchId, branches, onBranch, onNotice }) {
                   <td className="py-1">{i.product} {i.size}
                     <div className="text-[11px]" style={{ color: 'var(--ink-60)' }}>
                       {fmt(i.units)} × {fmtTsh(i.unit_price)}
+                      {i.price_tier === 'wholesale' && ' · wholesale'}
                     </div>
                   </td>
                   <td className="py-1 text-right align-top" style={{ fontFamily: "'DM Mono', monospace" }}>{fmtTsh(i.line_total)}</td>
@@ -472,12 +528,14 @@ function BulkMilk({ onNotice }) {
 export default function Sales() {
   const [tab,      setTab]      = useState('branch')
   const [branches, setBranches] = useState([])
+  const [products, setProducts] = useState([])
   const [branchId, setBranchId] = useState('')
   const [from,     setFrom]     = useState(monthStart())
   const [to,       setTo]       = useState(today())
   const [error,    setError]    = useState(null)
 
   useEffect(() => { apiFetch('/branches').then(setBranches).catch(() => {}) }, [])
+  useEffect(() => { apiFetch('/products').then(setProducts).catch(() => {}) }, [])
 
   useEffect(() => {
     if (!error) return
@@ -513,6 +571,7 @@ export default function Sales() {
         <BranchSales
           from={from} to={to}
           branchId={branchId} branches={branches} onBranch={setBranchId}
+          products={products}
           onNotice={setError}
         />
       )}

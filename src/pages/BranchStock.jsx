@@ -288,11 +288,11 @@ export default function BranchStock() {
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr><TH>Product</TH><TH>Size</TH><TH right>Units</TH><TH right>Litres</TH><TH right>Price</TH></tr>
+              <tr><TH>Product</TH><TH>Size</TH><TH right>Units</TH><TH right>Litres</TH><TH right>Retail</TH><TH right>Wholesale</TH></tr>
             </thead>
             <tbody>
               {stock.length === 0 && (
-                <tr><td colSpan={5}><EmptyState>Nothing received yet.</EmptyState></td></tr>
+                <tr><td colSpan={6}><EmptyState>Nothing received yet.</EmptyState></td></tr>
               )}
               {stock.map(s => (
                 <tr key={s.product_id}>
@@ -304,7 +304,10 @@ export default function BranchStock() {
                     </span>
                   </td>
                   <TD mono right>{fmt(s.litres, 1)}</TD>
-                  <TD mono right>{num(s.unit_price) ? `TSh ${fmt(s.unit_price)}` : '—'}</TD>
+                  <TD mono right>{num(s.retail_price) ? `TSh ${fmt(s.retail_price)}` : '—'}</TD>
+                  <TD mono right style={{ color: 'var(--blue)' }}>
+                    {num(s.wholesale_price) ? `TSh ${fmt(s.wholesale_price)}` : '—'}
+                  </TD>
                 </tr>
               ))}
             </tbody>
