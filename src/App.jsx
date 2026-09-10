@@ -21,6 +21,7 @@ import Pregnancies    from './pages/Pregnancies'
 import ProcessingUnit from './pages/ProcessingUnit'
 import StockIssuing   from './pages/StockIssuing'
 import BranchStock    from './pages/BranchStock'
+import Till           from './pages/Till'
 import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
@@ -44,9 +45,10 @@ function ProtectedRoute({ children }) {
  * The dashboard used to be the answer for everyone, because every signed-in
  * role could see it. An attendant cannot: they run one branch and the farm
  * overview is not theirs, so bouncing them to it would put a page they are
- * not allowed to read in front of them on every wrong turn.
+ * not allowed to read in front of them on every wrong turn. They land on the
+ * till instead, which is the page they spend the day on.
  */
-const homeFor = (role) => (role === 'attendant' ? '/branch' : '/dashboard')
+const homeFor = (role) => (role === 'attendant' ? '/till' : '/dashboard')
 
 /**
  * Restrict a route to specific roles. Anyone else is bounced to their own
@@ -134,6 +136,7 @@ function PregPage()         { return <Pregnancies /> }
 function ProcessingPage()   { return <ProcessingUnit /> }
 function StockPage()        { return <StockIssuing /> }
 function BranchPage()       { return <BranchStock /> }
+function TillPage()         { return <Till /> }
 function DailyRecordsPage() { return <DailyRecords /> }
 function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
@@ -157,6 +160,7 @@ export default function App() {
 
           {/* A branch counter */}
           <Route path="/branch"        element={<BranchRoute><BranchPage /></BranchRoute>} />
+          <Route path="/till"          element={<BranchRoute><TillPage /></BranchRoute>} />
 
           {/* Admin only */}
           <Route path="/ai-reports"    element={<AdminRoute><AIReportsPage /></AdminRoute>} />
