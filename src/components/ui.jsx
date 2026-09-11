@@ -39,7 +39,16 @@ export function Logo({ size = 32, plate = true, className = '', style = {} }) {
   )
 }
 
-export function Btn({ children, variant = 'default', size = 'md', onClick, className = '', disabled }) {
+/**
+ * `type` defaults to "button" rather than to the browser's "submit".
+ *
+ * A Btn inside a form is far more often a Cancel or an "add a row" than
+ * the submit control — with the native default those all submitted the
+ * form on click, which is why every form in the app reached for a real
+ * <button type="submit"> nested inside a Btn. Pass type="submit" to be
+ * the submit control.
+ */
+export function Btn({ children, variant = 'default', size = 'md', type = 'button', onClick, className = '', disabled }) {
   const base = [
     'inline-flex items-center justify-center font-medium rounded-lg border transition-all duration-150 cursor-pointer',
     size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm',
@@ -53,7 +62,7 @@ export function Btn({ children, variant = 'default', size = 'md', onClick, class
   ].filter(Boolean).join(' ')
 
   return (
-    <button className={base} style={{ background: variant === 'danger' ? 'transparent' : variant === 'default' ? 'var(--surface)' : undefined }} onClick={onClick} disabled={disabled}>
+    <button type={type} className={base} style={{ background: variant === 'danger' ? 'transparent' : variant === 'default' ? 'var(--surface)' : undefined }} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   )
