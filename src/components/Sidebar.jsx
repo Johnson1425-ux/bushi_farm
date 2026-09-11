@@ -59,7 +59,7 @@ const NAV_GROUPS = [
       { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },
       // An attendant's two pages. Managers reach both to oversee a branch.
       { id: 'till',       icon: '🧾', label: 'Till',            roles: ['admin', 'manager', 'attendant'] },
-      { id: 'branch',     icon: '🏪', label: 'My Branch',       roles: ['admin', 'manager', 'attendant'] },
+      { id: 'branch',     icon: '🏪', label: 'My Stock',       roles: ['admin', 'manager', 'attendant'] },
     ],
   },
   {
