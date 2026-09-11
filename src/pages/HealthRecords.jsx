@@ -1,15 +1,39 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import HealthRecordForm from '../components/HealthRecordForm'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-function Modal({ title, onClose, children }) {
+/**
+ * Download the blank form.
+ *
+ * The endpoint is behind the same token as the rest of the API, so the
+ * file is fetched and handed to the browser rather than linked to: a plain
+ * <a href> carries no Authorization header and would come back a 401.
+ */
+async function downloadTemplate() {
+  const token = localStorage.getItem('mt_token')
+  const res = await fetch(`${BASE}/health-records/template`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Could not download the form. Try again.')
+  const url = URL.createObjectURL(await res.blob())
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'Bushi Dairy Farm Individual Health Record.docx'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
+function Modal({ title, onClose, wide, children }) {
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-center justify-center"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className="rounded-[16px] w-full max-w-2xl p-7 mx-4 max-h-[90vh] overflow-y-auto"
+      <div className={`rounded-[16px] w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} p-7 mx-4 max-h-[90vh] overflow-y-auto`}
         style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5">
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
@@ -56,6 +80,8 @@ function RecordDetailModal({ record, onClose }) {
         <KV label="Linked Cow"         value={record.cow_name} />
         <KV label="Breed"              value={record.breed} />
         <KV label="Age"                value={record.age} />
+        <KV label="Sex"                value={record.sex} />
+        <KV label="Status"             value={record.repro_status} />
         <KV label="Parity"             value={record.parity} />
         <KV label="Body Weight"        value={record.body_weight} />
         <KV label="Daily Milk Yield"   value={record.daily_milk_yield} />
@@ -73,7 +99,7 @@ function RecordDetailModal({ record, onClose }) {
 
       {(record.present_illness || record.past_history || record.environment) && (
         <Section title="History">
-          <KV label="Present Illness"  value={record.present_illness} />
+          <KV label="Major Complaint"  value={record.present_illness} />
           <KV label="Past History"     value={record.past_history} />
           <KV label="Environment"      value={record.environment} />
           <KV label="System Review"    value={record.system_review} />
@@ -115,8 +141,9 @@ function RecordDetailModal({ record, onClose }) {
       )}
 
       <Section title="Diagnosis">
-        <KV label="Tentative Diagnosis" value={record.tentative_diagnosis} />
-        <KV label="Final Diagnosis"     value={record.final_diagnosis} />
+        <KV label="Significant Findings" value={record.significant_findings} />
+        <KV label="Tentative Diagnosis"  value={record.tentative_diagnosis} />
+        <KV label="Final Diagnosis"      value={record.final_diagnosis} />
       </Section>
 
       {(record.blood_smear || record.pcv || record.bacteriology) && (
@@ -158,14 +185,60 @@ function RecordDetailModal({ record, onClose }) {
       )}
 
       <Section title="Compliance">
+        <KV label="Recommendation"     value={record.recommendation} />
         <KV label="Milk Withdraw Date" value={record.milk_withdraw_date} />
         <KV label="Attending Vet"      value={record.attending_vet} />
         <KV label="Licence #"          value={record.license_number} />
       </Section>
 
       <div className="text-[10px] mt-4" style={{ color: 'var(--ink-30)' }}>
-        Source: {record.source_filename} · Uploaded: {new Date(record.uploaded_at).toLocaleDateString()}
+        {record.source_filename
+          ? `From ${record.source_filename}`
+          : 'Filled in the app'} · Saved {new Date(record.uploaded_at).toLocaleDateString()}
       </div>
+    </Modal>
+  )
+}
+
+/**
+ * The form, in a dialog.
+ *
+ * Saving is handled here rather than inside the form so the form stays a
+ * form — it renders the sheet and hands back what was filled, and where
+ * that goes is the page's business.
+ */
+function RecordFormModal({ record, cows, onClose, onSaved }) {
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState(null)
+  const editing = Boolean(record?.id)
+
+  const handleSubmit = async (values) => {
+    setSaving(true); setError(null)
+    try {
+      await apiFetch(editing ? `/health-records/${record.id}` : '/health-records', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(values),
+      })
+      await onSaved()
+      onClose()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal wide onClose={onClose}
+      title={editing ? 'Edit Individual Health Record' : 'New Individual Health Record'}>
+      <HealthRecordForm
+        record={record}
+        cows={cows}
+        onSubmit={handleSubmit}
+        onCancel={onClose}
+        saving={saving}
+        error={error}
+      />
     </Modal>
   )
 }
@@ -177,6 +250,10 @@ function UploadModal({ cows, onClose, onSuccess }) {
   const [error, setError]       = useState(null)
   const [result, setResult]     = useState(null)
   const inputRef = useRef()
+
+  const handleTemplate = async () => {
+    try { await downloadTemplate() } catch (e) { setError(e.message) }
+  }
 
   const handleUpload = async () => {
     if (!file) return setError('Please select a .docx file first.')
@@ -222,10 +299,18 @@ function UploadModal({ cows, onClose, onSuccess }) {
               {file ? file.name : 'Click or drag & drop a .docx file here'}
             </div>
             <div className="text-xs mt-1" style={{ color: 'var(--ink-30)' }}>
-              Milktrack Individual Health Record form
+              Bushi Dairy Farm Individual Health Record form
             </div>
             <input ref={inputRef} type="file" accept=".docx,.doc" className="hidden"
               onChange={e => setFile(e.target.files[0])} />
+          </div>
+
+          {/* The blank form is generated from the same field list the parser
+              reads, so a vet who fills this one gets every field back. */}
+          <div className="rounded-lg px-4 py-3 mb-4 text-xs flex items-center justify-between gap-3 flex-wrap"
+            style={{ background: 'var(--cream)', color: 'var(--ink-60)' }}>
+            <span>Don't have the form? Download the blank one to fill in.</span>
+            <Btn size="sm" onClick={handleTemplate}>⬇ Blank form (.docx)</Btn>
           </div>
 
           {/* Cow selector */}
@@ -302,6 +387,8 @@ export default function HealthRecords() {
   const [loading, setLoading]     = useState(true)
   const [showUpload, setShowUpload] = useState(false)
   const [viewRecord, setViewRecord] = useState(null)
+  const [editRecord, setEditRecord] = useState(null)
+  const [opening, setOpening]     = useState(null)
   const [filterCow, setFilterCow] = useState('')
   const [search, setSearch]       = useState('')
 
@@ -317,6 +404,25 @@ export default function HealthRecords() {
       apiFetch('/cows').then(setCows),
     ]).finally(() => setLoading(false))
   }, [filterCow])
+
+  /**
+   * Open one record, read or edit.
+   *
+   * The list carries a summary of each record — enough for the table, and
+   * none of the examination. Both the reading view and the form need the
+   * whole sheet, so it is fetched here rather than taken from the row.
+   */
+  const openRecord = async (id, mode) => {
+    setOpening(id)
+    try {
+      const full = await apiFetch(`/health-records/${id}`)
+      if (mode === 'edit') setEditRecord(full); else setViewRecord(full)
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setOpening(null)
+    }
+  }
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this health record?')) return
@@ -341,9 +447,13 @@ export default function HealthRecords() {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Individual Health Records" sub="Upload and view per-cow clinical records">
-        <Btn size="sm" variant="primary" onClick={() => setShowUpload(true)}>
-          ⬆ Upload .docx Record
+      <PageHeader title="Individual Health Records"
+        sub="The examination sheet for one cow — filled here, or uploaded as a Word document">
+        <Btn size="sm" variant="primary" onClick={() => setEditRecord({})}>
+          + New Record
+        </Btn>
+        <Btn size="sm" onClick={() => setShowUpload(true)}>
+          ⬆ Upload .docx
         </Btn>
       </PageHeader>
 
@@ -393,7 +503,8 @@ export default function HealthRecords() {
             {filtered.length === 0 && (
               <tr><td colSpan={7}>
                 <EmptyState>
-                  No health records yet. Upload a filled .docx form to get started.
+                  No health records yet. Fill one in with <strong>New Record</strong>,
+                  or upload a filled .docx form.
                 </EmptyState>
               </td></tr>
             )}
@@ -434,7 +545,12 @@ export default function HealthRecords() {
                 <td className="px-5 py-3 border-b"
                   style={{ borderColor: 'var(--ink-10)' }}>
                   <div className="flex gap-2">
-                    <Btn size="sm" variant="primary" onClick={() => setViewRecord(r)}>View</Btn>
+                    <Btn size="sm" variant="primary" disabled={opening === r.id}
+                      onClick={() => openRecord(r.id, 'view')}>
+                      {opening === r.id ? '…' : 'View'}
+                    </Btn>
+                    <Btn size="sm" disabled={opening === r.id}
+                      onClick={() => openRecord(r.id, 'edit')}>Edit</Btn>
                     <Btn size="sm" variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
                   </div>
                 </td>
@@ -456,6 +572,15 @@ export default function HealthRecords() {
         <RecordDetailModal
           record={viewRecord}
           onClose={() => setViewRecord(null)}
+        />
+      )}
+
+      {editRecord && (
+        <RecordFormModal
+          record={editRecord.id ? editRecord : null}
+          cows={cows}
+          onClose={() => setEditRecord(null)}
+          onSaved={fetchRecords}
         />
       )}
     </div>
