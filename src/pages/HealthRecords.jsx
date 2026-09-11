@@ -28,20 +28,31 @@ async function downloadTemplate() {
   URL.revokeObjectURL(url)
 }
 
-function Modal({ title, onClose, wide, children }) {
+/**
+ * `fill` is for a dialog whose content brings its own footer.
+ *
+ * Normally the whole dialog scrolls as one. A form long enough to scroll
+ * needs its Cancel and Save always reachable, and a bar that sticks to the
+ * bottom of a scrolling box reads as floating over the middle of the form
+ * — there is always more form below it. So `fill` stops the dialog itself
+ * from scrolling and hands its height to the content, which scrolls its
+ * own body and pins its own footer beneath it.
+ */
+function Modal({ title, onClose, wide, fill, children }) {
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      className="fixed inset-0 z-[100] flex items-center justify-center"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className={`rounded-[16px] w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} p-7 mx-4 max-h-[90vh] overflow-y-auto`}
+      <div className={`rounded-[16px] w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} max-h-[90vh] flex flex-col ${fill ? 'overflow-hidden' : 'overflow-y-auto p-7'}`}
         style={{ background: 'var(--surface)' }}>
-        <div className="flex items-center justify-between mb-5">
+        <div className={`flex items-center justify-between shrink-0 ${fill ? 'px-7 pt-6 pb-4' : 'mb-5'}`}
+          style={fill ? { borderBottom: '1px solid var(--ink-10)' } : undefined}>
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
-          <button onClick={onClose}
+          <button type="button" onClick={onClose}
             className="border-0 bg-transparent text-xl cursor-pointer p-1 hover:opacity-60"
             style={{ color: 'var(--ink-30)' }}>✕</button>
         </div>
-        {children}
+        {fill ? <div className="flex-1 min-h-0 flex flex-col">{children}</div> : children}
       </div>
     </div>
   )
@@ -229,7 +240,7 @@ function RecordFormModal({ record, cows, onClose, onSaved }) {
   }
 
   return (
-    <Modal wide onClose={onClose}
+    <Modal wide fill onClose={onClose}
       title={editing ? 'Edit Individual Health Record' : 'New Individual Health Record'}>
       <HealthRecordForm
         record={record}
