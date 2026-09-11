@@ -7,14 +7,14 @@ import { Logo } from './ui'
    `roles` lists who may see an item. Omitting it means every signed-in role.
    This only decides what is convenient to show — the API enforces the same
    boundaries independently, so hiding an item here is not the permission. */
-const ALL = ['admin', 'manager', 'veteran']
+const ALL = ['admin', 'manager', 'veteran', 'attendant']
 
 const NAV_GROUPS = [
   {
     name: 'overview',
     label: 'Overview',
     items: [
-      { id: 'dashboard',  icon: '📈', label: 'Dashboard' },
+      { id: 'dashboard',  icon: '📈', label: 'Dashboard', roles: ['admin', 'manager', 'veteran']  },
       { id: 'ai-reports', icon: '✨', label: 'AI Reports', roles: ['admin'] },
     ],
   },
@@ -31,6 +31,14 @@ const NAV_GROUPS = [
     ],
   },
   {
+    name: 'processing',
+    label: 'Processing',
+    items: [
+      { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
+      { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] }
+    ]
+  },
+  {
     name: 'health',
     label: 'Animal Health',
     items: [
@@ -44,12 +52,10 @@ const NAV_GROUPS = [
     label: 'Business',
     items: [
       { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
-      { id: 'reports',    icon: '📊', label: 'Reports',         roles: ['admin', 'manager'] },
+      { id: 'reports',    icon: '📊', label: 'Sales Reports',         roles: ['admin', 'manager'] },
       // An attendant names customers on sales and takes payments at the
       // counter, so the book is theirs to read.
       { id: 'customers',  icon: '📒', label: 'Customers & Debtors', roles: ['admin', 'manager', 'attendant'] },
-      { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
-      { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
       { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },
       // An attendant's two pages. Managers reach both to oversee a branch.
       { id: 'till',       icon: '🧾', label: 'Till',            roles: ['admin', 'manager', 'attendant'] },
