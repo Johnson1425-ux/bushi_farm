@@ -348,8 +348,8 @@ function CashUp({ branchId, isAttendant, onNotice }) {
               ))
             ) : (
               <div className="text-[11px]" style={{ color: 'var(--ink-30)' }}>
-                Nothing collected today. Record a payment on the customer's account under Debtors
-                and it appears here.
+                Nothing collected today. Record a payment on the customer's account under
+                Customers &amp; Debtors and it appears here.
               </div>
             )}
           </div>
@@ -467,8 +467,11 @@ export default function Till() {
   const [day,        setDay]        = useState(null)
   const [tier,       setTier]       = useState('retail')
   const [cart,       setCart]       = useState({})
-  const [customer,   setCustomer]   = useState('')
-  const [debtors,    setDebtors]    = useState([])
+  /* The chosen account, or '' for a walk-in. `newName` only comes into
+     play when the attendant is opening one. */
+  const [customerId, setCustomerId] = useState('')
+  const [newName,    setNewName]    = useState('')
+  const [customers,  setCustomers]  = useState([])
   const [payment,    setPayment]    = useState('cash')
   const [discount,   setDiscount]   = useState('')
   const [busy,       setBusy]       = useState(false)
@@ -495,9 +498,10 @@ export default function Till() {
         apiFetch(`/pos/day${q}`),
       ])
       setCatalogue(cat); setRecent(sales); setDay(dayTotals); setError(null)
-      /* Needed only to offer known names on a credit sale; a failure here
-         is not worth an error, the attendant can still type a new one. */
-      apiFetch('/debtors?active=true').then(d => setDebtors(d.debtors || [])).catch(() => {})
+      /* Every sale may name its customer, not only a credit one — that is
+         how the farm learns what a regular is worth. A failure here is not
+         worth an error: the attendant can still type a new name. */
+      apiFetch('/customers?active=true').then(d => setCustomers(d.customers || [])).catch(() => {})
     } catch (e) {
       setError(e.message)
     } finally { setLoading(false) }
@@ -545,6 +549,9 @@ export default function Till() {
     }
   }).filter(Boolean), [cart, catalogue, tier])
 
+  const chosen = customerId && customerId !== 'new'
+    ? customers.find(c => String(c.id) === String(customerId)) : null
+
   const subtotal = lines.reduce((a, l) => a + l.lineTotal, 0)
   const disc     = Math.min(Math.max(num(discount), 0), subtotal)
   const total    = subtotal - disc
@@ -560,7 +567,9 @@ export default function Till() {
           sold_on: today(),
           payment_method: payment,
           price_tier: tier,
-          customer_name: customer || null,
+          ...(customerId === 'new'
+            ? { customer_name: newName.trim() }
+            : customerId ? { customer_id: Number(customerId) } : {}),
           discount: disc,
           items: lines.map(l => ({
             product_id: l.product_id,
@@ -572,7 +581,7 @@ export default function Till() {
           })),
         }),
       })
-      setCart({}); setCustomer(''); setDiscount(''); setPayment('cash')
+      setCart({}); setCustomerId(''); setNewName(''); setDiscount(''); setPayment('cash')
       setReceipt(sale)
       await load()
     } catch (e) {
@@ -814,26 +823,41 @@ export default function Till() {
                       <label className="block text-[11px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>
                         Customer {payment === 'credit' && <span style={{ color: 'var(--amber)' }}>· needed for credit</span>}
                       </label>
-                      {/* A known name is offered but not required: typing a
-                          new one opens the account, which is what actually
-                          happens at a counter. */}
-                      <input type="text" list="debtor-names" value={customer} className="w-full"
-                        onChange={e => setCustomer(e.target.value)}
-                        placeholder={payment === 'credit' ? 'Who owes for this?' : 'Name'} />
-                      <datalist id="debtor-names">
-                        {debtors.map(d => <option key={d.id} value={d.name} />)}
-                      </datalist>
-                      {payment === 'credit' && customer.trim() && (() => {
-                        const known = debtors.find(d =>
-                          d.name.trim().toLowerCase() === customer.trim().toLowerCase())
-                        return known
-                          ? <div className="text-[11px] mt-1" style={{ color: 'var(--ink-60)' }}>
-                              Already owes {fmtTsh(known.balance)}
-                            </div>
-                          : <div className="text-[11px] mt-1" style={{ color: 'var(--amber)' }}>
-                              New account — it will be opened for this sale.
-                            </div>
-                      })()}
+                      {/* A dropdown of the accounts that exist, with the two
+                          honest escapes: nobody in particular, and someone
+                          who has not been served before. */}
+                      <select className="w-full" value={customerId}
+                        onChange={e => { setCustomerId(e.target.value); if (e.target.value !== 'new') setNewName('') }}>
+                        <option value="">Walk-in — no account</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}{num(c.balance) > 0 ? ` — owes ${fmt(c.balance)}` : ''}
+                          </option>
+                        ))}
+                        <option value="new">+ New customer…</option>
+                      </select>
+
+                      {customerId === 'new' && (
+                        <input type="text" className="w-full mt-2" autoFocus value={newName}
+                          onChange={e => setNewName(e.target.value)}
+                          placeholder="Their name — an account is opened" />
+                      )}
+
+                      {chosen && (
+                        <div className="text-[11px] mt-1" style={{ color: 'var(--ink-60)' }}>
+                          {num(chosen.balance) > 0
+                            ? <span style={{ color: 'var(--amber)' }}>Already owes {fmtTsh(chosen.balance)}</span>
+                            : num(chosen.balance) < 0
+                              ? <span style={{ color: 'var(--green-600)' }}>In credit {fmtTsh(Math.abs(chosen.balance))}</span>
+                              : 'Nothing outstanding'}
+                          {num(chosen.total_spent) > 0 && ` · ${fmtTsh(chosen.total_spent)} spent over ${fmt(chosen.purchases)} visits`}
+                        </div>
+                      )}
+                      {payment === 'credit' && !customerId && (
+                        <div className="text-[11px] mt-1" style={{ color: 'var(--amber)' }}>
+                          A credit sale has to be owed by someone.
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Discount (TSh)</label>
@@ -864,7 +888,8 @@ export default function Till() {
 
                   <Btn variant="primary" className="w-full mt-4"
                     disabled={busy || anyOver || total < 0
-                      || (payment === 'credit' && !customer.trim())}
+                      || (payment === 'credit' && !customerId)
+                      || (customerId === 'new' && !newName.trim())}
                     onClick={complete}>
                     {busy ? 'Recording…' : `Complete sale · ${fmtTsh(total)}`}
                   </Btn>

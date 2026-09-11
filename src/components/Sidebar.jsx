@@ -45,8 +45,9 @@ const NAV_GROUPS = [
     items: [
       { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
       { id: 'reports',    icon: '📊', label: 'Reports',         roles: ['admin', 'manager'] },
-      // An attendant takes payments at the counter, so the book is theirs to read.
-      { id: 'debtors',    icon: '📒', label: 'Debtors',         roles: ['admin', 'manager', 'attendant'] },
+      // An attendant names customers on sales and takes payments at the
+      // counter, so the book is theirs to read.
+      { id: 'customers',  icon: '📒', label: 'Customers & Debtors', roles: ['admin', 'manager', 'attendant'] },
       { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
       { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
       { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },
