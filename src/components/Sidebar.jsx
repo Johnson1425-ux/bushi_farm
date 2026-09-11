@@ -34,8 +34,8 @@ const NAV_GROUPS = [
     name: 'processing',
     label: 'Processing',
     items: [
-      { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] },
-      { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] }
+      { id: 'processing', icon: '🏭', label: 'Processing Unit', roles: ['admin', 'manager'] },
+      { id: 'inventory',  icon: '🗃️', label: 'Inventory',       roles: ['admin', 'manager'] }
     ]
   },
   {
