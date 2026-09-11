@@ -1,22 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Bar } from 'react-chartjs-2'
-import { Chart, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js'
-import { apiFetch, BASE } from '../lib/api'
+import { useState, useEffect, useCallback } from 'react'
+import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
-
-Chart.register(BarElement, CategoryScale, LinearScale, Tooltip)
 
 /* ══════════════════════════════════════════════════════════════
    SALES
 
-   Two things are sold and they are not the same trade, so they are kept
-   apart rather than added together into a number that means neither:
+   Everything the farm sells goes over a branch counter, so every figure
+   here is built from receipts and reconciles with branch stock by
+   construction.
 
-     Branch sales   packs sold over a counter, from the till. Every figure
-                    here is built from receipts, so it reconciles with
-                    branch stock by construction.
-     Bulk milk      raw milk sold by the litre, straight off the farm.
-                    Recorded by hand, as it always was.
+   There was a second tab, for raw milk sold by the litre and kept by
+   hand. Milk sold loose is now an ordinary product measured in litres,
+   so it rings up at the same till with a customer and a payment method
+   against it — and a second place to record a sale would only have split
+   the farm's revenue across two figures that never met. The old rows are
+   still in the database and still reach the AI reports; nothing writes
+   to them any more.
 
    Voided receipts are excluded everywhere: money that was never taken.
 ══════════════════════════════════════════════════════════════ */
@@ -25,8 +24,7 @@ const fmt    = n => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDi
 const fmtTsh = n => `TSh ${fmt(n)}`
 const num    = v => Number(v) || 0
 const today  = () => new Date().toISOString().slice(0, 10)
-const thisMonth = () => new Date().toISOString().slice(0, 7)
-const monthStart = () => `${thisMonth()}-01`
+const monthStart = () => `${today().slice(0, 7)}-01`
 
 function Modal({ title, onClose, children }) {
   return (
@@ -43,28 +41,6 @@ function Modal({ title, onClose, children }) {
         {children}
       </div>
     </div>
-  )
-}
-
-function Field({ label, name, type = 'text', defaultValue, required, ...props }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <label className="block text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--ink-60)', marginBottom: 6 }}>{label}</label>
-      <input name={name} type={type} defaultValue={defaultValue ?? ''} required={required} className="w-full" {...props} />
-    </div>
-  )
-}
-
-function TabBtn({ active, onClick, children }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-4 py-2 text-sm font-medium border-0 bg-transparent cursor-pointer transition-all"
-      style={{
-        color: active ? 'var(--green-600)' : 'var(--ink-60)',
-        borderBottom: active ? '2px solid var(--green-600)' : '2px solid transparent',
-      }}
-    >{children}</button>
   )
 }
 
@@ -326,207 +302,7 @@ function BranchSales({ from, to, branchId, branches, onBranch, products, onNotic
   )
 }
 
-/* ── bulk raw milk, recorded by hand ── */
-function BulkMilk({ onNotice }) {
-  const [records,      setRecords]      = useState([])
-  const [summary,      setSummary]      = useState([])
-  const [showModal,    setShowModal]    = useState(false)
-  const [importResult, setImportResult] = useState(null)
-  const [importLoading,setImportLoading]= useState(false)
-  const [filterMonth,  setFilterMonth]  = useState(thisMonth())
-  const [filterFrom,   setFilterFrom]   = useState('')
-  const [filterTo,     setFilterTo]     = useState('')
-  const [useMonth,     setUseMonth]     = useState(true)
-  const fileRef = useRef()
-
-  const fetchRecords = useCallback(async () => {
-    const params = new URLSearchParams()
-    if (useMonth && filterMonth) params.set('month', filterMonth)
-    else { if (filterFrom) params.set('from', filterFrom); if (filterTo) params.set('to', filterTo) }
-    setRecords(await apiFetch(`/sales?${params}`))
-  }, [useMonth, filterMonth, filterFrom, filterTo])
-
-  const fetchSummary = useCallback(async () => setSummary(await apiFetch('/sales/summary')), [])
-
-  useEffect(() => { fetchRecords().catch(e => onNotice(e.message)) }, [fetchRecords, onNotice])
-  useEffect(() => { fetchSummary().catch(() => {}) }, [fetchSummary])
-
-  const totalLitres  = records.reduce((s, r) => s + num(r.litres_sold), 0)
-  const totalRevenue = records.reduce((s, r) => s + num(r.total), 0)
-
-  const handleSave = async (e) => {
-    e.preventDefault()
-    const fd = new FormData(e.target)
-    try {
-      await apiFetch('/sales', {
-        method: 'POST',
-        body: JSON.stringify({
-          date:            fd.get('date'),
-          litres_sold:     fd.get('litres_sold'),
-          price_per_litre: fd.get('price_per_litre'),
-          notes:           fd.get('notes'),
-        }),
-      })
-      await Promise.all([fetchRecords(), fetchSummary()])
-      setShowModal(false)
-    } catch (err) { onNotice(err.message) }
-  }
-
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this bulk milk record?')) return
-    try {
-      await apiFetch(`/sales/${id}`, { method: 'DELETE' })
-      await Promise.all([fetchRecords(), fetchSummary()])
-    } catch (err) { onNotice(err.message) }
-  }
-
-  const handleImport = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setImportLoading(true); setImportResult(null)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const token = localStorage.getItem('mt_token')
-      const res = await fetch(`${BASE}/sales/import`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
-      })
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || 'Import failed')
-      setImportResult(result)
-      await Promise.all([fetchRecords(), fetchSummary()])
-    } catch (err) {
-      setImportResult({ error: err.message })
-    } finally {
-      setImportLoading(false); e.target.value = ''
-    }
-  }
-
-  const chartData = {
-    labels: [...summary].reverse().map(s => s.month),
-    datasets: [{ data: [...summary].reverse().map(s => num(s.total_revenue)), backgroundColor: '#3478c8', borderRadius: 6 }],
-  }
-  const chartOpts = {
-    responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { callbacks: { label: v => fmtTsh(v.raw) } } },
-    scales: {
-      y: { ticks: { callback: v => `${(v/1000).toFixed(0)}k`, font: { size: 11 } }, grid: { color: 'var(--ink-10)' } },
-      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-    },
-  }
-
-  return (
-    <div>
-      <div className="flex justify-between items-center flex-wrap gap-3 mb-4">
-        <p className="text-sm" style={{ color: 'var(--ink-60)' }}>
-          Raw milk sold by the litre, straight off the farm — not through a branch till.
-        </p>
-        <div className="flex gap-2">
-          <Btn size="sm" onClick={() => setShowModal(true)}>+ Record sale</Btn>
-          <Btn size="sm" onClick={() => fileRef.current?.click()}>
-            {importLoading ? 'Importing…' : '↑ Import Excel'}
-          </Btn>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" hidden onChange={handleImport} />
-        </div>
-      </div>
-
-      {importResult && (
-        <div className="rounded-lg text-sm mb-5"
-          style={{
-            padding: '10px 16px',
-            background: importResult.error ? 'rgba(217,64,64,0.1)' : 'var(--green-50)',
-            border: `1px solid ${importResult.error ? 'var(--red)' : 'var(--green-100)'}`,
-            color: importResult.error ? 'var(--red)' : 'var(--green-800)',
-          }}>
-          {importResult.error ? `✗ ${importResult.error}` : `✓ Imported ${importResult.imported} record(s).`}
-        </div>
-      )}
-
-      <div className="flex flex-wrap gap-3 items-center rounded-lg mb-4 p-4" style={{ background: 'var(--cream-dark)' }}>
-        <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--ink-60)' }}>
-          <input type="radio" checked={useMonth} onChange={() => setUseMonth(true)} /> By month
-        </label>
-        <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--ink-60)' }}>
-          <input type="radio" checked={!useMonth} onChange={() => setUseMonth(false)} /> Date range
-        </label>
-        {useMonth
-          ? <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)} />
-          : <>
-              <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
-              <input type="date" value={filterTo}   onChange={e => setFilterTo(e.target.value)} />
-            </>}
-      </div>
-
-      <Card noPad>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr><TH>Date</TH><TH right>Litres</TH><TH right>Price / L</TH><TH right>Total</TH><TH>Notes</TH><TH></TH></tr>
-            </thead>
-            <tbody>
-              {records.length === 0 && (
-                <tr><td colSpan={6}><EmptyState>No bulk milk records for this period.</EmptyState></td></tr>
-              )}
-              {records.map(r => (
-                <tr key={r.id}>
-                  <TD mono>{r.date}</TD>
-                  <TD right style={{ color: 'var(--blue)', fontWeight: 500 }}>{fmt(r.litres_sold)} L</TD>
-                  <TD mono right>{fmtTsh(r.price_per_litre)}</TD>
-                  <TD right style={{ color: 'var(--green-600)', fontWeight: 600 }}>{fmtTsh(r.total)}</TD>
-                  <TD style={{ color: 'var(--ink-30)', fontSize: 12 }}>{r.notes || '—'}</TD>
-                  <td className="px-5 py-3 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
-                    <Btn size="sm" variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            {records.length > 0 && (
-              <tfoot>
-                <tr style={{ background: 'var(--cream-dark)' }}>
-                  <td className="px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--ink-60)' }}>Total</td>
-                  <td className="px-5 py-3 font-semibold text-right" style={{ color: 'var(--blue)' }}>{fmt(totalLitres)} L</td>
-                  <td />
-                  <td className="px-5 py-3 font-semibold text-right" style={{ color: 'var(--green-600)' }}>{fmtTsh(totalRevenue)}</td>
-                  <td colSpan={2} />
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </Card>
-
-      {summary.length > 0 && (
-        <Card>
-          <CardTitle>Bulk milk revenue by month (TSh)</CardTitle>
-          <div style={{ height: 220, position: 'relative' }}>
-            <Bar data={chartData} options={chartOpts} />
-          </div>
-        </Card>
-      )}
-
-      {showModal && (
-        <Modal title="Record bulk milk sale" onClose={() => setShowModal(false)}>
-          <form onSubmit={handleSave}>
-            <Field label="Date" name="date" type="date" defaultValue={today()} required />
-            <Field label="Litres sold" name="litres_sold" type="number" min="0.01" step="any" required />
-            <Field label="Price per litre (TSh)" name="price_per_litre" type="number" min="0.01" step="any" required />
-            <Field label="Notes" name="notes" />
-            <div className="flex gap-2 justify-end mt-2">
-              <Btn size="sm" onClick={() => setShowModal(false)}>Cancel</Btn>
-              <button type="submit"
-                className="inline-flex items-center justify-center font-medium rounded-lg border px-4 py-2 text-sm cursor-pointer bg-green-600 border-green-600 text-white hover:bg-green-800">
-                Save
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-    </div>
-  )
-}
-
 export default function Sales() {
-  const [tab,      setTab]      = useState('branch')
   const [branches, setBranches] = useState([])
   const [products, setProducts] = useState([])
   const [branchId, setBranchId] = useState('')
@@ -545,14 +321,12 @@ export default function Sales() {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Sales" sub="Branch takings and bulk milk">
-        {tab === 'branch' && (
-          <div className="flex gap-2 items-center">
-            <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
-            <span className="text-xs" style={{ color: 'var(--ink-30)' }}>to</span>
-            <input type="date" value={to} onChange={e => setTo(e.target.value)} />
-          </div>
-        )}
+      <PageHeader title="Sales" sub="What the branch tills rang up">
+        <div className="flex gap-2 items-center">
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+          <span className="text-xs" style={{ color: 'var(--ink-30)' }}>to</span>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} />
+        </div>
       </PageHeader>
 
       {error && (
@@ -562,20 +336,12 @@ export default function Sales() {
         </div>
       )}
 
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
-        <TabBtn active={tab === 'branch'} onClick={() => setTab('branch')}>🏪 Branch Sales</TabBtn>
-        <TabBtn active={tab === 'bulk'}   onClick={() => setTab('bulk')}>🥛 Bulk Milk</TabBtn>
-      </div>
-
-      {tab === 'branch' && (
-        <BranchSales
-          from={from} to={to}
-          branchId={branchId} branches={branches} onBranch={setBranchId}
-          products={products}
-          onNotice={setError}
-        />
-      )}
-      {tab === 'bulk' && <BulkMilk onNotice={setError} />}
+      <BranchSales
+        from={from} to={to}
+        branchId={branchId} branches={branches} onBranch={setBranchId}
+        products={products}
+        onNotice={setError}
+      />
     </div>
   )
 }

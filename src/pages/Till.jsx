@@ -18,10 +18,14 @@ import { useAuth } from '../lib/AuthContext'
    almost always what was meant; a single line can still be flipped on
    its own for the customer who buys a crate and a bottle.
 
-   The second tab is the end of the day. Everything the receipts already
-   know is filled in; what the attendant supplies is only what no receipt
-   records — money collected against old debts, money paid out of the
-   drawer, and what was actually counted.
+   Milk sold loose from the churn is an ordinary product here, measured
+   in litres rather than packs, so 217.5 is an ordinary quantity and the
+   same basket can hold it beside a crate of bottles.
+
+   The second tab is the end of the day. Everything already recorded is
+   filled in — takings from the receipts, debtor payments from the
+   ledger — and what the attendant supplies is only what nothing else
+   records: cash paid out of the drawer, and what was counted.
 ══════════════════════════════════════════════════════════════ */
 
 const fmt    = (n, dec = 0) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: dec })
@@ -31,6 +35,13 @@ const today  = () => new Date().toISOString().slice(0, 10)
 
 const PAYMENT_METHODS = [['cash', 'Cash'], ['mobile', 'Mobile'], ['card', 'Card'], ['credit', 'Credit']]
 const TIERS = [['retail', 'Retail'], ['wholesale', 'Wholesale']]
+
+/* A sealed pack is counted, so quantities are whole. Milk from the churn
+   is measured, so half a litre is an ordinary amount. */
+const isLoose  = (p) => p?.sold_by === 'litre'
+const qtyStep  = (p) => (isLoose(p) ? 'any' : '1')
+const qtyLabel = (p) => (isLoose(p) ? 'L' : '')
+const roundQty = (p, v) => (isLoose(p) ? Math.max(0, Number(v) || 0) : Math.max(0, parseInt(v, 10) || 0))
 
 /** The list price for a tier. An unset wholesale price falls back to
     retail — the same rule the server applies, so the basket total the
@@ -197,7 +208,6 @@ function CashUp({ branchId, isAttendant, onNotice }) {
       const d = await apiFetch(`/pos/cash-up?${q}`)
       setData(d)
       setForm({
-        debtor_receipts: d.debtor_receipts || '',
         prepaids:        d.prepaids || '',
         counted_cash:    d.counted_cash || '',
         mobile_counted:  d.mobile_counted || '',
@@ -218,7 +228,7 @@ function CashUp({ branchId, isAttendant, onNotice }) {
      are still counting rather than only after a save. */
   const expenseTotal = expenses.reduce((a, e) => a + num(e.amount), 0)
   const expected = data
-    ? num(data.takings.cash_sales) + num(form?.debtor_receipts) + num(form?.prepaids) - expenseTotal
+    ? num(data.takings.cash_sales) + num(data.debtor_receipts) + num(form?.prepaids) - expenseTotal
     : 0
   const variance = num(form?.counted_cash) - expected
 
@@ -231,7 +241,6 @@ function CashUp({ branchId, isAttendant, onNotice }) {
         body: JSON.stringify({
           ...(isAttendant ? {} : { branch_id: branchId }),
           date,
-          debtor_receipts: num(form.debtor_receipts),
           prepaids:        num(form.prepaids),
           counted_cash:    num(form.counted_cash),
           mobile_counted:  num(form.mobile_counted),
@@ -317,11 +326,38 @@ function CashUp({ branchId, isAttendant, onNotice }) {
         {/* What only a person knows. */}
         <Card>
           <CardTitle>Money in and out</CardTitle>
+          {/* Debtor payments are not entered here. They are recorded against
+              the customer's account when the money is taken, and read back
+              — so the day's cash and the customer's statement can never
+              tell two different stories. */}
+          <div className="rounded-lg p-3 mb-4" style={{ background: 'var(--cream-dark)' }}>
+            <div className="flex justify-between items-baseline mb-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--ink-60)' }}>
+                Collected from debtors
+              </span>
+              <span className="font-semibold" style={{ fontFamily: "'DM Mono', monospace", color: 'var(--green-600)' }}>
+                {fmtTsh(data.debtor_receipts)}
+              </span>
+            </div>
+            {data.debtor_payments?.length > 0 ? (
+              data.debtor_payments.map(p => (
+                <div key={p.id} className="flex justify-between text-[12px] py-0.5" style={{ color: 'var(--ink-60)' }}>
+                  <span>{p.name}</span>
+                  <span style={{ fontFamily: "'DM Mono', monospace" }}>{fmt(p.amount)}</span>
+                </div>
+              ))
+            ) : (
+              <div className="text-[11px]" style={{ color: 'var(--ink-30)' }}>
+                Nothing collected today. Record a payment on the customer's account under Debtors
+                and it appears here.
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-3 mb-4">
-            <Money label="Collected from debtors" value={form.debtor_receipts} disabled={locked}
-              onChange={v => set('debtor_receipts', v)} hint="Paid against an earlier credit sale" />
             <Money label="Taken in advance" value={form.prepaids} disabled={locked}
-              onChange={v => set('prepaids', v)} hint="Paid now for a delivery later" />
+              onChange={v => set('prepaids', v)}
+              hint="From someone with no account — a named customer's prepayment goes on their account" />
           </div>
 
           <div className="text-[11px] font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--ink-60)' }}>
@@ -374,7 +410,7 @@ function CashUp({ branchId, isAttendant, onNotice }) {
               <span>Cash sales</span><span>{fmtTsh(data.takings.cash_sales)}</span>
             </div>
             <div className="flex justify-between text-[13px] mb-1" style={{ color: 'var(--ink-60)' }}>
-              <span>+ debtors, prepaid</span><span>{fmtTsh(num(form.debtor_receipts) + num(form.prepaids))}</span>
+              <span>+ debtors, prepaid</span><span>{fmtTsh(num(data.debtor_receipts) + num(form.prepaids))}</span>
             </div>
             <div className="flex justify-between text-[13px] mb-2" style={{ color: 'var(--ink-60)' }}>
               <span>− expenses</span><span>{fmtTsh(expenseTotal)}</span>
@@ -432,6 +468,7 @@ export default function Till() {
   const [tier,       setTier]       = useState('retail')
   const [cart,       setCart]       = useState({})
   const [customer,   setCustomer]   = useState('')
+  const [debtors,    setDebtors]    = useState([])
   const [payment,    setPayment]    = useState('cash')
   const [discount,   setDiscount]   = useState('')
   const [busy,       setBusy]       = useState(false)
@@ -458,6 +495,9 @@ export default function Till() {
         apiFetch(`/pos/day${q}`),
       ])
       setCatalogue(cat); setRecent(sales); setDay(dayTotals); setError(null)
+      /* Needed only to offer known names on a credit sale; a failure here
+         is not worth an error, the attendant can still type a new one. */
+      apiFetch('/debtors?active=true').then(d => setDebtors(d.debtors || [])).catch(() => {})
     } catch (e) {
       setError(e.message)
     } finally { setLoading(false) }
@@ -652,11 +692,11 @@ export default function Till() {
                         <div className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>{p.product}</div>
                         <div className="text-[11px] mb-1.5" style={{ color: 'var(--ink-60)', fontFamily: "'DM Mono', monospace" }}>{p.size}</div>
                         <div className="text-[13px] font-semibold" style={{ color: 'var(--green-600)' }}>
-                          {noPrice ? 'No price set' : fmtTsh(price)}
+                          {noPrice ? 'No price set' : `${fmtTsh(price)}${isLoose(p) ? ' / L' : ''}`}
                         </div>
                         <div className="text-[11px] mt-0.5" style={{ color: out ? 'var(--red)' : 'var(--ink-30)' }}>
-                          {out ? 'Out of stock' : `${fmt(p.units)} in stock`}
-                          {inCart > 0 && ` · ${inCart} in basket`}
+                          {out ? 'Out of stock' : `${fmt(p.units, isLoose(p) ? 1 : 0)}${isLoose(p) ? ' L' : ''} in stock`}
+                          {inCart > 0 && ` · ${fmt(inCart, isLoose(p) ? 1 : 0)} in basket`}
                         </div>
                         {usingRetailFallback && (
                           <div className="text-[10px] mt-0.5" style={{ color: 'var(--amber)' }}>retail price — no wholesale set</div>
@@ -736,7 +776,8 @@ export default function Till() {
                           <div className="text-[13px] truncate" style={{ color: 'var(--ink)' }}>{l.product} {l.size}</div>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[11px]" style={{ color: l.over ? 'var(--red)' : 'var(--ink-60)' }}>
-                              {fmtTsh(l.price)} each{l.over && ` · only ${fmt(l.available)} on the shelf`}
+                              {fmtTsh(l.price)} {isLoose(l) ? 'per litre' : 'each'}
+                              {l.over && ` · only ${fmt(l.available, isLoose(l) ? 1 : 0)} on the shelf`}
                             </span>
                             <button onClick={() => flipTier(l.product_id, l.tier)}
                               title="Switch this line's price list"
@@ -749,9 +790,9 @@ export default function Till() {
                             </button>
                           </div>
                         </div>
-                        <input type="number" min="0" step="1" value={l.units}
-                          onChange={e => setQty(l.product_id, Math.max(0, parseInt(e.target.value, 10) || 0))}
-                          style={{ width: 62, textAlign: 'right', borderColor: l.over ? 'var(--red)' : undefined }} />
+                        <input type="number" min="0" step={qtyStep(l)} value={l.units}
+                          onChange={e => setQty(l.product_id, roundQty(l, e.target.value))}
+                          style={{ width: 72, textAlign: 'right', borderColor: l.over ? 'var(--red)' : undefined }} />
                         <div className="text-[13px] font-semibold text-right" style={{ width: 84, fontFamily: "'DM Mono', monospace" }}>
                           {fmtTsh(l.lineTotal)}
                         </div>
@@ -773,8 +814,26 @@ export default function Till() {
                       <label className="block text-[11px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>
                         Customer {payment === 'credit' && <span style={{ color: 'var(--amber)' }}>· needed for credit</span>}
                       </label>
-                      <input type="text" value={customer} onChange={e => setCustomer(e.target.value)}
-                        placeholder="Name" className="w-full" />
+                      {/* A known name is offered but not required: typing a
+                          new one opens the account, which is what actually
+                          happens at a counter. */}
+                      <input type="text" list="debtor-names" value={customer} className="w-full"
+                        onChange={e => setCustomer(e.target.value)}
+                        placeholder={payment === 'credit' ? 'Who owes for this?' : 'Name'} />
+                      <datalist id="debtor-names">
+                        {debtors.map(d => <option key={d.id} value={d.name} />)}
+                      </datalist>
+                      {payment === 'credit' && customer.trim() && (() => {
+                        const known = debtors.find(d =>
+                          d.name.trim().toLowerCase() === customer.trim().toLowerCase())
+                        return known
+                          ? <div className="text-[11px] mt-1" style={{ color: 'var(--ink-60)' }}>
+                              Already owes {fmtTsh(known.balance)}
+                            </div>
+                          : <div className="text-[11px] mt-1" style={{ color: 'var(--amber)' }}>
+                              New account — it will be opened for this sale.
+                            </div>
+                      })()}
                     </div>
                     <div>
                       <label className="block text-[11px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Discount (TSh)</label>
@@ -804,7 +863,8 @@ export default function Till() {
                   )}
 
                   <Btn variant="primary" className="w-full mt-4"
-                    disabled={busy || anyOver || total < 0}
+                    disabled={busy || anyOver || total < 0
+                      || (payment === 'credit' && !customer.trim())}
                     onClick={complete}>
                     {busy ? 'Recording…' : `Complete sale · ${fmtTsh(total)}`}
                   </Btn>
