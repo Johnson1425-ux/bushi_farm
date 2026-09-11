@@ -173,6 +173,11 @@ function Label({ children, hint, htmlFor }) {
  * names three states but a vet writing "Dry" on paper is not filling the
  * form in wrongly, and a fixed dropdown would be the app deciding it knows
  * the herd better than they do.
+ *
+ * Every input spells out its type. The app styles inputs with
+ * input[type="text"], an attribute selector that a bare <input> does not
+ * match, so leaving the type off renders a box with no border, no padding
+ * and no background — which reads on the page as a field that isn't there.
  */
 function Field({ field, value, onChange }) {
   const id = `hr-${field.key}`
@@ -195,7 +200,7 @@ function Field({ field, value, onChange }) {
           }} />
       ) : field.options ? (
         <>
-          <input {...common} list={`${id}-options`} placeholder={field.placeholder} />
+          <input {...common} type="text" list={`${id}-options`} placeholder={field.placeholder} />
           <datalist id={`${id}-options`}>
             {field.options.map(o => <option key={o} value={o} />)}
           </datalist>
@@ -274,7 +279,9 @@ export default function HealthRecordForm({ record, cows = [], onSubmit, onCancel
   const cowName = cows.find(c => String(c.id) === String(form.cow_id))?.name
 
   return (
-    <form onSubmit={handleSubmit}>
+    /* A column: the sheet scrolls, the actions below it do not. */
+    <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto px-7 pt-6">
       {/* ── 01 Animal identification and history ── */}
       <Section n={1} title="Animal identification and history">
         <div className="mb-4">
@@ -468,28 +475,33 @@ export default function HealthRecordForm({ record, cows = [], onSubmit, onCancel
         </Grid>
       </Section>
 
-      {error && (
-        <div className="rounded-lg px-4 py-3 mb-4 text-sm" style={{ background: '#fff0f0', color: '#c0392b' }}>
-          ⚠ {error}
-        </div>
-      )}
+      </div>
 
-      {/* The bar stays in view down a form this long, so the vet never has
-          to scroll back to the top to find out how to save. */}
-      <div className="sticky bottom-0 flex items-center justify-between gap-3 flex-wrap pt-4 pb-1"
+      {/* Outside the scrolling body, so it sits under the form rather than
+          over it — and stays reachable without scrolling to the end of a
+          sheet this long. A save that failed is reported here too, where
+          the vet is looking when they press the button. */}
+      <div className="shrink-0 px-7 py-4"
         style={{ background: 'var(--surface)', borderTop: '1px solid var(--ink-10)' }}>
-        <span className="text-[11px]" style={{ color: 'var(--ink-30)' }}>
-          {cowName
-            ? `Record for ${cowName}`
-            : form.cow_tag
-              ? `Record for tag ${form.cow_tag}`
-              : 'Choose a cow, or write the ID/Tag no.'}
-        </span>
-        <div className="flex gap-2">
-          <Btn onClick={onCancel}>Cancel</Btn>
-          <Btn type="submit" variant="primary" disabled={saving}>
-            {saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'}
-          </Btn>
+        {error && (
+          <div className="rounded-lg px-4 py-2.5 mb-3 text-sm" style={{ background: '#fff0f0', color: '#c0392b' }}>
+            ⚠ {error}
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-[11px]" style={{ color: 'var(--ink-30)' }}>
+            {cowName
+              ? `Record for ${cowName}`
+              : form.cow_tag
+                ? `Record for tag ${form.cow_tag}`
+                : 'Choose a cow, or write the ID/Tag no.'}
+          </span>
+          <div className="flex gap-2">
+            <Btn onClick={onCancel}>Cancel</Btn>
+            <Btn type="submit" variant="primary" disabled={saving}>
+              {saving ? 'Saving…' : editing ? 'Save changes' : 'Save record'}
+            </Btn>
+          </div>
         </div>
       </div>
     </form>
