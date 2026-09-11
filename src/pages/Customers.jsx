@@ -4,15 +4,17 @@ import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 
 /* ══════════════════════════════════════════════════════════════
-   DEBTORS
+   CUSTOMERS & DEBTORS
 
-   The day book's debtor table. Every credit sale lands here on its own,
-   and every payment taken at a till reduces the balance and shows up in
-   that day's cash — the figure is only ever held in one place.
+   One list, two ways of reading it. A debtor is not a different kind of
+   person — it is a customer whose balance happens to be above zero
+   today, and who stops being one the moment they settle up. So the
+   Debtors tab is this same book filtered, not a second register that
+   someone has to be moved between.
 
-   Accounts in credit are shown alongside those in debt rather than
-   netted off. A customer who has overpaid is owed milk, and folding them
-   into "total owed" would make both numbers wrong.
+   What the Customers tab adds is the half a debtors book never had:
+   what each customer is worth. Trade across every shop, cash and credit
+   alike, so an account is worth opening for someone who always pays.
 ══════════════════════════════════════════════════════════════ */
 
 const fmt    = (n, dec = 0) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: dec })
@@ -39,8 +41,24 @@ function Balance({ value, bold }) {
   const color = v > 0.005 ? 'var(--red)' : v < -0.005 ? 'var(--green-600)' : 'var(--ink-30)'
   return (
     <span style={{ color, fontWeight: bold ? 600 : 500, fontFamily: "'DM Mono', monospace" }}>
-      {v < -0.005 ? `${fmt(Math.abs(v))} cr` : fmt(v)}
+      {v < -0.005 ? `${fmt(Math.abs(v))} cr` : v > 0.005 ? fmt(v) : '—'}
     </span>
+  )
+}
+
+function TabBtn({ label, active, onClick, badge }) {
+  return (
+    <button onClick={onClick} className="px-4 py-2 text-sm font-medium border-0 bg-transparent cursor-pointer"
+      style={{
+        color: active ? 'var(--green-600)' : 'var(--ink-60)',
+        borderBottom: active ? '2px solid var(--green-600)' : '2px solid transparent',
+      }}>
+      {label}
+      {badge > 0 && (
+        <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+          style={{ background: 'var(--amber)', color: '#fff' }}>{badge}</span>
+      )}
+    </button>
   )
 }
 
@@ -62,15 +80,16 @@ function Modal({ title, onClose, children, wide }) {
   )
 }
 
-/* ── one account's statement, the way the paper book reads ── */
-function Statement({ id, onClose, onChanged, canManage, branches, isAttendant, onNotice }) {
+/* ── one account: the ledger, and what they have bought ── */
+function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onNotice }) {
   const [data, setData] = useState(null)
+  const [view, setView] = useState('ledger')
   const [mode, setMode] = useState(null)      // 'payment' | 'charge' | 'adjustment'
   const [form, setForm] = useState({ amount: '', description: '', date: today(), branch_id: '' })
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    try { setData(await apiFetch(`/debtors/${id}`)) }
+    try { setData(await apiFetch(`/customers/${id}`)) }
     catch (e) { onNotice(e.message) }
   }, [id, onNotice])
 
@@ -80,7 +99,7 @@ function Statement({ id, onClose, onChanged, canManage, branches, isAttendant, o
     const path = mode === 'payment' ? 'payments' : mode === 'charge' ? 'charges' : 'adjustments'
     setBusy(true)
     try {
-      await apiFetch(`/debtors/${id}/${path}`, {
+      await apiFetch(`/customers/${id}/${path}`, {
         method: 'POST',
         body: JSON.stringify({
           amount: num(form.amount),
@@ -100,27 +119,35 @@ function Statement({ id, onClose, onChanged, canManage, branches, isAttendant, o
 
   return (
     <Modal title={data.name} onClose={onClose} wide>
-      <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--ink-60)' }}>Balance</div>
-          <div style={{ fontSize: 26 }}><Balance value={data.balance} bold /></div>
-          {num(data.balance) < -0.005 && (
-            <div className="text-[11px]" style={{ color: 'var(--green-600)' }}>
-              In credit — milk paid for and not yet collected.
-            </div>
-          )}
-        </div>
-        <div className="text-xs text-right" style={{ color: 'var(--ink-60)' }}>
-          {data.phone && <div>{data.phone}</div>}
-          {data.branch_name && <div>{data.branch_name}</div>}
-          <div>Opening balance {fmtTsh(data.opening_balance)}</div>
-        </div>
+      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+        {[
+          { label: 'Balance', node: <Balance value={data.balance} bold /> },
+          { label: 'Spent with us', node: <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmtTsh(data.total_spent)}</span> },
+          { label: 'Purchases', node: <span style={{ color: 'var(--ink-60)' }}>{fmt(data.purchases)}</span> },
+          { label: 'Last seen', node: <span style={{ color: 'var(--ink-60)', fontSize: 15 }}>
+              {data.last_purchase ? String(data.last_purchase).slice(0, 10) : '—'}</span> },
+        ].map(k => (
+          <div key={k.label} className="rounded-lg" style={{ background: 'var(--cream-dark)', padding: '10px 14px' }}>
+            <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
+            <div style={{ fontSize: 18 }}>{k.node}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <Btn size="sm" variant="primary" onClick={() => setMode('payment')}>Record payment</Btn>
-        {canManage && <Btn size="sm" onClick={() => setMode('charge')}>Add charge</Btn>}
-        {canManage && <Btn size="sm" onClick={() => setMode('adjustment')}>Adjust</Btn>}
+      <div className="flex flex-wrap gap-3 items-center justify-between mb-4">
+        <div className="text-xs" style={{ color: 'var(--ink-60)' }}>
+          {data.phone && <span>{data.phone} · </span>}
+          {data.branch_name && <span>{data.branch_name} · </span>}
+          <span>opened with {fmtTsh(data.opening_balance)}</span>
+          {num(data.balance) < -0.005 && (
+            <span style={{ color: 'var(--green-600)' }}> · in credit, milk paid for and not collected</span>
+          )}
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <Btn size="sm" variant="primary" onClick={() => setMode('payment')}>Record payment</Btn>
+          {canManage && <Btn size="sm" onClick={() => setMode('charge')}>Add charge</Btn>}
+          {canManage && <Btn size="sm" onClick={() => setMode('adjustment')}>Adjust</Btn>}
+        </div>
       </div>
 
       {mode && (
@@ -179,52 +206,94 @@ function Statement({ id, onClose, onChanged, canManage, branches, isAttendant, o
         </Card>
       )}
 
-      <div style={{ overflowX: 'auto' }}>
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr><TH>Date</TH><TH>What</TH><TH right>Charge</TH><TH right>Payment</TH><TH right>Balance</TH></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <TD mono>—</TD>
-              <TD style={{ color: 'var(--ink-60)' }}>Balance brought forward</TD>
-              <TD /><TD />
-              <TD right><Balance value={data.opening_balance} /></TD>
-            </tr>
-            {data.entries.map(e => (
-              <tr key={e.id}>
-                <TD mono>{e.entry_date}</TD>
-                <TD>
-                  {e.description || KIND_LABEL[e.kind]}
-                  {e.receipt_no && (
-                    <span className="ml-1.5 text-[11px]" style={{ color: 'var(--ink-30)', fontFamily: "'DM Mono', monospace" }}>
-                      {e.receipt_no}
-                    </span>
-                  )}
-                  {e.branch_name && (
-                    <div className="text-[11px]" style={{ color: 'var(--ink-30)' }}>{e.branch_name}</div>
-                  )}
-                </TD>
-                <TD right mono style={{ color: 'var(--ink-60)' }}>{e.amount > 0 ? fmt(e.amount) : ''}</TD>
-                <TD right mono style={{ color: 'var(--green-600)' }}>{e.amount < 0 ? fmt(-e.amount) : ''}</TD>
-                <TD right><Balance value={e.balance} /></TD>
-              </tr>
-            ))}
-            {data.entries.length === 0 && (
-              <tr><td colSpan={5}><EmptyState>Nothing on this account yet.</EmptyState></td></tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex mb-3" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+        <TabBtn label="Account ledger" active={view === 'ledger'}    onClick={() => setView('ledger')} />
+        <TabBtn label="Purchases"      active={view === 'purchases'} onClick={() => setView('purchases')} />
       </div>
+
+      {view === 'ledger' && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr><TH>Date</TH><TH>What</TH><TH right>Charge</TH><TH right>Payment</TH><TH right>Balance</TH></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <TD mono>—</TD>
+                <TD style={{ color: 'var(--ink-60)' }}>Balance brought forward</TD>
+                <TD /><TD />
+                <TD right><Balance value={data.opening_balance} /></TD>
+              </tr>
+              {data.entries.map(e => (
+                <tr key={e.id}>
+                  <TD mono>{e.entry_date}</TD>
+                  <TD>
+                    {e.description || KIND_LABEL[e.kind]}
+                    {e.receipt_no && (
+                      <span className="ml-1.5 text-[11px]" style={{ color: 'var(--ink-30)', fontFamily: "'DM Mono', monospace" }}>
+                        {e.receipt_no}
+                      </span>
+                    )}
+                    {e.branch_name && (
+                      <div className="text-[11px]" style={{ color: 'var(--ink-30)' }}>{e.branch_name}</div>
+                    )}
+                  </TD>
+                  <TD right mono style={{ color: 'var(--ink-60)' }}>{e.amount > 0 ? fmt(e.amount) : ''}</TD>
+                  <TD right mono style={{ color: 'var(--green-600)' }}>{e.amount < 0 ? fmt(-e.amount) : ''}</TD>
+                  <TD right><Balance value={e.balance} /></TD>
+                </tr>
+              ))}
+              {data.entries.length === 0 && (
+                <tr><td colSpan={5}><EmptyState>
+                  Nothing owed and nothing owing — this customer has always paid at the counter.
+                </EmptyState></td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {view === 'purchases' && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr><TH>Receipt</TH><TH>Date</TH><TH>Branch</TH><TH>Paid</TH><TH>List</TH><TH right>Total</TH></tr>
+            </thead>
+            <tbody>
+              {data.purchases.length === 0 && (
+                <tr><td colSpan={6}><EmptyState>No purchases recorded against this account yet.</EmptyState></td></tr>
+              )}
+              {data.purchases.map(p => (
+                <tr key={p.id} style={{ opacity: p.status === 'voided' ? 0.45 : 1 }}>
+                  <TD mono>
+                    {p.receipt_no}
+                    {p.status === 'voided' && (
+                      <span className="ml-1.5 text-[10px] uppercase font-bold" style={{ color: 'var(--red)' }}>void</span>
+                    )}
+                  </TD>
+                  <TD mono>{p.sold_on}</TD>
+                  <TD style={{ color: 'var(--ink-60)' }}>{p.branch_name}</TD>
+                  <TD style={{ color: 'var(--ink-60)', textTransform: 'capitalize' }}>{p.payment_method}</TD>
+                  <TD style={{ textTransform: 'capitalize', color: p.price_tier === 'wholesale' ? 'var(--blue)' : 'var(--ink-60)' }}>
+                    {p.price_tier}
+                  </TD>
+                  <TD right mono style={{ fontWeight: 600 }}>{fmt(p.total)}</TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Modal>
   )
 }
 
-export default function Debtors() {
+export default function Customers() {
   const { user } = useAuth()
   const isAttendant = user?.role === 'attendant'
   const canManage = !isAttendant
 
+  const [tab,      setTab]      = useState('customers')
   const [data,     setData]     = useState(null)
   const [branches, setBranches] = useState([])
   const [open,     setOpen]     = useState(null)
@@ -234,7 +303,7 @@ export default function Debtors() {
   const [error,    setError]    = useState(null)
 
   const load = useCallback(async () => {
-    try { setData(await apiFetch(`/debtors${q ? `?q=${encodeURIComponent(q)}` : ''}`)) }
+    try { setData(await apiFetch(`/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`)) }
     catch (e) { setError(e.message) }
   }, [q])
 
@@ -248,7 +317,7 @@ export default function Debtors() {
 
   const create = async () => {
     try {
-      await apiFetch('/debtors', {
+      await apiFetch('/customers', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name,
@@ -264,12 +333,14 @@ export default function Debtors() {
 
   if (!data) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
 
+  const rows = tab === 'debtors' ? data.debtors : data.customers
+
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Debtors" sub="Who owes what, and who has paid ahead">
+      <PageHeader title="Customers & Debtors" sub="Who buys from us, and who still owes">
         <input type="search" placeholder="Search a name" value={q} onChange={e => setQ(e.target.value)} />
         <Btn size="sm" variant="primary" onClick={() => setShowNew(v => !v)}>
-          {showNew ? 'Cancel' : '+ New account'}
+          {showNew ? 'Cancel' : '+ New customer'}
         </Btn>
       </PageHeader>
 
@@ -282,7 +353,12 @@ export default function Debtors() {
 
       {showNew && (
         <Card>
-          <CardTitle>New account</CardTitle>
+          <CardTitle>New customer</CardTitle>
+          <p className="text-sm mb-3" style={{ color: 'var(--ink-60)' }}>
+            Opening an account is worth it for anyone who comes back, not just for someone buying
+            on credit — it is how the farm knows what a customer is worth. They only appear under
+            Debtors if something is actually owed.
+          </p>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <div>
               <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Name</label>
@@ -324,10 +400,10 @@ export default function Debtors() {
 
       <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         {[
-          { label: 'Owed to the farm', value: fmtTsh(data.totals.owed),      color: 'var(--red)' },
-          { label: 'Paid in advance',  value: fmtTsh(Math.abs(data.totals.in_credit)), color: 'var(--green-600)' },
-          { label: 'Net position',     value: fmtTsh(data.totals.net),       color: 'var(--ink)' },
-          { label: 'Accounts',         value: fmt(data.totals.count),        color: 'var(--ink-60)' },
+          { label: 'Customers',        value: fmt(data.totals.count),                       color: 'var(--ink)' },
+          { label: 'Lifetime trade',   value: fmtTsh(data.totals.lifetime_spend),           color: 'var(--green-600)' },
+          { label: 'Owed to the farm', value: fmtTsh(data.totals.owed),                     color: data.totals.owed > 0 ? 'var(--red)' : 'var(--ink-30)' },
+          { label: 'Paid in advance',  value: fmtTsh(Math.abs(data.totals.in_credit)),      color: 'var(--green-600)' },
         ].map(k => (
           <div key={k.label} className="rounded-lg border" style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)', padding: '16px 20px' }}>
             <div className="text-[11px] uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
@@ -336,29 +412,52 @@ export default function Debtors() {
         ))}
       </div>
 
+      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+        <TabBtn label="Customers" active={tab === 'customers'} onClick={() => setTab('customers')} />
+        <TabBtn label="Debtors"   active={tab === 'debtors'}   onClick={() => setTab('debtors')}
+          badge={data.totals.owing_count} />
+      </div>
+
+      {tab === 'debtors' && data.debtors.length > 0 && (
+        <div className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
+          The same customers, filtered to those with something outstanding. Settling up takes an
+          account off this tab and leaves it on the other.
+        </div>
+      )}
+
       <Card noPad>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr><TH>Account</TH><TH>Phone</TH><TH>Branch</TH><TH>Last activity</TH><TH right>Balance</TH></tr>
+              <tr>
+                <TH>Customer</TH><TH>Phone</TH><TH>Branch</TH>
+                <TH right>Spent with us</TH><TH right>Purchases</TH>
+                <TH>Last seen</TH><TH right>Balance</TH>
+              </tr>
             </thead>
             <tbody>
-              {data.debtors.length === 0 && (
-                <tr><td colSpan={5}><EmptyState>
-                  {q ? 'No account matches that name.' : 'No accounts yet. A credit sale at the till opens one.'}
+              {rows.length === 0 && (
+                <tr><td colSpan={7}><EmptyState>
+                  {q ? 'Nobody matches that name.'
+                     : tab === 'debtors' ? 'Nobody owes anything. '
+                     : 'No customers yet. Naming one on a sale at the till opens an account.'}
                 </EmptyState></td></tr>
               )}
-              {data.debtors.map(d => (
-                <tr key={d.id} style={{ opacity: d.active ? 1 : 0.5 }}>
+              {rows.map(c => (
+                <tr key={c.id} style={{ opacity: c.active ? 1 : 0.5 }}>
                   <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <button onClick={() => setOpen(d.id)}
+                    <button onClick={() => setOpen(c.id)}
                       className="border-0 bg-transparent cursor-pointer font-semibold text-[13px] text-left"
-                      style={{ color: 'var(--green-600)' }}>{d.name}</button>
+                      style={{ color: 'var(--green-600)' }}>{c.name}</button>
                   </td>
-                  <TD style={{ color: 'var(--ink-60)' }}>{d.phone || '—'}</TD>
-                  <TD style={{ color: 'var(--ink-60)' }}>{d.branch_name || '—'}</TD>
-                  <TD mono>{d.last_activity ? String(d.last_activity).slice(0, 10) : '—'}</TD>
-                  <TD right><Balance value={d.balance} /></TD>
+                  <TD style={{ color: 'var(--ink-60)' }}>{c.phone || '—'}</TD>
+                  <TD style={{ color: 'var(--ink-60)' }}>{c.branch_name || '—'}</TD>
+                  <TD right mono style={{ color: 'var(--ink)' }}>{num(c.total_spent) ? fmt(c.total_spent) : '—'}</TD>
+                  <TD right mono style={{ color: 'var(--ink-60)' }}>{c.purchases || '—'}</TD>
+                  <TD mono style={{ color: 'var(--ink-60)' }}>
+                    {c.last_purchase ? String(c.last_purchase).slice(0, 10) : '—'}
+                  </TD>
+                  <TD right><Balance value={c.balance} /></TD>
                 </tr>
               ))}
             </tbody>
@@ -367,7 +466,7 @@ export default function Debtors() {
       </Card>
 
       {open && (
-        <Statement
+        <Account
           id={open}
           canManage={canManage}
           isAttendant={isAttendant}
