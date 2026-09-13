@@ -53,6 +53,10 @@ const NAV_GROUPS = [
     items: [
       { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
       { id: 'reports',    icon: '📊', label: 'Sales Reports',         roles: ['admin', 'manager'] },
+      // What the farm spends is management's book — the same two roles as
+      // the reports. An attendant runs one counter and has no business in
+      // the household's line or the payroll.
+      { id: 'expenses',   icon: '🧮', label: 'Expenses',        roles: ['admin', 'manager'] },
       // An attendant names customers on sales and takes payments at the
       // counter, so the book is theirs to read.
       { id: 'customers',  icon: '📒', label: 'Customers & Debtors', roles: ['admin', 'manager', 'attendant'] },

@@ -24,6 +24,7 @@ import BranchStock    from './pages/BranchStock'
 import Till           from './pages/Till'
 import Reports        from './pages/Reports'
 import Customers      from './pages/Customers'
+import Expenses       from './pages/Expenses'
 import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
@@ -113,7 +114,13 @@ function AppShell() {
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Toaster />
       <Sidebar page={page} setPage={setPage} summary={summary} online={online} />
-      <main className="flex-1 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px' }}>
+      {/* min-w-0, or a flex item refuses to shrink below its content.
+
+          Without it the widest table on a page decides how wide the whole
+          app is, and a phone gets a page that scrolls sideways with the
+          sidebar's edge showing — the tables already scroll inside their
+          own containers, which is where that belongs. */}
+      <main className="flex-1 min-w-0 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px' }}>
         <div className="md:p-[32px_36px] p-0 pt-4">
           <Outlet context={{ cows, summary, loadData, setPage }} />
         </div>
@@ -141,6 +148,7 @@ function BranchPage()       { return <BranchStock /> }
 function TillPage()         { return <Till /> }
 function ReportsPage()      { return <Reports /> }
 function CustomersPage()    { return <Customers /> }
+function ExpensesPage()     { return <Expenses /> }
 function DailyRecordsPage() { return <DailyRecords /> }
 function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
@@ -181,6 +189,7 @@ export default function App() {
           <Route path="/processing"    element={<ProductionRoute><ProcessingPage /></ProductionRoute>} />
           <Route path="/stock"         element={<ProductionRoute><StockPage /></ProductionRoute>} />
           <Route path="/reports"       element={<ProductionRoute><ReportsPage /></ProductionRoute>} />
+          <Route path="/expenses"      element={<ProductionRoute><ExpensesPage /></ProductionRoute>} />
 
           {/* Animal health — admin and vet */}
           <Route path="/health"        element={<HealthRoute><HealthPage /></HealthRoute>} />
