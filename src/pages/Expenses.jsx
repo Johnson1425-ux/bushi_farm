@@ -1,26 +1,33 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
 
 /* ══════════════════════════════════════════════════════════════
    EXPENSES
 
-   The farm keeps a workbook a month, and every figure in it lands on one
-   of a dozen lines — feed, medicine, running the farm, the household,
-   the lorry, the shops, wages. This is that book.
+   Everything the farm pays out, recorded here as it is spent. A line is
+   a date, what the money went on, how many at what price, and how much
+   — and it is filed under one of the farm's own headings: feed,
+   medicine, running the farm, the household, the lorry, the shops,
+   wages. The headings are kept here too, and a new one is opened the
+   moment the farm starts spending on something it did not before.
 
-   Three ways of reading the same entries, and nothing else:
+   Four ways through the same entries, and nothing else:
 
-     The month     the detail sheets — every line spent, under its heading
-     Year summary  the SUMMARY grid — category down, month across
-     Workbooks     where a month came from, and what its file said
+     The month     every line spent this month, and what each heading
+                   came to
+     Year summary  heading down the side, month across the top
+     Categories    the headings themselves, and what each has cost
+     Workbooks     the old monthly spreadsheets, read in once
 
-   The grids are worked out from the entries every time they are asked
-   for, never stored. That is the whole difference from the spreadsheet:
-   in the September 2026 workbook the summary's formulas had slipped a
-   row from BMH downwards, so the lorry's column was showing the shops'
-   spending. The month's grand total was still right, which is exactly
-   why nobody had caught it.
+   Click any heading, anywhere, and you get that heading month by month
+   with the lines that made each month up — because the question a
+   category is clicked for is rarely "what was the feed this month" and
+   almost always "has the feed been climbing, and on what".
+
+   Every total on the page is worked out from the entries when it is
+   asked for, never stored. There is no cell here that can quietly come
+   to disagree with the rows underneath it.
 ══════════════════════════════════════════════════════════════ */
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -127,11 +134,37 @@ function MonthPicker({ year, month, onChange }) {
   )
 }
 
-function AddLine({ categories, date, onSaved, onError, onCancel }) {
+/* Defined here rather than inside the form.
+
+   A component declared in a render body is a new component type on every
+   render, so React throws the old subtree away and mounts a fresh one —
+   which takes the focus out of whatever input you are typing into after
+   a single keystroke. */
+function Field({ label, children, span }) {
+  return (
+    <div style={span ? { gridColumn: '1 / -1' } : undefined}>
+      <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>{label}</label>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Record a line.
+ *
+ * `lockedCategory` is for the form opened from inside a category: the
+ * heading is already decided, so it is shown rather than asked for
+ * again. Everywhere else the heading is the one field that must be
+ * chosen, which is why it sits second, right after the date.
+ */
+function AddLine({ categories, date, onSaved, onError, onCancel, lockedCategory }) {
   const [form, setForm] = useState({
-    entry_date: date, category_id: '', details: '', quantity: '', unit_price: '', amount: '', notes: '',
+    entry_date: date,
+    category_id: lockedCategory ? String(lockedCategory.id) : '',
+    details: '', quantity: '', unit_price: '', amount: '', notes: '',
   })
   const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(null)
 
   /* The sheet's own arithmetic, shown before it is saved: a quantity and
      a price are how most lines are written, and the amount column is
@@ -155,36 +188,50 @@ function AddLine({ categories, date, onSaved, onError, onCancel }) {
           notes: form.notes || null,
         }),
       })
+      /* The date and the heading stay put. A day's spending is entered a
+         line at a time — five fuel receipts, then the fares — and
+         clearing them would mean setting both again for every one. */
+      setSaved({ details: form.details, amount })
       setForm(f => ({ ...f, details: '', quantity: '', unit_price: '', amount: '', notes: '' }))
       onSaved()
     } catch (e) { onError(e.message) } finally { setBusy(false) }
   }
 
-  const Field = ({ label, children, span }) => (
-    <div style={span ? { gridColumn: '1 / -1' } : undefined}>
-      <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>{label}</label>
-      {children}
-    </div>
-  )
-
   return (
     <Card>
-      <CardTitle>Record a line</CardTitle>
+      <CardTitle>
+        {lockedCategory ? `Record a line under ${lockedCategory.name}` : 'Record an expense'}
+        {onCancel && (
+          <button onClick={onCancel} className="border-0 bg-transparent cursor-pointer text-[16px] leading-none"
+            style={{ color: 'var(--ink-30)' }}>✕</button>
+        )}
+      </CardTitle>
       <p className="text-sm mb-3" style={{ color: 'var(--ink-60)' }}>
-        For money paid out before the month's workbook catches up with it. Lines typed here stay
-        put when the workbook is uploaded — only what a previous upload brought in is replaced.
+        The date and the heading stay set after each save, so a day's spending can be entered a
+        line at a time.
       </p>
+      {saved && (
+        <div className="text-xs mb-3 rounded-lg" style={{ background: 'var(--green-100)', color: 'var(--green-800)', padding: '8px 12px' }}>
+          Saved {saved.details} — {fmtTsh(saved.amount)}.
+        </div>
+      )}
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         <Field label="Date">
           <input type="date" className="w-full" value={form.entry_date}
             onChange={e => setForm(f => ({ ...f, entry_date: e.target.value }))} />
         </Field>
         <Field label="Line">
-          <select className="w-full" value={form.category_id}
-            onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}>
-            <option value="">Choose…</option>
-            {categories.filter(c => c.active).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          {lockedCategory ? (
+            <div className="text-[13px] font-medium rounded-lg" style={{
+              background: 'var(--cream-dark)', color: 'var(--ink)', padding: '9px 12px',
+            }}>{lockedCategory.name}</div>
+          ) : (
+            <select className="w-full" value={form.category_id}
+              onChange={e => setForm(f => ({ ...f, category_id: e.target.value }))}>
+              <option value="">Choose…</option>
+              {categories.filter(c => c.active).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
         </Field>
         <Field label="What for" span>
           <input type="text" className="w-full" value={form.details} placeholder="e.g. Machicha kg 5,640"
@@ -210,7 +257,7 @@ function AddLine({ categories, date, onSaved, onError, onCancel }) {
         </Field>
       </div>
       <div className="flex gap-2 justify-end mt-4">
-        <Btn size="sm" onClick={onCancel}>Cancel</Btn>
+        {onCancel && <Btn size="sm" onClick={onCancel}>Done</Btn>}
         <Btn size="sm" variant="primary" onClick={save}
           disabled={busy || !form.category_id || !form.details.trim() || !amount}>
           {busy ? <Spinner /> : null}Save {amount ? fmtTsh(amount) : ''}
@@ -220,11 +267,207 @@ function AddLine({ categories, date, onSaved, onError, onCancel }) {
   )
 }
 
-function MonthView({ year, month, onMonth, categories, onError }) {
+/* ── one heading, month by month ─────────────────────────── */
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[100] flex items-start justify-center p-4 overflow-y-auto"
+      style={{ background: 'rgba(10,30,20,0.45)' }}>
+      <div className="rounded-[16px] w-full max-w-4xl p-7 my-6"
+        style={{ background: 'var(--surface)' }}>
+        <div className="flex items-center justify-between mb-5 gap-3">
+          <div className="font-serif text-[20px]" style={{ color: 'var(--ink)' }}>{title}</div>
+          <button onClick={onClose} className="border-0 bg-transparent text-[18px] cursor-pointer p-1 leading-none"
+            style={{ color: 'var(--ink-30)' }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * What one heading has cost, month by month, with the lines that made
+ * each month up.
+ *
+ * This is what a category is clicked for. The month view already says
+ * what the feed came to in September; the question worth opening a
+ * heading for is whether it has been climbing since June, and which
+ * purchases did it — so the months are the rows, and a month opens to
+ * show its lines rather than sending anyone to another page to find them.
+ *
+ * Every month of the year is listed, spent on or not. A category that
+ * went quiet for two months is a reading, and a table that simply
+ * omitted those months would hide it.
+ */
+function CategoryDetail({ id, year, onYear, categories, onClose, onError, onChanged }) {
   const [data,   setData]   = useState(null)
-  const [filter, setFilter] = useState(null)   // category id, or null for all
-  const [q,      setQ]      = useState('')
+  const [open,   setOpen]   = useState(null)   // which month is expanded
   const [adding, setAdding] = useState(false)
+
+  const load = useCallback(async () => {
+    try { setData(await apiFetch(`/expenses/categories/${id}?year=${year}`)) }
+    catch (e) { onError(e.message) }
+  }, [id, year, onError])
+
+  useEffect(() => { load() }, [load])
+
+  const remove = async (entry) => {
+    try { await apiFetch(`/expenses/${entry.id}`, { method: 'DELETE' }); load(); onChanged() }
+    catch (e) { onError(e.message) }
+  }
+
+  if (!data) return <Modal title="Loading…" onClose={onClose}><div /></Modal>
+
+  const { category } = data
+  const busiest = Math.max(...data.months.map(m => m.total), 0)
+  const thisYear = new Date().getFullYear()
+  /* A new line goes on today when today is in the year being read, and
+     on the first of the year otherwise — writing up December in January
+     should not silently date itself to January. */
+  const defaultDate = today().slice(0, 4) === String(year) ? today() : `${year}-01-01`
+
+  return (
+    <Modal title={category.name} onClose={onClose}>
+      {category.notes && (
+        <p className="text-sm -mt-3 mb-4" style={{ color: 'var(--ink-60)' }}>{category.notes}</p>
+      )}
+
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+        {[
+          { label: `Spent in ${year}`, value: fmtTsh(data.total) },
+          { label: 'Lines',            value: fmt(data.entry_count) },
+          { label: 'Month average',    value: fmtTsh(data.monthly_average),
+            note: 'over the months with spending on them' },
+          { label: 'Heaviest month',   value: data.busiest_month ? MONTHS[data.busiest_month - 1] : '—' },
+        ].map(k => (
+          <div key={k.label} className="rounded-lg" style={{ background: 'var(--cream-dark)', padding: '10px 14px' }}>
+            <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{k.value}</div>
+            {k.note && <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-30)' }}>{k.note}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="text-xs" style={{ color: 'var(--ink-60)' }}>
+          Click a month to see the lines that make it up.
+          {data.years.length > 1 && (
+            <span> This heading has spending in {data.years.map(y => y.year).join(', ')}.</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={year} onChange={e => onYear(Number(e.target.value))}>
+            {Array.from({ length: 7 }, (_, i) => thisYear + 1 - i).map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <Btn size="sm" variant="primary" onClick={() => setAdding(v => !v)}>
+            {adding ? 'Done' : '+ Record a line'}
+          </Btn>
+        </div>
+      </div>
+
+      {adding && (
+        <AddLine
+          categories={categories}
+          lockedCategory={category}
+          date={defaultDate}
+          onSaved={() => { load(); onChanged() }}
+          onError={onError}
+          onCancel={() => setAdding(false)}
+        />
+      )}
+
+      <div style={{ overflowX: 'auto' }}>
+        <table className="w-full border-collapse text-[13px]" style={{ minWidth: 520 }}>
+          <thead>
+            <tr><TH>Month</TH><TH right>Lines</TH><TH right>Spent</TH><TH>Against the heaviest month</TH></tr>
+          </thead>
+          <tbody>
+            {data.months.map(m => (
+              <Fragment key={m.month}>
+                <tr style={{ opacity: m.entry_count ? 1 : 0.45 }}>
+                  <td className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                    {m.entry_count ? (
+                      <button onClick={() => setOpen(open === m.month ? null : m.month)}
+                        className="border-0 bg-transparent cursor-pointer text-[13px] font-medium text-left p-0"
+                        style={{ color: 'var(--green-600)' }}>
+                        <span style={{ display: 'inline-block', width: 14 }}>{open === m.month ? '▾' : '▸'}</span>
+                        {MONTHS[m.month - 1]}
+                      </button>
+                    ) : (
+                      <span className="text-[13px]" style={{ color: 'var(--ink-60)', paddingLeft: 14 }}>
+                        {MONTHS[m.month - 1]}
+                      </span>
+                    )}
+                  </td>
+                  <TD right mono style={{ color: 'var(--ink-60)' }}>{m.entry_count || ''}</TD>
+                  <TD right mono style={{ fontWeight: m.total ? 600 : 400 }}>
+                    {m.total ? fmt(m.total) : '—'}
+                  </TD>
+                  <TD style={{ minWidth: 150 }}>
+                    {m.total ? <ShareBar value={m.total} of={busiest} /> : null}
+                  </TD>
+                </tr>
+
+                {open === m.month && m.entries.map(e => (
+                  <tr key={e.id} style={{ background: 'var(--cream-dark)' }}>
+                    <TD mono style={{ color: 'var(--ink-60)', paddingLeft: 34 }}>{e.entry_date}</TD>
+                    <TD colSpan={2} style={{ color: 'var(--ink)' }}>
+                      {e.details}
+                      {(e.quantity || e.unit_price) && (
+                        <span className="ml-2 text-[11px]" style={{ color: 'var(--ink-30)' }}>
+                          {fmt(e.quantity, 2)} × {fmt(e.unit_price, 2)}
+                        </span>
+                      )}
+                    </TD>
+                    <TD right>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600 }}>{fmt(e.amount)}</span>
+                      {e.source === 'manual' && (
+                        <button onClick={() => remove(e)} title="Remove this line"
+                          className="border-0 bg-transparent cursor-pointer text-[12px] ml-2"
+                          style={{ color: 'var(--ink-30)' }}>✕</button>
+                      )}
+                    </TD>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+            <tr>
+              <TD style={{ fontWeight: 700 }}>{year}</TD>
+              <TD right mono style={{ color: 'var(--ink-60)' }}>{fmt(data.entry_count)}</TD>
+              <TD right mono style={{ fontWeight: 700 }}>{fmt(data.total)}</TD>
+              <TD />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {data.years.length > 1 && (
+        <div className="mt-5">
+          <div className="text-sm font-semibold mb-2" style={{ color: 'var(--ink)' }}>Year on year</div>
+          <div className="flex flex-wrap gap-2">
+            {data.years.map(y => (
+              <button key={y.year} onClick={() => onYear(y.year)}
+                className="rounded-lg border cursor-pointer text-left"
+                style={{
+                  padding: '8px 14px', background: y.year === year ? 'var(--green-100)' : 'var(--surface)',
+                  borderColor: y.year === year ? 'var(--green-600)' : 'var(--ink-10)',
+                }}>
+                <div className="text-[11px]" style={{ color: 'var(--ink-60)' }}>{y.year}</div>
+                <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{fmt(y.total)}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function MonthView({ year, month, categories, onError, onOpenCategory, adding, setAdding, onChanged }) {
+  const [data, setData] = useState(null)
+  const [q,    setQ]    = useState('')
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ year, month })
@@ -234,10 +477,9 @@ function MonthView({ year, month, onMonth, categories, onError }) {
   }, [year, month, q, onError])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { setFilter(null) }, [year, month])
 
   const remove = async (entry) => {
-    try { await apiFetch(`/expenses/${entry.id}`, { method: 'DELETE' }); load() }
+    try { await apiFetch(`/expenses/${entry.id}`, { method: 'DELETE' }); load(); onChanged() }
     catch (e) { onError(e.message) }
   }
 
@@ -246,7 +488,7 @@ function MonthView({ year, month, onMonth, categories, onError }) {
   const spent   = data.categories.filter(c => c.total > 0)
   const idle    = data.categories.filter(c => !c.total)
   const biggest = spent[0] ? spent.reduce((a, c) => (c.total > a.total ? c : a)) : null
-  const rows    = filter ? data.entries.filter(e => e.category_id === filter) : data.entries
+  const rows    = data.entries
   const firstOf = `${year}-${String(month).padStart(2, '0')}-01`
   const inThisMonth = today().slice(0, 7) === firstOf.slice(0, 7)
 
@@ -256,10 +498,11 @@ function MonthView({ year, month, onMonth, categories, onError }) {
         {[
           { label: 'Spent this month', value: fmtTsh(data.total), color: 'var(--ink)' },
           { label: 'Lines recorded',   value: fmt(data.counts.entries), color: 'var(--ink-60)' },
-          { label: 'Biggest line',     value: biggest ? biggest.name : '—',
+          { label: 'Heaviest line',    value: biggest ? biggest.name : '—',
             note: biggest ? fmtTsh(biggest.total) : null, color: 'var(--ink)' },
-          { label: 'From the workbook', value: fmt(data.counts.imported),
-            note: `${fmt(data.counts.manual)} typed in`, color: 'var(--ink-60)' },
+          { label: 'Headings used',    value: `${fmt(spent.length)} of ${fmt(data.categories.length)}`,
+            note: data.counts.imported ? `${fmt(data.counts.imported)} lines from a workbook` : null,
+            color: 'var(--ink-60)' },
         ].map(k => (
           <div key={k.label} className="rounded-lg border"
             style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)', padding: '16px 20px' }}>
@@ -270,10 +513,12 @@ function MonthView({ year, month, onMonth, categories, onError }) {
         ))}
       </div>
 
-      {!data.entries.length && !q && (
+      {!data.entries.length && !q && !adding && (
         <Notice kind="warn">
-          Nothing is recorded for {MONTHS[month - 1]} {year} yet. Upload the month's workbook under
-          <strong> Workbooks</strong>, or record the lines here one at a time.
+          Nothing is recorded for {MONTHS[month - 1]} {year} yet.{' '}
+          <button onClick={() => setAdding(true)} className="border-0 bg-transparent cursor-pointer underline p-0"
+            style={{ color: 'inherit', font: 'inherit' }}>Record the first line</button>, or bring the
+          month in from its old spreadsheet under <strong>Workbooks</strong>.
         </Notice>
       )}
 
@@ -287,8 +532,11 @@ function MonthView({ year, month, onMonth, categories, onError }) {
       {adding && (
         <AddLine
           categories={categories}
+          /* Today when today is in the month being looked at, and the
+             first of it otherwise — writing up August in September
+             should not quietly date every line to September. */
           date={inThisMonth ? today() : firstOf}
-          onSaved={() => { load() }}
+          onSaved={() => { load(); onChanged() }}
           onError={onError}
           onCancel={() => setAdding(false)}
         />
@@ -299,10 +547,9 @@ function MonthView({ year, month, onMonth, categories, onError }) {
           <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
             Where the month went
           </div>
-          {filter && (
-            <button onClick={() => setFilter(null)} className="border-0 bg-transparent cursor-pointer text-xs"
-              style={{ color: 'var(--green-600)' }}>Show every line</button>
-          )}
+          <div className="text-[11px]" style={{ color: 'var(--ink-30)' }}>
+            Click a heading for its month-by-month detail
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]" style={{ minWidth: 520 }}>
@@ -314,9 +561,9 @@ function MonthView({ year, month, onMonth, categories, onError }) {
                 <tr><td colSpan={4}><EmptyState>Nothing recorded against any line this month.</EmptyState></td></tr>
               )}
               {spent.map(c => (
-                <tr key={c.id} style={{ background: filter === c.id ? 'var(--cream-dark)' : undefined }}>
+                <tr key={c.id}>
                   <td className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <button onClick={() => setFilter(filter === c.id ? null : c.id)}
+                    <button onClick={() => onOpenCategory(c.id)}
                       className="border-0 bg-transparent cursor-pointer font-semibold text-[13px] text-left p-0"
                       style={{ color: 'var(--green-600)', whiteSpace: 'nowrap' }}>{c.name}</button>
                     {/* The heading is the row; what it means is a help note, and
@@ -349,7 +596,7 @@ function MonthView({ year, month, onMonth, categories, onError }) {
       <Card noPad>
         <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-wrap gap-2">
           <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
-            {filter ? data.categories.find(c => c.id === filter)?.name : 'Every line'}
+            Every line
             <span className="ml-2 font-normal" style={{ color: 'var(--ink-30)' }}>{fmt(rows.length)}</span>
           </div>
           <input type="search" placeholder="Search what it was for" value={q}
@@ -372,7 +619,11 @@ function MonthView({ year, month, onMonth, categories, onError }) {
               {rows.map(e => (
                 <tr key={e.id}>
                   <TD mono style={{ color: 'var(--ink-60)', whiteSpace: 'nowrap' }}>{e.entry_date}</TD>
-                  <TD style={{ color: 'var(--ink-60)', whiteSpace: 'nowrap' }}>{e.category}</TD>
+                  <TD style={{ whiteSpace: 'nowrap' }}>
+                    <button onClick={() => onOpenCategory(e.category_id)}
+                      className="border-0 bg-transparent cursor-pointer text-[13px] p-0 text-left"
+                      style={{ color: 'var(--ink-60)' }}>{e.category}</button>
+                  </TD>
                   <TD>{e.details}</TD>
                   <TD right mono style={{ color: 'var(--ink-60)' }}>{e.quantity ? fmt(e.quantity, 2) : ''}</TD>
                   <TD right mono style={{ color: 'var(--ink-60)' }}>{e.unit_price ? fmt(e.unit_price, 2) : ''}</TD>
@@ -396,18 +647,193 @@ function MonthView({ year, month, onMonth, categories, onError }) {
         </div>
       </Card>
 
-      {!adding && (
-        <div className="flex justify-end">
-          <Btn size="sm" variant="primary" onClick={() => setAdding(true)}>+ Record a line</Btn>
+    </>
+  )
+}
+
+/* ── the headings themselves ─────────────────────────────── */
+
+/**
+ * The headings, and what each has cost.
+ *
+ * A fixed list is the whole reason the summary can be read across a
+ * year: two spellings of one heading split a line in half and take
+ * money out of a month without anybody noticing. So headings are opened
+ * here, deliberately, rather than typed fresh on every entry.
+ *
+ * Closing one is the usual way to retire it — it comes off the entry
+ * form and out of the summary, and every line ever filed under it keeps
+ * its name. Deleting is only for a heading opened by mistake, and the
+ * API refuses it the moment anything is filed underneath.
+ */
+function CategoryRow({ c, editing, setEditing, draft, setDraft, patch, destroy, onOpenCategory }) {
+  return (
+    <tr style={{ opacity: c.active ? 1 : 0.55 }}>
+      <td className="px-4 py-2.5 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+        {editing === c.id ? (
+          <input type="text" className="w-full" value={draft.name} autoFocus
+            onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+        ) : (
+          <button onClick={() => onOpenCategory(c.id)}
+            className="border-0 bg-transparent cursor-pointer font-semibold text-[13px] text-left p-0"
+            style={{ color: 'var(--green-600)' }}>{c.name}</button>
+        )}
+      </td>
+      <TD style={{ color: 'var(--ink-60)', fontSize: 12 }}>
+        {editing === c.id ? (
+          <input type="text" className="w-full" value={draft.notes} placeholder="What belongs on this line"
+            onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} />
+        ) : (c.notes || '—')}
+      </TD>
+      <TD right mono style={{ color: 'var(--ink-60)' }}>{c.entry_count || '—'}</TD>
+      <TD right mono style={{ fontWeight: 600 }}>{c.total ? fmt(c.total) : '—'}</TD>
+      <TD right>
+        <div className="flex gap-2 justify-end flex-wrap">
+          {editing === c.id ? (
+            <>
+              <Btn size="sm" onClick={() => setEditing(null)}>Cancel</Btn>
+              <Btn size="sm" variant="primary" disabled={!draft.name.trim()}
+                onClick={() => { patch(c.id, { name: draft.name, notes: draft.notes }); setEditing(null) }}>
+                Save
+              </Btn>
+            </>
+          ) : (
+            <>
+              <Btn size="sm" onClick={() => { setEditing(c.id); setDraft({ name: c.name, notes: c.notes || '' }) }}>
+                Rename
+              </Btn>
+              <Btn size="sm" onClick={() => patch(c.id, { active: !c.active })}>
+                {c.active ? 'Close' : 'Reopen'}
+              </Btn>
+              {c.entry_count === 0 && (
+                <Btn size="sm" variant="danger" onClick={() => destroy(c)}>Delete</Btn>
+              )}
+            </>
+          )}
         </div>
+      </TD>
+    </tr>
+  )
+}
+
+function CategoriesView({ onError, onChanged, onOpenCategory }) {
+  const [rows,    setRows]    = useState(null)
+  const [showNew, setShowNew] = useState(false)
+  const [form,    setForm]    = useState({ name: '', notes: '' })
+  const [editing, setEditing] = useState(null)   // id being renamed
+  const [draft,   setDraft]   = useState({ name: '', notes: '' })
+
+  const load = useCallback(async () => {
+    try { setRows(await apiFetch('/expenses/categories')) }
+    catch (e) { onError(e.message) }
+  }, [onError])
+
+  useEffect(() => { load() }, [load])
+
+  const refresh = () => { load(); onChanged() }
+
+  const create = async () => {
+    try {
+      await apiFetch('/expenses/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name: form.name, notes: form.notes || null }),
+      })
+      setForm({ name: '', notes: '' }); setShowNew(false); refresh()
+    } catch (e) { onError(e.message) }
+  }
+
+  const patch = async (id, body) => {
+    try { await apiFetch(`/expenses/categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }); refresh() }
+    catch (e) { onError(e.message) }
+  }
+
+  const destroy = async (c) => {
+    if (!window.confirm(`Delete "${c.name}"? Nothing has ever been filed under it.`)) return
+    try { await apiFetch(`/expenses/categories/${c.id}`, { method: 'DELETE' }); refresh() }
+    catch (e) { onError(e.message) }
+  }
+
+  if (!rows) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
+
+  const live = rows.filter(c => c.active)
+  const shut = rows.filter(c => !c.active)
+
+  return (
+    <>
+      <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+        <p className="text-sm max-w-2xl" style={{ color: 'var(--ink-60)' }}>
+          The lines every expense is filed under. Open a new one when the farm starts spending on
+          something it did not before — a second lorry, a new shop — and it appears on the entry
+          form and in the summary from then on.
+        </p>
+        <Btn size="sm" variant="primary" onClick={() => setShowNew(v => !v)}>
+          {showNew ? 'Cancel' : '+ New heading'}
+        </Btn>
+      </div>
+
+      {showNew && (
+        <Card>
+          <CardTitle>New heading</CardTitle>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Name</label>
+              <input type="text" className="w-full" value={form.name} placeholder="e.g. Poultry"
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>
+                What belongs on it
+              </label>
+              <input type="text" className="w-full" value={form.notes}
+                placeholder="Shown under the heading, so two people file the same thing the same way"
+                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end mt-4">
+            <Btn size="sm" onClick={() => setShowNew(false)}>Cancel</Btn>
+            <Btn size="sm" variant="primary" disabled={!form.name.trim()} onClick={create}>Open it</Btn>
+          </div>
+        </Card>
       )}
+
+      <Card noPad>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="w-full border-collapse text-[13px]" style={{ minWidth: 760 }}>
+            <thead>
+              <tr>
+                <TH>Heading</TH><TH>What belongs on it</TH>
+                <TH right>Lines</TH><TH right>Spent, all time</TH><TH right />
+              </tr>
+            </thead>
+            <tbody>
+              {live.map(c => (
+                <CategoryRow key={c.id} c={c} editing={editing} setEditing={setEditing}
+                  draft={draft} setDraft={setDraft} patch={patch} destroy={destroy}
+                  onOpenCategory={onOpenCategory} />
+              ))}
+              {shut.length > 0 && (
+                <tr>
+                  <TD colSpan={5} style={{ background: 'var(--cream-dark)', color: 'var(--ink-60)', fontSize: 11 }}>
+                    Closed — off the entry form and out of the summary, with their history intact.
+                  </TD>
+                </tr>
+              )}
+              {shut.map(c => (
+                <CategoryRow key={c.id} c={c} editing={editing} setEditing={setEditing}
+                  draft={draft} setDraft={setDraft} patch={patch} destroy={destroy}
+                  onOpenCategory={onOpenCategory} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </>
   )
 }
 
 /* ── the year ────────────────────────────────────────────── */
 
-function YearView({ year, onYear, onError }) {
+function YearView({ year, onYear, onError, onOpenCategory }) {
   const [grid,  setGrid]  = useState(null)
   const [years, setYears] = useState(null)
 
@@ -429,6 +855,7 @@ function YearView({ year, onYear, onError }) {
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div className="text-sm" style={{ color: 'var(--ink-60)' }}>
           Every cell is the sum of the lines under it, worked out when you asked for it.
+          Click a heading for its month-by-month detail.
         </div>
         <select value={year} onChange={e => onYear(Number(e.target.value))}>
           {Array.from({ length: 7 }, (_, i) => thisYear + 1 - i).map(y => <option key={y} value={y}>{y}</option>)}
@@ -448,7 +875,13 @@ function YearView({ year, onYear, onError }) {
             <tbody>
               {grid.categories.map(c => (
                 <tr key={c.id} style={{ opacity: c.total ? 1 : 0.45 }}>
-                  <TD style={{ whiteSpace: 'nowrap', fontWeight: c.total ? 500 : 400 }}>{c.name}</TD>
+                  <TD style={{ whiteSpace: 'nowrap' }}>
+                    <button onClick={() => onOpenCategory(c.id)}
+                      className="border-0 bg-transparent cursor-pointer text-[13px] text-left p-0"
+                      style={{ color: c.total ? 'var(--green-600)' : 'var(--ink-60)', fontWeight: c.total ? 500 : 400 }}>
+                      {c.name}
+                    </button>
+                  </TD>
                   {c.months.map((m, i) => (
                     <TD key={i} right mono style={{ color: m ? 'var(--ink)' : 'var(--ink-30)' }}>{brief(m)}</TD>
                   ))}
@@ -735,6 +1168,13 @@ export default function Expenses() {
   const [categories, setCategories] = useState([])
   const [error, setError] = useState(null)
   const [reload, setReload] = useState(0)
+  const [adding, setAdding] = useState(false)
+
+  /* The heading being read, and the year it is being read for. Kept here
+     rather than inside a tab so that clicking a heading works the same
+     from the month, from the summary grid and from the list itself. */
+  const [openCategory, setOpenCategory] = useState(null)
+  const [detailYear,   setDetailYear]   = useState(now.getFullYear())
 
   useEffect(() => {
     apiFetch('/expenses/categories').then(setCategories).catch(() => {})
@@ -746,14 +1186,12 @@ export default function Expenses() {
     return () => clearTimeout(t)
   }, [error])
 
-  /* An upload refreshes what the page knows but stays where it is.
+  const changed = () => setReload(n => n + 1)
 
-     Jumping straight to the month would be convenient and would throw
-     away the one screen worth reading: which sheets were skipped, which
-     of the workbook's own totals disagree with its detail sheets, and
-     whether the payroll on it belongs to this month at all. The result
-     carries its own way through to the month instead. */
-  const afterImport = () => setReload(n => n + 1)
+  /* A heading opens on the year being looked at, not on this one: coming
+     to it from the 2025 grid and landing in 2026 would look like the
+     figures had vanished. */
+  const openHeading = (id) => { setDetailYear(year); setOpenCategory(id) }
 
   const openMonth = (period) => {
     setYear(period.year); setMonth(period.monthNum); setTab('month')
@@ -762,24 +1200,55 @@ export default function Expenses() {
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
       <PageHeader title="Expenses" sub="What the farm spends, and on what">
-        {tab === 'month' && <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m) }} />}
+        {tab === 'month' && (
+          <>
+            <MonthPicker year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m) }} />
+            <Btn size="sm" variant="primary" onClick={() => setAdding(v => !v)}>
+              {adding ? 'Done' : '+ Record an expense'}
+            </Btn>
+          </>
+        )}
       </PageHeader>
 
       {error && <Notice kind="error" onClose={() => setError(null)}>{error}</Notice>}
 
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
-        <TabBtn label="The month"    active={tab === 'month'} onClick={() => setTab('month')} />
-        <TabBtn label="Year summary" active={tab === 'year'}  onClick={() => setTab('year')} />
-        <TabBtn label="Workbooks"    active={tab === 'books'} onClick={() => setTab('books')} />
+      <div className="flex mb-5 flex-wrap" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+        <TabBtn label="The month"    active={tab === 'month'}      onClick={() => setTab('month')} />
+        <TabBtn label="Year summary" active={tab === 'year'}       onClick={() => setTab('year')} />
+        <TabBtn label="Categories"   active={tab === 'categories'} onClick={() => setTab('categories')} />
+        <TabBtn label="Workbooks"    active={tab === 'books'}      onClick={() => setTab('books')} />
       </div>
 
       {tab === 'month' && (
-        <MonthView key={`${year}-${month}-${reload}`} year={year} month={month}
-          categories={categories} onError={setError} />
+        /* Keyed on the month alone. Adding `reload` here would remount the
+           view — and the entry form inside it — on every save, throwing
+           away the date and heading the form promises to keep. The view
+           refetches itself; it does not need replacing. */
+        <MonthView key={`${year}-${month}`} year={year} month={month}
+          categories={categories} onError={setError} onOpenCategory={openHeading}
+          adding={adding} setAdding={setAdding} onChanged={changed} />
       )}
-      {tab === 'year' && <YearView key={`${year}-${reload}`} year={year} onYear={setYear} onError={setError} />}
+      {tab === 'year' && (
+        <YearView key={`${year}-${reload}`} year={year} onYear={setYear}
+          onError={setError} onOpenCategory={openHeading} />
+      )}
+      {tab === 'categories' && (
+        <CategoriesView onError={setError} onChanged={changed} onOpenCategory={openHeading} />
+      )}
       {tab === 'books' && (
-        <BooksView onError={setError} onImported={afterImport} onOpenMonth={openMonth} />
+        <BooksView onError={setError} onImported={changed} onOpenMonth={openMonth} />
+      )}
+
+      {openCategory && (
+        <CategoryDetail
+          id={openCategory}
+          year={detailYear}
+          onYear={setDetailYear}
+          categories={categories}
+          onClose={() => setOpenCategory(null)}
+          onChanged={changed}
+          onError={setError}
+        />
       )}
     </div>
   )
