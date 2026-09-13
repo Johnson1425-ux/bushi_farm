@@ -112,6 +112,42 @@ function Notice({ kind = 'error', children, onClose }) {
 
 /* ── the month ───────────────────────────────────────────── */
 
+/** How many days a month has, without a date library. */
+const daysInMonth = (year, month) => new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+const iso = (year, month, day) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+/** "12 September" — the way a day is said out loud. */
+function dayLabel(date) {
+  if (!date) return ''
+  const [y, m, d] = date.split('-').map(Number)
+  return `${d} ${MONTHS[m - 1]} ${y}`
+}
+
+/**
+ * Every day of the month, with what was spent on it.
+ *
+ * Days with nothing against them are in the strip too, and clickable:
+ * the farm spends on most days but not all, and a day that is missing
+ * from the row is a day you cannot select to write up.
+ */
+function daysOf(year, month, entries) {
+  const totals = new Map()
+  for (const e of entries) {
+    const t = totals.get(e.entry_date) || { total: 0, count: 0 }
+    t.total += e.amount; t.count++
+    totals.set(e.entry_date, t)
+  }
+  return Array.from({ length: daysInMonth(year, month) }, (_, i) => {
+    const date = iso(year, month, i + 1)
+    const t = totals.get(date) || { total: 0, count: 0 }
+    return { date, day: i + 1, total: Math.round(t.total * 100) / 100, count: t.count }
+  })
+}
+
+
+
 function MonthPicker({ year, month, onChange }) {
   const step = (by) => {
     let m = month + by, y = year
@@ -122,14 +158,14 @@ function MonthPicker({ year, month, onChange }) {
   const thisYear = new Date().getFullYear()
   return (
     <div className="flex items-center gap-2">
-      <Btn size="sm" onClick={() => step(-1)}>‹</Btn>
+      <Btn size="sm" title="The month before" onClick={() => step(-1)}>‹</Btn>
       <select value={month} onChange={e => onChange(year, Number(e.target.value))} style={{ minWidth: 130 }}>
         {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
       </select>
       <select value={year} onChange={e => onChange(Number(e.target.value), month)}>
         {Array.from({ length: 7 }, (_, i) => thisYear + 1 - i).map(y => <option key={y} value={y}>{y}</option>)}
       </select>
-      <Btn size="sm" onClick={() => step(1)}>›</Btn>
+      <Btn size="sm" title="The month after" onClick={() => step(1)}>›</Btn>
     </div>
   )
 }
@@ -468,6 +504,13 @@ function CategoryDetail({ id, year, onYear, categories, onClose, onError, onChan
 function MonthView({ year, month, categories, onError, onOpenCategory, adding, setAdding, onChanged }) {
   const [data, setData] = useState(null)
   const [q,    setQ]    = useState('')
+  /* Which day's lines are on screen. A month is two or three hundred
+     lines and nobody reads them all at once — the book itself is kept a
+     day at a time, a date written once with the day's spending under it. */
+  const [day,  setDay]  = useState(null)
+  /* The strip is a month wide and a phone is not, so the day being read
+     is scrolled to rather than left somewhere off to the right. */
+  const dayChip = useRef(null)
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ year, month })
@@ -477,6 +520,23 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
   }, [year, month, q, onError])
 
   useEffect(() => { load() }, [load])
+
+  /* Which day to open on: today when today is in this month — that is
+     the day someone is here to write up — and otherwise the last day
+     anything was spent, which is where a month being read back ends.
+     Only ever set once per month, so it cannot pull the day out from
+     under someone who has chosen one. */
+  useEffect(() => {
+    if (!data || day) return
+    const today_ = today()
+    if (today_.slice(0, 7) === `${year}-${String(month).padStart(2, '0')}`) return setDay(today_)
+    const spent = daysOf(year, month, data.entries).filter(d => d.count)
+    setDay(spent.length ? spent[spent.length - 1].date : iso(year, month, 1))
+  }, [data, day, year, month])
+
+  useEffect(() => {
+    dayChip.current?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  }, [day])
 
   const remove = async (entry) => {
     try { await apiFetch(`/expenses/${entry.id}`, { method: 'DELETE' }); load(); onChanged() }
@@ -488,9 +548,34 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
   const spent   = data.categories.filter(c => c.total > 0)
   const idle    = data.categories.filter(c => !c.total)
   const biggest = spent[0] ? spent.reduce((a, c) => (c.total > a.total ? c : a)) : null
-  const rows    = data.entries
   const firstOf = `${year}-${String(month).padStart(2, '0')}-01`
   const inThisMonth = today().slice(0, 7) === firstOf.slice(0, 7)
+
+  const days    = daysOf(year, month, data.entries)
+  const busiest = Math.max(...days.map(d => d.total), 0)
+  const onDay   = days.find(d => d.date === day) || days[0]
+
+  /* A search is a search of the month. Narrowing it to the open day as
+     well would mean a line you know you keyed is "not there" because you
+     are standing on the wrong day — which is the one thing a search is
+     for. The day comes back the moment the box is cleared. */
+  const searching = Boolean(q.trim())
+  const rows = searching ? data.entries : data.entries.filter(e => e.entry_date === day)
+
+  const stepDay = (by) => {
+    const i = days.findIndex(d => d.date === day)
+    const next = days[Math.min(days.length - 1, Math.max(0, (i < 0 ? 0 : i) + by))]
+    if (next) setDay(next.date)
+  }
+
+  /* Where the nearest spending is, for a day with none on it. */
+  const nearest = (() => {
+    if (!onDay || onDay.count) return null
+    const withSpend = days.filter(d => d.count)
+    if (!withSpend.length) return null
+    return withSpend.reduce((a, d) =>
+      Math.abs(d.day - onDay.day) < Math.abs(a.day - onDay.day) ? d : a)
+  })()
 
   return (
     <>
@@ -532,10 +617,11 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
       {adding && (
         <AddLine
           categories={categories}
-          /* Today when today is in the month being looked at, and the
-             first of it otherwise — writing up August in September
-             should not quietly date every line to September. */
-          date={inThisMonth ? today() : firstOf}
+          /* The day on screen. Someone who has walked back to the 8th to
+             read it and then records a line means the 8th; defaulting to
+             today would file it three days away from where they are
+             looking. */
+          date={day || (inThisMonth ? today() : firstOf)}
           onSaved={() => { load(); onChanged() }}
           onError={onError}
           onCancel={() => setAdding(false)}
@@ -594,31 +680,122 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
       </Card>
 
       <Card noPad>
-        <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-wrap gap-2">
-          <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
-            Every line
-            <span className="ml-2 font-normal" style={{ color: 'var(--ink-30)' }}>{fmt(rows.length)}</span>
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+              {searching ? `Anywhere in ${MONTHS[month - 1]}` : dayLabel(day)}
+              <span className="ml-2 font-normal" style={{ color: 'var(--ink-30)' }}>
+                {fmt(rows.length)} {rows.length === 1 ? 'line' : 'lines'}
+              </span>
+            </div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-60)' }}>
+              {searching
+                ? 'Searching the whole month. Clear the box to go back to the day.'
+                : onDay?.count
+                  ? `${fmtTsh(onDay.total)} spent on this day`
+                  : 'Nothing recorded on this day'}
+            </div>
           </div>
-          <input type="search" placeholder="Search what it was for" value={q}
-            onChange={e => setQ(e.target.value)} style={{ minWidth: 200 }} />
+          <div className="flex items-center gap-2 flex-wrap">
+            {!searching && (
+              <>
+                <Btn size="sm" title="The day before" onClick={() => stepDay(-1)} disabled={onDay?.day === 1}>‹</Btn>
+                <input type="date" value={day || firstOf} min={firstOf}
+                  max={iso(year, month, daysInMonth(year, month))}
+                  onChange={e => e.target.value && setDay(e.target.value)} />
+                <Btn size="sm" title="The day after" onClick={() => stepDay(1)} disabled={onDay?.day === days.length}>›</Btn>
+              </>
+            )}
+            <input type="search" placeholder="Search the month" value={q}
+              onChange={e => setQ(e.target.value)} style={{ minWidth: 170 }} />
+          </div>
         </div>
+
+        {/* Every day of the month, with what it cost.
+
+            This is the month's shape at a glance — which days the lorry
+            went out, which the feed came in, which nothing happened on —
+            and it is how a day is chosen. Days with nothing on them are
+            here too, and selectable: a day is picked to write up as often
+            as to read back. */}
+        {!searching && (
+          <div className="px-5 pb-4 flex gap-1.5 overflow-x-auto">
+            {days.map(d => {
+              const on = d.date === day
+              return (
+                <button key={d.date} onClick={() => setDay(d.date)}
+                  ref={on ? dayChip : null}
+                  title={`${dayLabel(d.date)}${d.count ? ` — ${fmtTsh(d.total)} over ${d.count} line(s)` : ''}`}
+                  className="rounded-lg border cursor-pointer flex-shrink-0 text-center"
+                  style={{
+                    padding: '5px 8px', minWidth: 46,
+                    background: on ? 'var(--green-600)' : d.count ? 'var(--surface)' : 'transparent',
+                    borderColor: on ? 'var(--green-600)' : 'var(--ink-10)',
+                    color: on ? '#fff' : d.count ? 'var(--ink)' : 'var(--ink-30)',
+                  }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{d.day}</div>
+                  <div style={{ fontSize: 9.5, opacity: on ? 0.85 : 0.7 }}>
+                    {d.count ? brief(d.total) : '·'}
+                  </div>
+                  {/* A hair of the day's weight against the heaviest day,
+                      so the strip reads as a month and not a row of chips. */}
+                  <div style={{ height: 2, marginTop: 3, borderRadius: 2, background: on ? 'rgba(255,255,255,.35)' : 'var(--ink-10)' }}>
+                    <div style={{
+                      height: 2, borderRadius: 2,
+                      width: `${busiest > 0 ? Math.round((d.total / busiest) * 100) : 0}%`,
+                      background: on ? '#fff' : 'var(--green-400)',
+                    }} />
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]" style={{ minWidth: 720 }}>
             <thead>
               <tr>
-                <TH>Date</TH><TH>Line</TH><TH>What for</TH>
+                {searching && <TH>Date</TH>}
+                <TH>Line</TH><TH>What for</TH>
                 <TH right>Qty</TH><TH right>Price</TH><TH right>Amount</TH><TH>From</TH><TH />
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
                 <tr><td colSpan={8}><EmptyState>
-                  {q ? 'No line this month matches that.' : 'No lines recorded for this month yet.'}
+                  {searching ? (
+                    <>Nothing in {MONTHS[month - 1]} matches that.</>
+                  ) : (
+                    <>
+                      Nothing recorded on {dayLabel(day)}.{' '}
+                      <button onClick={() => setAdding(true)}
+                        className="border-0 bg-transparent cursor-pointer underline p-0"
+                        style={{ color: 'var(--green-600)', font: 'inherit' }}>
+                        Record a line for this day
+                      </button>
+                      {nearest && (
+                        <>
+                          {' '}— or jump to{' '}
+                          <button onClick={() => setDay(nearest.date)}
+                            className="border-0 bg-transparent cursor-pointer underline p-0"
+                            style={{ color: 'var(--green-600)', font: 'inherit' }}>
+                            {dayLabel(nearest.date)}
+                          </button>, the nearest day with spending on it.
+                        </>
+                      )}
+                    </>
+                  )}
                 </EmptyState></td></tr>
               )}
               {rows.map(e => (
                 <tr key={e.id}>
-                  <TD mono style={{ color: 'var(--ink-60)', whiteSpace: 'nowrap' }}>{e.entry_date}</TD>
+                  {searching && (
+                    <TD mono style={{ color: 'var(--ink-60)', whiteSpace: 'nowrap' }}>
+                      <button onClick={() => { setQ(''); setDay(e.entry_date) }}
+                        className="border-0 bg-transparent cursor-pointer p-0"
+                        style={{ color: 'var(--ink-60)', font: 'inherit' }}>{e.entry_date}</button>
+                    </TD>
+                  )}
                   <TD style={{ whiteSpace: 'nowrap' }}>
                     <button onClick={() => onOpenCategory(e.category_id)}
                       className="border-0 bg-transparent cursor-pointer text-[13px] p-0 text-left"
@@ -642,6 +819,18 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
                   </TD>
                 </tr>
               ))}
+              {rows.length > 0 && (
+                <tr>
+                  <TD colSpan={searching ? 4 : 3} style={{ fontWeight: 600 }}>
+                    {searching ? `Matching lines in ${MONTHS[month - 1]}` : dayLabel(day)}
+                  </TD>
+                  <TD right mono style={{ color: 'var(--ink-60)' }} />
+                  <TD right mono style={{ fontWeight: 700 }}>
+                    {fmt(rows.reduce((a, e) => a + e.amount, 0))}
+                  </TD>
+                  <TD /><TD />
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
