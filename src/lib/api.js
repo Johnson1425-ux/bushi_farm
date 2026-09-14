@@ -1,6 +1,18 @@
 import { getAccessToken, hasSession, refreshSession, clearSession } from './session'
 
-// Use an environment variable, fallback to '/api' for local dev
+/* Where the API lives.
+ *
+ * Empty by default, which means /api on this same origin — the browser
+ * then sees one site, and the session cookie is first-party. That is the
+ * arrangement the whole session depends on: in development vite.config.js
+ * proxies /api to the local API, and in production vercel.json rewrites
+ * it to the deployed one.
+ *
+ * Setting VITE_API_URL points the app straight at another host, which
+ * makes the session cookie third-party again — Safari will not store it
+ * and the user is signed out on every reload. Leave it unset unless the
+ * API is genuinely on the same site by some other route.
+ */
 const apiHost = import.meta.env.VITE_API_URL || ''; 
 
 // Ensure we have a clean path
