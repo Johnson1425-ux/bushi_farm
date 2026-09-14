@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { Btn, PageHeader } from '../components/ui'
 import { BASE, apiFetch } from '../lib/api'
+import { authHeaders } from '../lib/session'
 
 export default function ImportData({ onImported }) {
   const [log,  setLog]  = useState([])
@@ -14,10 +15,9 @@ export default function ImportData({ onImported }) {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const token = localStorage.getItem('mt_token')
       const res  = await fetch(`${BASE}/import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: await authHeaders(),
         body: fd,
       })
       const data = await res.json()

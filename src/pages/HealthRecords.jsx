@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import HealthRecordForm from '../components/HealthRecordForm'
 
@@ -13,9 +14,8 @@ const today = () => new Date().toISOString().slice(0, 10)
  * <a href> carries no Authorization header and would come back a 401.
  */
 async function downloadTemplate() {
-  const token = localStorage.getItem('mt_token')
   const res = await fetch(`${BASE}/health-records/template`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: await authHeaders(),
   })
   if (!res.ok) throw new Error('Could not download the form. Try again.')
   const url = URL.createObjectURL(await res.blob())
@@ -275,10 +275,9 @@ function UploadModal({ cows, onClose, onSuccess }) {
       if (cowId) fd.append('cow_id', cowId)
 
       // Use raw fetch for multipart (apiFetch wraps JSON)
-      const token = localStorage.getItem('mt_token')
       const res = await fetch(
         `${BASE}/health-records/import`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }
+        { method: 'POST', headers: await authHeaders(), body: fd }
       )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload failed')

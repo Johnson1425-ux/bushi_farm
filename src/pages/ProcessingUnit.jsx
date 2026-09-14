@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { streamAi } from '../lib/aiApi'
@@ -16,10 +17,7 @@ const num = (v) => Number(v) || 0
  * and handed to the browser as a blob instead.
  */
 async function downloadAuthed(path, fallbackName) {
-  const token = localStorage.getItem('mt_token')
-  const res = await fetch(BASE + path, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const res = await fetch(BASE + path, { headers: await authHeaders() })
   if (!res.ok) {
     const e = await res.json().catch(() => ({}))
     throw new Error(e.error || `Download failed (${res.status})`)
@@ -80,10 +78,9 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const token = localStorage.getItem('mt_token')
       const res  = await fetch(`${BASE}/processing/upload`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: await authHeaders(),
         body: fd,
       })
       const data = await res.json()

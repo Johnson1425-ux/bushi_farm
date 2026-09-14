@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, Btn, PageHeader, EmptyState } from '../components/ui'
 
 const fmt   = n => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -126,10 +127,9 @@ export default function Inventory() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const token = localStorage.getItem('mt_token')
       const res = await fetch(`${BASE}/inventory/import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: await authHeaders(),
         body: fd,
       })
       const result = await res.json()

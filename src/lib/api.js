@@ -1,4 +1,18 @@
-// Use an environment variable, fallback to '/api' for local dev
+import { getAccessToken, hasSession, refreshSession, clearSession } from './session'
+
+/* Where the API lives.
+ *
+ * Empty by default, which means /api on this same origin — the browser
+ * then sees one site, and the session cookie is first-party. That is the
+ * arrangement the whole session depends on: in development vite.config.js
+ * proxies /api to the local API, and in production vercel.json rewrites
+ * it to the deployed one.
+ *
+ * Setting VITE_API_URL points the app straight at another host, which
+ * makes the session cookie third-party again — Safari will not store it
+ * and the user is signed out on every reload. Leave it unset unless the
+ * API is genuinely on the same site by some other route.
+ */
 const apiHost = import.meta.env.VITE_API_URL || ''; 
 
 // Ensure we have a clean path
@@ -6,27 +20,50 @@ export const BASE = apiHost.endsWith('/')
   ? apiHost.slice(0, -1) + '/api' 
   : apiHost + '/api';
 
-function getToken() {
-  return localStorage.getItem('mt_token')
-}
-
+/**
+ * Every call to the API.
+ *
+ * Access tokens are short-lived and held only in memory, so the token is
+ * fetched through getAccessToken() — which trades the session cookie for
+ * a new one when the old one is about to expire. A request that still
+ * comes back 401 is retried once against a freshly minted token: that
+ * covers the token dying between being read and being received, and a
+ * long-open tab waking up to a dead token it can still replace.
+ */
 export async function apiFetch(path, opts = {}) {
-  const token = getToken()
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(opts.headers || {}),
+  const send = async (token) => {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {}),
+    }
+    if (opts.body instanceof FormData) delete headers['Content-Type']
+    return fetch(BASE + path, { ...opts, headers })
   }
-  if (opts.body instanceof FormData) delete headers['Content-Type']
 
-  const r = await fetch(BASE + path, { ...opts, headers })
+  const token = await getAccessToken()
+  let r = await send(token)
 
-  // Tokens last 7 days. Without this, a session that expires while the tab is
-  // open just fails every call inline and never returns the user to sign-in.
   if (r.status === 401 && token) {
-    localStorage.removeItem('mt_token')
-    if (window.location.pathname !== '/login') {
-      window.location.replace('/login')
+    /* Renew and try once more — but only while there is still a session
+       to renew, so a 401 that means "not allowed" cannot turn into a
+       second pointless request. The body is a string or FormData, both of
+       which can be sent again as they are. */
+    if (hasSession()) {
+      await refreshSession()
+      const renewed = await getAccessToken()
+      if (renewed && renewed !== token) r = await send(renewed)
+    }
+
+    if (r.status === 401) {
+      /* The session is genuinely over. Without this a tab left open
+         overnight fails every call inline and never returns to sign-in.
+         Only a request that carried a token lands here, so an anonymous
+         visitor reading a public page is not dragged to the login form. */
+      clearSession()
+      if (window.location.pathname !== '/login') {
+        window.location.replace('/login')
+      }
     }
   }
 
