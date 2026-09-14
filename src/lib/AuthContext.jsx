@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { BASE } from './api'
 import {
-  saveSession, clearSession, hasSession, getAccessToken,
-  endSessionEverywhere, onSessionEnded,
+  startSession, restoreSession, endSessionEverywhere, onSessionEnded, CLIENT_HEADER,
 } from './session'
 
 const AuthContext = createContext(null)
@@ -22,18 +21,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false
-    if (!hasSession()) { setLoading(false); return }
 
-    /* Renew first if the stored access token has gone stale — which, at
-       fifteen minutes, it usually has by the time the tab is reopened. */
-    getAccessToken()
-      .then(token => {
-        if (!token) return Promise.reject(new Error('no session'))
-        return fetch(`${BASE}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
-      })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error('rejected')))
-      .then(({ user }) => { if (!cancelled) setUser(user) })
-      .catch(() => clearSession())
+    /* Nothing survives a reload but the cookie, so every load starts by
+       exchanging it for an access token. The same call says who the
+       session belongs to, so there is no second request to /auth/me. */
+    restoreSession()
+      .then(user => { if (!cancelled) setUser(user) })
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
@@ -42,20 +35,24 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     const r = await fetch(`${BASE}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      /* The session cookie arrives on this response and is stored by the
+         browser; without this the Set-Cookie is dropped on the floor. */
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...CLIENT_HEADER },
       body: JSON.stringify({ username, password }),
     })
     const data = await r.json()
     if (!r.ok) throw new Error(data.error || 'Login failed')
-    /* Both tokens and when the access one expires; the client renews on
-       that clock rather than waiting to be told 401. */
-    saveSession(data)
+    /* The access token and when it expires. The refresh token is not in
+       here — it went into the httpOnly cookie, out of reach of this code
+       and of anything injected alongside it. */
+    startSession(data)
     setUser(data.user)
   }
 
-  /* Signing out tells the server, so the refresh token stops working for
-     anyone who has a copy of it. Forgetting it here is no longer enough on
-     its own — that is the whole point of a session the server can end. */
+  /* Signing out tells the server, which revokes the session and clears
+     the cookie. Forgetting it here is not enough on its own — that is the
+     whole point of a session the server can end. */
   const logout = async () => {
     setUser(null)
     await endSessionEverywhere()

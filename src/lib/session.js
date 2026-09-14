@@ -3,182 +3,185 @@ import { BASE } from './api'
 /* ══════════════════════════════════════════════════════════════
    THE SIGNED-IN SESSION
 
-   Two tokens, with different lives:
+   Nothing that can be used to sign in is written to disk.
 
-     access  — sent on every request, good for about fifteen minutes.
-     refresh — kept only to obtain the next access token, good for a month,
-               rotated each time it is used, and revocable by the server.
+     the refresh token — set by the server as an httpOnly cookie. No
+                         script can read it, this one included; the
+                         browser attaches it to /api/auth requests and
+                         that is the only way it is ever used.
+     the access token  — held in this module's memory for the fifteen
+                         minutes it lasts. Not in localStorage, not in a
+                         readable cookie, gone when the tab closes.
 
-   Everything that needs a token asks getAccessToken() rather than reading
-   storage, because by the time a page has been open for an hour the stored
-   access token is long dead and the refresh has to happen first. The call
-   is cheap: it returns the stored token untouched until it is close to
-   expiring.
+   Both used to live in localStorage, where any injected script could read
+   them and, worse, keep them: a refresh token copied out that way is a
+   month of access from anywhere. Now the long-lived half is out of reach
+   of script entirely, and the short-lived half dies with the page.
 
-   ── Why localStorage ────────────────────────────────────────
-   A refresh token in an httpOnly cookie would be out of reach of any
-   script on the page, which is better — but the API is on a different
-   origin to this app, so that cookie is a third-party cookie and today's
-   browsers drop it. Rather than build a session that quietly stops working
-   in Safari, the token is stored here and kept short-lived, rotated and
-   revocable instead. Those are the defences that survive the move; if the
-   API is ever served from the same origin as the app, the refresh token
-   belongs in a cookie and this file is where that change lands.
+   XSS is not defeated by this — a script running on the page can call the
+   API as the user for as long as it runs. What it can no longer do is
+   walk away with the session.
+
+   ── The cost, and what pays it ──────────────────────────────
+   The access token does not survive a reload, so every load starts by
+   exchanging the cookie for a new one (restoreSession below). One request
+   at boot, and in return there is nothing on disk to steal.
+
+   ── This only works first-party ─────────────────────────────
+   The cookie is stored by the browser for the API's own site. Deployed
+   with the app on one *.vercel.app host and the API on another, that is a
+   third-party cookie: Chrome and Firefox still send it, Safari does not
+   store it at all. Serving the API under the app's domain — a proxied
+   path, or api.yourfarm.com beside app.yourfarm.com — makes it
+   first-party and is what makes this arrangement hold everywhere.
 ══════════════════════════════════════════════════════════════ */
 
-const ACCESS_KEY  = 'mt_token'      // unchanged: an open tab keeps its session
-const REFRESH_KEY = 'mt_refresh'
-const EXPIRY_KEY  = 'mt_token_expiry'
-const LOCK_KEY    = 'mt_refresh_lock'
+/* Not a credential: just a note that this browser had a session, so a
+   first-time visitor on a public page is not sent to ask for a new access
+   token nobody is waiting for. Worthless to anyone who steals it. */
+const SIGNED_IN_KEY = 'mt_session'
 
-/* Refresh this long before the token actually expires, so a request never
-   leaves with a token that dies in flight. Also covers a client clock that
-   runs slightly fast. */
-const RENEW_BEFORE_MS = 60 * 1000;
+/* Written by the release that kept tokens in localStorage. Read once, to
+   trade for a cookie, then scrubbed. */
+const LEGACY_KEYS = ['mt_token', 'mt_refresh', 'mt_token_expiry', 'mt_refresh_lock']
 
-/* How long one tab may hold the refresh lock before the others stop
-   waiting for it — a tab that was closed mid-refresh must not wedge the
-   rest of them. */
-const LOCK_TTL_MS = 10 * 1000;
+/* Renew this long before the token expires, so a request never leaves
+   with one that dies in flight, and a slightly fast clock is covered. */
+const RENEW_BEFORE_MS = 60 * 1000
 
-/* Safari in private mode throws on every storage call rather than
-   returning null, and a thrown getter here would take the whole app down
-   on load. */
+/* Forces a CORS preflight, which an origin the API does not know cannot
+   pass — that is what stops a hostile page from spending the cookie. */
+export const CLIENT_HEADER = { 'X-Requested-With': 'milktrack' }
+
+/* Safari in private mode throws on storage rather than returning null. */
 const read = (k) => { try { return localStorage.getItem(k) } catch { return null } }
 const write = (k, v) => {
   try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v) } catch { /* ignore */ }
 }
 
+/* The session, for as long as this page is open. */
+let accessToken  = null
+let accessExpiry = 0
+
 const listeners = new Set()
 
-/** Called when the session ends underneath the app — expired, revoked, signed out elsewhere. */
+/** Called when the session ends underneath the app — expired, revoked, signed out. */
 export function onSessionEnded(fn) {
   listeners.add(fn)
   return () => listeners.delete(fn)
 }
 
-export function saveSession({ token, refreshToken, expiresIn }) {
-  write(ACCESS_KEY, token || null)
-  if (refreshToken) write(REFRESH_KEY, refreshToken)
-  write(EXPIRY_KEY, expiresIn ? String(Date.now() + Number(expiresIn) * 1000) : null)
+function remember({ token, expiresIn }) {
+  accessToken  = token || null
+  accessExpiry = token && expiresIn ? Date.now() + Number(expiresIn) * 1000 : 0
+  write(SIGNED_IN_KEY, token ? '1' : null)
 }
 
 export function clearSession() {
-  write(ACCESS_KEY, null); write(REFRESH_KEY, null)
-  write(EXPIRY_KEY, null); write(LOCK_KEY, null)
+  accessToken = null
+  accessExpiry = 0
+  write(SIGNED_IN_KEY, null)
+  LEGACY_KEYS.forEach(k => write(k, null))
 }
-
-/** Is there anything to work with — a live access token, or a refresh token to get one? */
-export function hasSession() {
-  return Boolean(read(ACCESS_KEY) || read(REFRESH_KEY))
-}
-
-export const getRefreshToken = () => read(REFRESH_KEY)
 
 function endSession() {
   clearSession()
-  listeners.forEach(fn => { try { fn() } catch { /* a listener must not stop the others */ } })
+  listeners.forEach(fn => { try { fn() } catch { /* one listener must not stop the others */ } })
 }
 
-/* One refresh at a time within this tab. Without it, a screen that fires
-   six requests on mount would spend the refresh token six times over and
-   five of them would come back as a replay. */
+/** Is this browser carrying a session — in memory, or a cookie left from a previous load? */
+export function hasSession() {
+  return Boolean(accessToken || read(SIGNED_IN_KEY) || read('mt_refresh'))
+}
+
+/* One renewal at a time. Without it a screen that fires six requests on
+   mount would spend the cookie six times over, and the server would see
+   five of them as a token replayed after it was rotated. */
 let inFlight = null
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+async function doRefresh() {
+  /* A token left in storage by the previous release buys one cookie and
+     is then gone for good. */
+  const legacy = read('mt_refresh')
+
+  let r
+  try {
+    r = await fetch(`${BASE}/auth/refresh`, {
+      method: 'POST',
+      /* The point of the whole exercise: the cookie goes, and nothing in
+         this file ever sees it. */
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...CLIENT_HEADER },
+      body: JSON.stringify(legacy ? { refreshToken: legacy } : {}),
+    })
+  } catch {
+    /* Offline or the server is unreachable. That says nothing about the
+       session, so it is left intact and the caller sees a failed request
+       it can retry. */
+    throw new Error('Could not reach the server')
+  }
+
+  LEGACY_KEYS.forEach(k => write(k, null))
+
+  if (r.status === 401 || r.status === 403) {
+    /* The server has ended this session — expired, signed out, or revoked
+       because the account changed. Retrying cannot help. */
+    endSession()
+    return null
+  }
+  if (!r.ok) throw new Error('Could not renew the session. Try again.')
+
+  const data = await r.json()
+  remember(data)
+  return data.user ?? null
+}
 
 /**
- * Wait for whichever tab is already refreshing.
+ * Trade the cookie for a fresh access token.
  *
- * Tabs share storage but not memory, so the in-tab guard above says nothing
- * about the tab next to it. Both would present the same refresh token, and
- * only one can spend it. A lock in storage keeps that to one request; the
- * server also forgives a rotation raced by seconds, which covers the gap
- * between reading the lock and writing it.
- *
- * Returns the token the other tab obtained, or null if it never arrived —
- * in which case this tab goes ahead and refreshes itself.
+ * Resolves to the user the session belongs to, or null when there is no
+ * session left to renew.
  */
-async function waitForOtherTab() {
-  const held = read(LOCK_KEY)
-  const heldAt = held ? Number(held) : 0
-  if (!heldAt || Date.now() - heldAt > LOCK_TTL_MS) return null
-
-  const before = read(ACCESS_KEY)
-  const until  = heldAt + LOCK_TTL_MS
-  while (Date.now() < until) {
-    await sleep(120)
-    const now = read(ACCESS_KEY)
-    if (now && now !== before) return now      // the other tab published one
-    if (!read(LOCK_KEY)) return read(ACCESS_KEY)  // it finished, or gave up
-  }
-  return null
-}
-
-async function doRefresh() {
-  const shared = await waitForOtherTab()
-  if (shared) return shared
-
-  const refreshToken = read(REFRESH_KEY)
-  if (!refreshToken) { endSession(); return null }
-
-  write(LOCK_KEY, String(Date.now()))
-  try {
-    const r = await fetch(`${BASE}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    })
-
-    if (r.status === 401 || r.status === 403) {
-      /* The server has decided this session is over — expired, signed out,
-         or revoked because the account changed. Retrying cannot help. */
-      endSession()
-      return null
-    }
-    if (!r.ok) {
-      /* A 500 or a gateway error says nothing about the session, so the
-         tokens stay put and the caller sees a failed request it can retry. */
-      throw new Error('Could not renew the session. Try again.')
-    }
-
-    const data = await r.json()
-    saveSession(data)
-    return data.token
-  } finally {
-    write(LOCK_KEY, null)
-  }
-}
-
-/** Force a renewal now — what a 401 on a live token asks for. */
 export function refreshSession() {
   if (!inFlight) inFlight = doRefresh().finally(() => { inFlight = null })
   return inFlight
 }
 
-/**
- * A usable access token, renewed first if it is expired or nearly so.
- *
- * Returns null when there is no session to renew — callers send the request
- * without a token and let the API answer 401, which is what an anonymous
- * visitor on a public page should get.
- */
-export async function getAccessToken() {
-  const token  = read(ACCESS_KEY)
-  const expiry = Number(read(EXPIRY_KEY))
+/** Called once on load: pick the session back up, or establish there is none. */
+export async function restoreSession() {
+  if (!hasSession()) return null
+  try {
+    return await refreshSession()
+  } catch {
+    /* The server could not be reached. Say "not signed in" for now rather
+       than wiping a session that is probably still good — the next
+       request will try again. */
+    return null
+  }
+}
 
-  /* No recorded expiry means a token stored before sessions were split in
-     two. It is still honoured by the API until it runs out, and the 401
-     handler takes over after that. */
-  if (token && (!expiry || Date.now() < expiry - RENEW_BEFORE_MS)) return token
-  if (!read(REFRESH_KEY)) return token || null
-
-  return refreshSession()
+/** Store what a fresh sign-in returned. The cookie came with the response. */
+export function startSession(data) {
+  remember(data)
 }
 
 /**
- * Authorization header for a hand-rolled fetch — file uploads and
- * downloads, which cannot go through apiFetch because they are not JSON.
+ * A usable access token, renewed first if it is expired or nearly so.
+ *
+ * Returns null when there is no session — callers send the request
+ * without a token and let the API answer 401, which is the right answer
+ * for an anonymous visitor.
+ */
+export async function getAccessToken() {
+  if (accessToken && Date.now() < accessExpiry - RENEW_BEFORE_MS) return accessToken
+  if (!hasSession()) return null
+  await refreshSession()
+  return accessToken
+}
+
+/**
+ * Authorization header for a hand-rolled fetch — the file uploads and
+ * downloads that cannot go through apiFetch because they are not JSON.
  * Always await it: it may have to renew the token first.
  */
 export async function authHeaders(extra = {}) {
@@ -186,20 +189,18 @@ export async function authHeaders(extra = {}) {
   return { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...extra }
 }
 
-/** Sign out: end the session on the server as well as forgetting it here. */
+/** Sign out: end the session on the server, and let it clear the cookie. */
 export async function endSessionEverywhere() {
-  const refreshToken = read(REFRESH_KEY)
   clearSession()
-  if (!refreshToken) return
   try {
     await fetch(`${BASE}/auth/logout`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...CLIENT_HEADER },
+      body: '{}',
     })
   } catch {
-    /* Offline, or the server is down. The token is already gone from this
-       device; it will expire on its own, and the server keeps no session
-       this browser can still use. */
+    /* Offline, or the server is down. Nothing usable is left in this
+       browser; the token expires on its own. */
   }
 }

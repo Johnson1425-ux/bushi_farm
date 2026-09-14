@@ -1,4 +1,4 @@
-import { getAccessToken, getRefreshToken, refreshSession, clearSession } from './session'
+import { getAccessToken, hasSession, refreshSession, clearSession } from './session'
 
 // Use an environment variable, fallback to '/api' for local dev
 const apiHost = import.meta.env.VITE_API_URL || ''; 
@@ -11,12 +11,12 @@ export const BASE = apiHost.endsWith('/')
 /**
  * Every call to the API.
  *
- * Access tokens are short-lived now, so the token is fetched through
- * getAccessToken() — which renews it first when it is about to expire —
- * rather than read straight out of storage. A request that still comes
- * back 401 is retried once against a freshly minted token: that covers the
- * token dying between being read and being received, and the case where a
- * long-open tab wakes up to a dead session it can still renew.
+ * Access tokens are short-lived and held only in memory, so the token is
+ * fetched through getAccessToken() — which trades the session cookie for
+ * a new one when the old one is about to expire. A request that still
+ * comes back 401 is retried once against a freshly minted token: that
+ * covers the token dying between being read and being received, and a
+ * long-open tab waking up to a dead token it can still replace.
  */
 export async function apiFetch(path, opts = {}) {
   const send = async (token) => {
@@ -33,12 +33,15 @@ export async function apiFetch(path, opts = {}) {
   let r = await send(token)
 
   if (r.status === 401 && token) {
-    /* Renew and try once more — but only if there is a refresh token to
-       renew with, so a 401 that means "not allowed" cannot turn into a
+    /* Renew and try once more — but only while there is still a session
+       to renew, so a 401 that means "not allowed" cannot turn into a
        second pointless request. The body is a string or FormData, both of
        which can be sent again as they are. */
-    const renewed = getRefreshToken() ? await refreshSession() : null
-    if (renewed && renewed !== token) r = await send(renewed)
+    if (hasSession()) {
+      await refreshSession()
+      const renewed = await getAccessToken()
+      if (renewed && renewed !== token) r = await send(renewed)
+    }
 
     if (r.status === 401) {
       /* The session is genuinely over. Without this a tab left open
