@@ -2,8 +2,10 @@ import React, { useRef, useState } from 'react'
 import { Btn, PageHeader } from '../components/ui'
 import { BASE, apiFetch } from '../lib/api'
 import { authHeaders } from '../lib/session'
+import { useConfirm } from '../lib/ConfirmContext'
 
 export default function ImportData({ onImported }) {
+  const confirm = useConfirm()
   const [log,  setLog]  = useState([])
   const [drag, setDrag] = useState(false)
   const fileRef = useRef()
@@ -53,12 +55,17 @@ export default function ImportData({ onImported }) {
      midway. The confirm parameter is what marks this as the deliberate
      "yes, all of it" case rather than a retire-one-animal mistake. */
   const confirmClear = async () => {
-    if (!confirm(
-      'Delete ALL cows and every milk record, health record, pregnancy and '
-      + 'event attached to them?\n\nThis cannot be undone. To retire a single '
-      + 'animal that has died or been sold, archive her on the All Cows page '
-      + 'instead — that keeps her history.'
-    )) return
+    const ok = await confirm({
+      title: 'Clear all farm data',
+      message: 'Every cow goes, and with her every milk record, health record, '
+        + 'pregnancy and event attached to her.',
+      detail: 'This cannot be undone. To retire a single animal that has died or '
+        + 'been sold, archive her on the All Cows page instead — that keeps '
+        + 'her history.',
+      confirmLabel: 'Delete everything',
+      cancelLabel: 'Keep the data',
+    })
+    if (!ok) return
     try {
       const { deleted } = await apiFetch('/cows?confirm=DELETE_ALL', { method: 'DELETE' })
       addLog('ok', `All data cleared — ${deleted} cows removed.`)

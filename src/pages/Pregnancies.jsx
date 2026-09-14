@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
 import { Card, Btn, PageHeader, EmptyState, Badge } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -40,6 +41,7 @@ function DaysChip({ days, status }) {
 }
 
 export default function Pregnancies({ cows: cowsProp = [] }) {
+  const confirm = useConfirm()
   const [pregnancies, setPregnancies] = useState([])
   const [cows,        setCows]        = useState(cowsProp)
   const [loading,     setLoading]     = useState(true)
@@ -108,7 +110,13 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this pregnancy record?')) return
+    const ok = await confirm({
+      title: 'Delete pregnancy record',
+      message: 'The record and the dates on it are removed.',
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/pregnancies/${id}`, { method: 'DELETE' })
     await fetchPregnancies()
   }

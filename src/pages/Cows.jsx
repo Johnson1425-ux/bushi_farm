@@ -3,6 +3,8 @@ import { apiFetch, initials, statusClass } from '../lib/api'
 import { Badge, Btn, EmptyState, PageHeader } from '../components/ui'
 import CowHistory from '../components/CowHistory'
 import { useAuth } from '../lib/AuthContext'
+import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -119,6 +121,7 @@ function ArchiveDialog({ cow, onClose, onDone }) {
 }
 
 export default function Cows({ cows, onChanged }) {
+  const confirm = useConfirm()
   const { user } = useAuth()
   const canArchive = user?.role === 'admin' || user?.role === 'manager'
 
@@ -138,11 +141,18 @@ export default function Cows({ cows, onChanged }) {
   useEffect(() => { if (herd === 'archived') loadArchived() }, [herd, loadArchived])
 
   const restore = async (cow) => {
-    if (!confirm(`Bring ${cow.name} back into the herd?`)) return
+    const ok = await confirm({
+      title: 'Restore to the herd',
+      message: `${cow.name} goes back into the active herd, with her history intact.`,
+      confirmLabel: 'Restore',
+      tone: 'default',
+    })
+    if (!ok) return
     try {
       await apiFetch(`/cows/${cow.id}/restore`, { method: 'POST' })
       loadArchived(); onChanged?.()
-    } catch (e) { alert(e.message) }
+      notify.success(`${cow.name} is back in the herd.`)
+    } catch (e) { notify.error(e.message) }
   }
 
   const source = herd === 'archived' ? archived : (cows || [])

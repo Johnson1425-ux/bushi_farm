@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -39,6 +40,7 @@ function TabBtn({ active, onClick, children }) {
 }
 
 function TreatmentsPanel({ disease, cows, onClose }) {
+  const confirm = useConfirm()
   const [treatments, setTreatments] = useState([])
   const [showForm,   setShowForm]   = useState(false)
   const [loading,    setLoading]    = useState(true)
@@ -69,7 +71,12 @@ function TreatmentsPanel({ disease, cows, onClose }) {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this treatment?')) return
+    const ok = await confirm({
+      title: 'Delete treatment',
+      message: 'The treatment is removed from this disease record.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/treatments/${id}`, { method: 'DELETE' })
     await fetch_()
   }
@@ -127,6 +134,7 @@ function TreatmentsPanel({ disease, cows, onClose }) {
 }
 
 export default function Health() {
+  const confirm = useConfirm()
   const [cows, setCows] = useState([])
   const [diseases,    setDiseases]    = useState([])
   const [loading,     setLoading]     = useState(true)
@@ -167,7 +175,13 @@ export default function Health() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this disease record?')) return
+    const ok = await confirm({
+      title: 'Delete disease record',
+      message: 'The record and every treatment logged under it are removed.',
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/diseases/${id}`, { method: 'DELETE' })
     await fetchDiseases()
   }
