@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
    SALES
@@ -57,7 +58,7 @@ const TD = ({ children, mono, right, style = {} }) => (
 )
 
 /* ── branch sales, from the till ── */
-function BranchSales({ from, to, branchId, branches, onBranch, products, onNotice }) {
+function BranchSales({ from, to, branchId, branches, onBranch, products }) {
   const [sales,   setSales]   = useState([])
   const [summary, setSummary] = useState(null)
   const [receipt, setReceipt] = useState(null)
@@ -83,9 +84,9 @@ function BranchSales({ from, to, branchId, branches, onBranch, products, onNotic
       ])
       setSales(s); setSummary(sum)
     } catch (e) {
-      onNotice(e.message)
+      notify.error(e.message)
     } finally { setLoading(false) }
-  }, [from, to, branchId, payment, tier, product, onNotice])
+  }, [from, to, branchId, payment, tier, product])
 
   useEffect(() => { load() }, [load])
 
@@ -96,7 +97,7 @@ function BranchSales({ from, to, branchId, branches, onBranch, products, onNotic
       await apiFetch(`/pos/sales/${s.id}/void`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) })
       setReceipt(null)
       await load()
-    } catch (e) { onNotice(e.message) }
+    } catch (e) { notify.error(e.message) }
   }
 
   if (loading) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
@@ -232,7 +233,7 @@ function BranchSales({ from, to, branchId, branches, onBranch, products, onNotic
               {sales.map(s => (
                 <tr key={s.id} style={{ opacity: s.status === 'voided' ? 0.5 : 1 }}>
                   <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <button onClick={() => apiFetch(`/pos/sales/${s.id}`).then(setReceipt).catch(e => onNotice(e.message))}
+                    <button onClick={() => apiFetch(`/pos/sales/${s.id}`).then(setReceipt).catch(e => notify.error(e.message))}
                       className="border-0 bg-transparent cursor-pointer font-semibold text-[13px]"
                       style={{ color: 'var(--green-600)', fontFamily: "'DM Mono', monospace" }}>
                       {s.receipt_no}
@@ -308,16 +309,9 @@ export default function Sales() {
   const [branchId, setBranchId] = useState('')
   const [from,     setFrom]     = useState(monthStart())
   const [to,       setTo]       = useState(today())
-  const [error,    setError]    = useState(null)
 
   useEffect(() => { apiFetch('/branches').then(setBranches).catch(() => {}) }, [])
   useEffect(() => { apiFetch('/products').then(setProducts).catch(() => {}) }, [])
-
-  useEffect(() => {
-    if (!error) return
-    const t = setTimeout(() => setError(null), 6000)
-    return () => clearTimeout(t)
-  }, [error])
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
@@ -329,18 +323,10 @@ export default function Sales() {
         </div>
       </PageHeader>
 
-      {error && (
-        <div className="rounded-lg border mb-4 text-[13px]"
-          style={{ padding: '10px 16px', background: 'rgba(217,64,64,0.08)', borderColor: 'var(--red)', color: 'var(--red)' }}>
-          {error}
-        </div>
-      )}
-
       <BranchSales
         from={from} to={to}
         branchId={branchId} branches={branches} onBranch={setBranchId}
         products={products}
-        onNotice={setError}
       />
     </div>
   )

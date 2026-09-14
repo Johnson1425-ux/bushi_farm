@@ -3,6 +3,7 @@ import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
    THE TILL
@@ -61,24 +62,6 @@ const PRINT_CSS = `
   #receipt-print .no-print { display: none !important; }
 }
 `
-
-function Notice({ kind = 'error', children, onClose }) {
-  const styles = {
-    error:   { bg: 'rgba(217,64,64,0.08)', border: 'var(--red)',       color: 'var(--red)' },
-    success: { bg: 'var(--green-50)',      border: 'var(--green-100)', color: 'var(--green-800)' },
-    warn:    { bg: 'rgba(232,160,32,0.1)', border: 'var(--amber)',     color: 'var(--amber)' },
-  }[kind]
-  return (
-    <div className="rounded-lg border mb-4 text-[13px] flex items-start justify-between gap-3"
-      style={{ padding: '10px 16px', background: styles.bg, borderColor: styles.border, color: styles.color }}>
-      <div className="flex-1">{children}</div>
-      {onClose && (
-        <button onClick={onClose} className="border-0 bg-transparent cursor-pointer leading-none"
-          style={{ color: 'inherit', opacity: 0.6 }}>✕</button>
-      )}
-    </div>
-  )
-}
 
 function Segmented({ options, value, onChange, size = 'md' }) {
   return (
@@ -193,7 +176,7 @@ function Receipt({ sale, onClose, onVoid, canVoid }) {
 /* ══════════════════════════════════════════════════════════════
    CASH UP
 ══════════════════════════════════════════════════════════════ */
-function CashUp({ branchId, isAttendant, onNotice }) {
+function CashUp({ branchId, isAttendant }) {
   const confirm = useConfirm()
   const [date,    setDate]    = useState(today())
   const [data,    setData]    = useState(null)
@@ -219,9 +202,9 @@ function CashUp({ branchId, isAttendant, onNotice }) {
       })
       setExpenses(d.expenses.length ? d.expenses.map(e => ({ ...e })) : [])
     } catch (e) {
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setLoading(false) }
-  }, [date, branchId, isAttendant, onNotice])
+  }, [date, branchId, isAttendant])
 
   useEffect(() => { load() }, [load])
 
@@ -263,19 +246,19 @@ function CashUp({ branchId, isAttendant, onNotice }) {
         }),
       })
       setData(d)
-      onNotice({ kind: 'success', text: close ? `${date} closed.` : 'Cash-up saved.' })
+      notify.success(close ? `${date} closed.` : 'Cash-up saved.')
       if (close) await load()
     } catch (e) {
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setBusy(false) }
   }
 
   const reopen = async () => {
     try {
       setData(await apiFetch(`/pos/cash-up/${data.id}/reopen`, { method: 'POST', body: JSON.stringify({}) }))
-      onNotice({ kind: 'success', text: 'Day reopened.' })
+      notify.success('Day reopened.')
       await load()
-    } catch (e) { onNotice({ kind: 'error', text: e.message }) }
+    } catch (e) { notify.error(e.message) }
   }
 
   if (loading || !data) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
@@ -487,7 +470,6 @@ export default function Till() {
   const [discount,   setDiscount]   = useState('')
   const [busy,       setBusy]       = useState(false)
   const [loading,    setLoading]    = useState(true)
-  const [notice,     setNotice]     = useState(null)
   const [receipt,    setReceipt]    = useState(null)
   const [error,      setError]      = useState(null)
 
@@ -519,12 +501,6 @@ export default function Till() {
   }, [branchId, isAttendant])
 
   useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    if (!notice) return
-    const t = setTimeout(() => setNotice(null), 5000)
-    return () => clearTimeout(t)
-  }, [notice])
 
   /* A basket line remembers its own tier. Switching the till's tier
      repoints every line that had not been flipped by hand, so the common
@@ -597,12 +573,9 @@ export default function Till() {
       await load()
     } catch (e) {
       const short = e.body?.shortfalls
-      setNotice({
-        kind: 'error',
-        text: short?.length
-          ? `${e.message}: ` + short.map(s => `${s.product} ${s.size} (${fmt(s.wanted)} wanted, ${fmt(s.on_hand)} on hand)`).join('; ')
-          : e.message,
-      })
+      notify.error(short?.length
+        ? `${e.message}: ` + short.map(s => `${s.product} ${s.size} (${fmt(s.wanted)} wanted, ${fmt(s.on_hand)} on hand)`).join('; ')
+        : e.message)
     } finally { setBusy(false) }
   }
 
@@ -613,17 +586,17 @@ export default function Till() {
       await apiFetch(`/pos/sales/${sale.id}/void`, {
         method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
       })
-      setNotice({ kind: 'success', text: `${sale.receipt_no} voided and the stock put back.` })
+      notify.success(`${sale.receipt_no} voided and the stock put back.`)
       setReceipt(null)
       await load()
     } catch (e) {
-      setNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     }
   }
 
   const openReceipt = async (id) => {
     try { setReceipt(await apiFetch(`/pos/sales/${id}`)) }
-    catch (e) { setNotice({ kind: 'error', text: e.message }) }
+    catch (e) { notify.error(e.message) }
   }
 
   if (loading) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
@@ -649,8 +622,6 @@ export default function Till() {
         )}
       </PageHeader>
 
-      {notice && <Notice kind={notice.kind} onClose={() => setNotice(null)}>{notice.text}</Notice>}
-
       {day && (
         <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
           {[
@@ -675,7 +646,7 @@ export default function Till() {
       </div>
 
       {tab === 'cashup' && (
-        <CashUp branchId={branchId} isAttendant={isAttendant} onNotice={setNotice} />
+        <CashUp branchId={branchId} isAttendant={isAttendant} />
       )}
 
       {tab === 'sell' && (

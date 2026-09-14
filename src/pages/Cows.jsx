@@ -4,6 +4,7 @@ import { Badge, Btn, EmptyState, PageHeader } from '../components/ui'
 import CowHistory from '../components/CowHistory'
 import { useAuth } from '../lib/AuthContext'
 import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -150,7 +151,8 @@ export default function Cows({ cows, onChanged }) {
     try {
       await apiFetch(`/cows/${cow.id}/restore`, { method: 'POST' })
       loadArchived(); onChanged?.()
-    } catch (e) { alert(e.message) }
+      notify.success(`${cow.name} is back in the herd.`)
+    } catch (e) { notify.error(e.message) }
   }
 
   const source = herd === 'archived' ? archived : (cows || [])

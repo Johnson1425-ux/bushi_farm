@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
    CUSTOMERS & DEBTORS
@@ -81,7 +82,7 @@ function Modal({ title, onClose, children, wide }) {
 }
 
 /* ── one account: the ledger, and what they have bought ── */
-function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onNotice }) {
+function Account({ id, onClose, onChanged, canManage, branches, isAttendant }) {
   const [data, setData] = useState(null)
   const [view, setView] = useState('ledger')
   const [mode, setMode] = useState(null)      // 'payment' | 'charge' | 'adjustment'
@@ -90,8 +91,8 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onN
 
   const load = useCallback(async () => {
     try { setData(await apiFetch(`/customers/${id}`)) }
-    catch (e) { onNotice(e.message) }
-  }, [id, onNotice])
+    catch (e) { notify.error(e.message) }
+  }, [id])
 
   useEffect(() => { load() }, [load])
 
@@ -110,7 +111,7 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onN
       })
       setMode(null); setForm({ amount: '', description: '', date: today(), branch_id: '' })
       await load(); onChanged()
-    } catch (e) { onNotice(e.message) } finally { setBusy(false) }
+    } catch (e) { notify.error(e.message) } finally { setBusy(false) }
   }
 
   if (!data) return <Modal title="Loading…" onClose={onClose}><div /></Modal>
@@ -300,20 +301,14 @@ export default function Customers() {
   const [q,        setQ]        = useState('')
   const [showNew,  setShowNew]  = useState(false)
   const [form,     setForm]     = useState({ name: '', phone: '', opening_balance: '', branch_id: '' })
-  const [error,    setError]    = useState(null)
 
   const load = useCallback(async () => {
     try { setData(await apiFetch(`/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`)) }
-    catch (e) { setError(e.message) }
+    catch (e) { notify.error(e.message) }
   }, [q])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { apiFetch('/branches').then(setBranches).catch(() => {}) }, [])
-  useEffect(() => {
-    if (!error) return
-    const t = setTimeout(() => setError(null), 6000)
-    return () => clearTimeout(t)
-  }, [error])
 
   const create = async () => {
     try {
@@ -328,7 +323,7 @@ export default function Customers() {
       })
       setForm({ name: '', phone: '', opening_balance: '', branch_id: '' })
       setShowNew(false); load()
-    } catch (e) { setError(e.message) }
+    } catch (e) { notify.error(e.message) }
   }
 
   if (!data) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
@@ -343,13 +338,6 @@ export default function Customers() {
           {showNew ? 'Cancel' : '+ New customer'}
         </Btn>
       </PageHeader>
-
-      {error && (
-        <div className="rounded-lg border mb-4 text-[13px]"
-          style={{ padding: '10px 16px', background: 'rgba(217,64,64,0.08)', borderColor: 'var(--red)', color: 'var(--red)' }}>
-          {error}
-        </div>
-      )}
 
       {showNew && (
         <Card>
@@ -473,7 +461,6 @@ export default function Customers() {
           branches={branches}
           onClose={() => setOpen(null)}
           onChanged={load}
-          onNotice={setError}
         />
       )}
     </div>

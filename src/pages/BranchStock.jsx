@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
    MY BRANCH
@@ -40,7 +41,7 @@ const TD = ({ children, mono, right }) => (
    normally arrives and re-typing it would invite errors of its own. Every
    line is still editable, and any line reduced is called out before the
    attendant signs for it. */
-function ReceiveForm({ issue, onDone, onCancel, onNotice }) {
+function ReceiveForm({ issue, onDone, onCancel }) {
   const [counts, setCounts] = useState(
     () => Object.fromEntries(issue.items.map(i => [i.product_id, String(num(i.units))]))
   )
@@ -61,15 +62,14 @@ function ReceiveForm({ issue, onDone, onCancel, onNotice }) {
           received: issue.items.map(i => ({ product_id: i.product_id, units: num(counts[i.product_id]) })),
         }),
       })
-      onNotice({
-        kind: res.shortfalls?.length ? 'warn' : 'success',
-        text: res.shortfalls?.length
-          ? `${issue.issue_no} received short on ${res.shortfalls.length} line(s). The difference is recorded on the note.`
-          : `${issue.issue_no} received in full.`,
-      })
+      if (res.shortfalls?.length) {
+        notify.warn(`${issue.issue_no} received short on ${res.shortfalls.length} line(s). The difference is recorded on the note.`)
+      } else {
+        notify.success(`${issue.issue_no} received in full.`)
+      }
       onDone()
     } catch (e) {
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setBusy(false) }
   }
 
@@ -143,7 +143,6 @@ export default function BranchStock() {
   const [issues,   setIssues]   = useState([])
   const [receiving, setReceiving] = useState(null)
   const [loading,  setLoading]  = useState(true)
-  const [notice,   setNotice]   = useState(null)
   const [error,    setError]    = useState(null)
 
   /* A manager arriving here without choosing a branch gets the first one;
@@ -176,15 +175,9 @@ export default function BranchStock() {
 
   useEffect(() => { load() }, [load])
 
-  useEffect(() => {
-    if (!notice) return
-    const t = setTimeout(() => setNotice(null), 6000)
-    return () => clearTimeout(t)
-  }, [notice])
-
   const openReceive = async (id) => {
     try { setReceiving(await apiFetch(`/issues/${id}`)) }
-    catch (e) { setNotice({ kind: 'error', text: e.message }) }
+    catch (e) { notify.error(e.message) }
   }
 
   const awaiting = issues.filter(i => i.status === 'dispatched')
@@ -203,12 +196,6 @@ export default function BranchStock() {
     )
   }
 
-  const noticeStyle = {
-    error:   { bg: 'rgba(217,64,64,0.08)', border: 'var(--red)',       color: 'var(--red)' },
-    success: { bg: 'var(--green-50)',      border: 'var(--green-100)', color: 'var(--green-800)' },
-    warn:    { bg: 'rgba(232,160,32,0.1)', border: 'var(--amber)',     color: 'var(--amber)' },
-  }[notice?.kind || 'success']
-
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
       <PageHeader title={branch?.name || 'My Branch'} sub="Branch stock and incoming deliveries">
@@ -220,13 +207,6 @@ export default function BranchStock() {
           </select>
         )}
       </PageHeader>
-
-      {notice && (
-        <div className="rounded-lg border mb-4 text-[13px]"
-          style={{ padding: '10px 16px', background: noticeStyle.bg, borderColor: noticeStyle.border, color: noticeStyle.color }}>
-          {notice.text}
-        </div>
-      )}
 
       <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         {[
@@ -246,7 +226,6 @@ export default function BranchStock() {
         <ReceiveForm
           issue={receiving}
           onCancel={() => setReceiving(null)}
-          onNotice={setNotice}
           onDone={() => { setReceiving(null); load() }}
         />
       )}

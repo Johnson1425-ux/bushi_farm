@@ -3,6 +3,7 @@ import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
    EXPENSES
@@ -94,6 +95,13 @@ function ShareBar({ value, of }) {
   )
 }
 
+/**
+ * Kept for the two places this page still needs a banner rather than a
+ * toast: the empty-month nudge, and the list of lines an import could not
+ * read. Both are about what is on the page under them, and both wait for
+ * the reader instead of timing out. Anything that merely reports how a
+ * request went is a toast now.
+ */
 function Notice({ kind = 'error', children, onClose }) {
   const tone = kind === 'error'
     ? { bg: 'rgba(217,64,64,0.08)', border: 'var(--red)',   fg: 'var(--red)' }
@@ -195,7 +203,7 @@ function Field({ label, children, span }) {
  * again. Everywhere else the heading is the one field that must be
  * chosen, which is why it sits second, right after the date.
  */
-function AddLine({ categories, date, onSaved, onError, onCancel, lockedCategory }) {
+function AddLine({ categories, date, onSaved, onCancel, lockedCategory }) {
   const [form, setForm] = useState({
     entry_date: date,
     category_id: lockedCategory ? String(lockedCategory.id) : '',
@@ -232,7 +240,7 @@ function AddLine({ categories, date, onSaved, onError, onCancel, lockedCategory 
       setSaved({ details: form.details, amount })
       setForm(f => ({ ...f, details: '', quantity: '', unit_price: '', amount: '', notes: '' }))
       onSaved()
-    } catch (e) { onError(e.message) } finally { setBusy(false) }
+    } catch (e) { notify.error(e.message) } finally { setBusy(false) }
   }
 
   return (
@@ -339,21 +347,21 @@ function Modal({ title, onClose, children }) {
  * went quiet for two months is a reading, and a table that simply
  * omitted those months would hide it.
  */
-function CategoryDetail({ id, year, onYear, categories, onClose, onError, onChanged }) {
+function CategoryDetail({ id, year, onYear, categories, onClose, onChanged }) {
   const [data,   setData]   = useState(null)
   const [open,   setOpen]   = useState(null)   // which month is expanded
   const [adding, setAdding] = useState(false)
 
   const load = useCallback(async () => {
     try { setData(await apiFetch(`/expenses/categories/${id}?year=${year}`)) }
-    catch (e) { onError(e.message) }
-  }, [id, year, onError])
+    catch (e) { notify.error(e.message) }
+  }, [id, year])
 
   useEffect(() => { load() }, [load])
 
   const remove = async (entry) => {
     try { await apiFetch(`/expenses/${entry.id}`, { method: 'DELETE' }); load(); onChanged() }
-    catch (e) { onError(e.message) }
+    catch (e) { notify.error(e.message) }
   }
 
   if (!data) return <Modal title="Loading…" onClose={onClose}><div /></Modal>
@@ -411,7 +419,6 @@ function CategoryDetail({ id, year, onYear, categories, onClose, onError, onChan
           lockedCategory={category}
           date={defaultDate}
           onSaved={() => { load(); onChanged() }}
-          onError={onError}
           onCancel={() => setAdding(false)}
         />
       )}
@@ -503,7 +510,7 @@ function CategoryDetail({ id, year, onYear, categories, onClose, onError, onChan
   )
 }
 
-function MonthView({ year, month, categories, onError, onOpenCategory, adding, setAdding, onChanged }) {
+function MonthView({ year, month, categories, onOpenCategory, adding, setAdding, onChanged }) {
   const [data, setData] = useState(null)
   const [q,    setQ]    = useState('')
   /* Which day's lines are on screen. A month is two or three hundred
@@ -518,8 +525,8 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
     const params = new URLSearchParams({ year, month })
     if (q) params.set('q', q)
     try { setData(await apiFetch(`/expenses?${params}`)) }
-    catch (e) { onError(e.message) }
-  }, [year, month, q, onError])
+    catch (e) { notify.error(e.message) }
+  }, [year, month, q])
 
   useEffect(() => { load() }, [load])
 
@@ -542,7 +549,7 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
 
   const remove = async (entry) => {
     try { await apiFetch(`/expenses/${entry.id}`, { method: 'DELETE' }); load(); onChanged() }
-    catch (e) { onError(e.message) }
+    catch (e) { notify.error(e.message) }
   }
 
   if (!data) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
@@ -625,7 +632,6 @@ function MonthView({ year, month, categories, onError, onOpenCategory, adding, s
              looking. */
           date={day || (inThisMonth ? today() : firstOf)}
           onSaved={() => { load(); onChanged() }}
-          onError={onError}
           onCancel={() => setAdding(false)}
         />
       )}
@@ -907,7 +913,7 @@ function CategoryRow({ c, editing, setEditing, draft, setDraft, patch, destroy, 
   )
 }
 
-function CategoriesView({ onError, onChanged, onOpenCategory }) {
+function CategoriesView({ onChanged, onOpenCategory }) {
   const confirm = useConfirm()
   const [rows,    setRows]    = useState(null)
   const [showNew, setShowNew] = useState(false)
@@ -917,8 +923,8 @@ function CategoriesView({ onError, onChanged, onOpenCategory }) {
 
   const load = useCallback(async () => {
     try { setRows(await apiFetch('/expenses/categories')) }
-    catch (e) { onError(e.message) }
-  }, [onError])
+    catch (e) { notify.error(e.message) }
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -931,12 +937,12 @@ function CategoriesView({ onError, onChanged, onOpenCategory }) {
         body: JSON.stringify({ name: form.name, notes: form.notes || null }),
       })
       setForm({ name: '', notes: '' }); setShowNew(false); refresh()
-    } catch (e) { onError(e.message) }
+    } catch (e) { notify.error(e.message) }
   }
 
   const patch = async (id, body) => {
     try { await apiFetch(`/expenses/categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }); refresh() }
-    catch (e) { onError(e.message) }
+    catch (e) { notify.error(e.message) }
   }
 
   const destroy = async (c) => {
@@ -948,7 +954,7 @@ function CategoriesView({ onError, onChanged, onOpenCategory }) {
     })
     if (!ok) return
     try { await apiFetch(`/expenses/categories/${c.id}`, { method: 'DELETE' }); refresh() }
-    catch (e) { onError(e.message) }
+    catch (e) { notify.error(e.message) }
   }
 
   if (!rows) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
@@ -1031,13 +1037,13 @@ function CategoriesView({ onError, onChanged, onOpenCategory }) {
 
 /* ── the year ────────────────────────────────────────────── */
 
-function YearView({ year, onYear, onError, onOpenCategory }) {
+function YearView({ year, onYear, onOpenCategory }) {
   const [grid,  setGrid]  = useState(null)
   const [years, setYears] = useState(null)
 
   useEffect(() => {
-    apiFetch(`/expenses/summary?year=${year}`).then(setGrid).catch(e => onError(e.message))
-  }, [year, onError])
+    apiFetch(`/expenses/summary?year=${year}`).then(setGrid).catch(e => notify.error(e.message))
+  }, [year])
   useEffect(() => {
     apiFetch('/expenses/years').then(setYears).catch(() => {})
   }, [year])
@@ -1240,7 +1246,7 @@ function ImportResult({ result, onClose, onOpenMonth }) {
   )
 }
 
-function BooksView({ onError, onImported, onOpenMonth }) {
+function BooksView({ onImported, onOpenMonth }) {
   const confirm = useConfirm()
   const [imports,  setImports]  = useState(null)
   const [result,   setResult]   = useState(null)
@@ -1250,8 +1256,8 @@ function BooksView({ onError, onImported, onOpenMonth }) {
 
   const load = useCallback(async () => {
     try { setImports(await apiFetch('/expenses/imports')) }
-    catch (e) { onError(e.message) }
-  }, [onError])
+    catch (e) { notify.error(e.message) }
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -1274,7 +1280,7 @@ function BooksView({ onError, onImported, onOpenMonth }) {
       }
       setResult(data)
       load(); onImported(data)
-    } catch (e) { onError(e.message) } finally { setUploading(false) }
+    } catch (e) { notify.error(e.message) } finally { setUploading(false) }
   }
 
   const remove = async (imp) => {
@@ -1286,7 +1292,7 @@ function BooksView({ onError, onImported, onOpenMonth }) {
     })
     if (!ok) return
     try { await apiFetch(`/expenses/imports/${imp.id}`, { method: 'DELETE' }); load(); onImported({}) }
-    catch (e) { onError(e.message) }
+    catch (e) { notify.error(e.message) }
   }
 
   return (
@@ -1370,7 +1376,6 @@ export default function Expenses() {
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [categories, setCategories] = useState([])
-  const [error, setError] = useState(null)
   const [reload, setReload] = useState(0)
   const [adding, setAdding] = useState(false)
 
@@ -1383,12 +1388,6 @@ export default function Expenses() {
   useEffect(() => {
     apiFetch('/expenses/categories').then(setCategories).catch(() => {})
   }, [reload])
-
-  useEffect(() => {
-    if (!error) return
-    const t = setTimeout(() => setError(null), 8000)
-    return () => clearTimeout(t)
-  }, [error])
 
   const changed = () => setReload(n => n + 1)
 
@@ -1414,7 +1413,6 @@ export default function Expenses() {
         )}
       </PageHeader>
 
-      {error && <Notice kind="error" onClose={() => setError(null)}>{error}</Notice>}
 
       <div className="flex mb-5 flex-wrap" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="The month"    active={tab === 'month'}      onClick={() => setTab('month')} />
@@ -1429,18 +1427,17 @@ export default function Expenses() {
            away the date and heading the form promises to keep. The view
            refetches itself; it does not need replacing. */
         <MonthView key={`${year}-${month}`} year={year} month={month}
-          categories={categories} onError={setError} onOpenCategory={openHeading}
+          categories={categories} onOpenCategory={openHeading}
           adding={adding} setAdding={setAdding} onChanged={changed} />
       )}
       {tab === 'year' && (
-        <YearView key={`${year}-${reload}`} year={year} onYear={setYear}
-          onError={setError} onOpenCategory={openHeading} />
+        <YearView key={`${year}-${reload}`} year={year} onYear={setYear} onOpenCategory={openHeading} />
       )}
       {tab === 'categories' && (
-        <CategoriesView onError={setError} onChanged={changed} onOpenCategory={openHeading} />
+        <CategoriesView onChanged={changed} onOpenCategory={openHeading} />
       )}
       {tab === 'books' && (
-        <BooksView onError={setError} onImported={changed} onOpenMonth={openMonth} />
+        <BooksView onImported={changed} onOpenMonth={openMonth} />
       )}
 
       {openCategory && (
@@ -1451,7 +1448,6 @@ export default function Expenses() {
           categories={categories}
           onClose={() => setOpenCategory(null)}
           onChanged={changed}
-          onError={setError}
         />
       )}
     </div>

@@ -3,6 +3,7 @@ import { apiFetch, initials } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { Card, Btn, PageHeader } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 function RoleBadge({ role }) {
   return (
@@ -32,8 +33,6 @@ export default function Users() {
   const [editing,  setEditing]  = useState(null)
   const [pwdModal, setPwdModal] = useState(null)
   const [newPwd,   setNewPwd]   = useState('')
-  const [error,    setError]    = useState('')
-  const [success,  setSuccess]  = useState('')
 
   const load = () => apiFetch('/users').then(setUsers).catch(() => {})
   useEffect(() => { load() }, [])
@@ -41,11 +40,6 @@ export default function Users() {
   /* Needed only to assign an attendant. If it fails the picker is empty and
      the API refuses the account anyway, which is the same answer. */
   useEffect(() => { apiFetch('/branches').then(setBranches).catch(() => {}) }, [])
-
-  const flash = (msg, isErr = false) => {
-    if (isErr) { setError(msg); setTimeout(() => setError(''), 4000) }
-    else        { setSuccess(msg); setTimeout(() => setSuccess(''), 3000) }
-  }
 
   const createUser = async (e) => {
     e.preventDefault()
@@ -56,8 +50,8 @@ export default function Users() {
       })
       setForm({ username: '', password: '', role: 'veteran', branch_id: '' })
       setShowForm(false); load()
-      flash(`User "${form.username}" created.`)
-    } catch (err) { flash(err.message, true) }
+      notify.success(`User "${form.username}" created.`)
+    } catch (err) { notify.error(err.message) }
   }
 
   const deleteUser = async (u) => {
@@ -70,8 +64,8 @@ export default function Users() {
     if (!ok) return
     try {
       await apiFetch(`/users/${u.id}`, { method: 'DELETE' })
-      load(); flash(`User "${u.username}" deleted.`)
-    } catch (err) { flash(err.message, true) }
+      load(); notify.success(`User "${u.username}" deleted.`)
+    } catch (err) { notify.error(err.message) }
   }
 
   const saveRole = async (u, role, branch_id) => {
@@ -81,16 +75,16 @@ export default function Users() {
         body: JSON.stringify({ role, branch_id: branch_id ? Number(branch_id) : null }),
       })
       setEditing(null); load()
-      flash(`${u.username} updated.`)
-    } catch (err) { flash(err.message, true) }
+      notify.success(`${u.username} updated.`)
+    } catch (err) { notify.error(err.message) }
   }
 
   const changePassword = async (e) => {
     e.preventDefault()
     try {
       await apiFetch(`/users/${pwdModal.id}/password`, { method: 'PATCH', body: JSON.stringify({ password: newPwd }) })
-      setPwdModal(null); setNewPwd(''); flash('Password updated.')
-    } catch (err) { flash(err.message, true) }
+      setPwdModal(null); setNewPwd(''); notify.success('Password updated.')
+    } catch (err) { notify.error(err.message) }
   }
 
   return (
@@ -102,8 +96,6 @@ export default function Users() {
       </PageHeader>
 
       {/* Feedback */}
-      {error   && <div className="bg-red/10 border border-red/30 rounded-lg px-4 py-2.5 text-[13px] text-red mb-4">{error}</div>}
-      {success && <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-2.5 text-[13px] text-green-800 mb-4">{success}</div>}
 
       {/* Create user form */}
       {showForm && (
