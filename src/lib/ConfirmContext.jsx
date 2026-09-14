@@ -25,8 +25,27 @@ import { useTheme } from './ThemeContext'
  *       confirmLabel: 'Delete',
  *       tone: 'danger',
  *     })
+ *
+ * usePrompt() is the same dialog with a field in it, standing in for
+ * window.prompt() the way confirm() stands in for window.confirm(). It
+ * resolves the trimmed text, or null if the question was declined — so a
+ * call site reads the way the native one did:
+ *
+ *     const reason = await prompt({
+ *       title: `Void ${sale.receipt_no}`,
+ *       input: { label: 'Reason', required: true },
+ *     })
+ *     if (!reason) return
  */
 const ConfirmContext = createContext(null)
+
+const INPUT_DEFAULTS = {
+  label: '',
+  placeholder: '',
+  defaultValue: '',
+  required: true,
+  maxLength: 200,
+}
 
 const DEFAULTS = {
   title: 'Are you sure?',
@@ -40,36 +59,60 @@ const DEFAULTS = {
 export function ConfirmProvider({ children }) {
   const [request, setRequest] = useState(null)
 
-  /* The pending promise's resolve, parked in a ref so a re-render cannot
-     lose it. A dialog that never settles would leave the caller's await
-     hanging forever, which is a silently broken button. */
-  const resolver = useRef(null)
+  /* The pending promise, parked in a ref so a re-render cannot lose it. A
+     dialog that never settles would leave the caller's await hanging
+     forever, which is a silently broken button.
+
+     `declined` is what a question resolves to when it is not answered —
+     false for a confirm, null for a prompt — so that superseding it and
+     unmounting under it both know what "no" means here. */
+  const pending = useRef(null)
 
   const settle = useCallback((answer) => {
-    const resolve = resolver.current
-    resolver.current = null
+    const p = pending.current
+    pending.current = null
     setRequest(null)
-    resolve?.(answer)
+    p?.resolve(answer)
   }, [])
 
-  const confirm = useCallback((options) => {
+  const open = useCallback((options, declined) => {
     const opts = typeof options === 'string' ? { message: options } : (options || {})
     return new Promise((resolve) => {
-      /* A second confirm() while one is still open — a double click on a
-         delete button — answers the first with "no" rather than stranding
-         it. Nothing was confirmed, so nothing should happen. */
-      resolver.current?.(false)
-      resolver.current = resolve
-      setRequest({ ...DEFAULTS, ...opts })
+      /* A second question while one is still open — a double click on a
+         delete button — declines the first rather than stranding it.
+         Nothing was answered, so nothing should happen. */
+      const previous = pending.current
+      pending.current = { resolve, declined }
+      previous?.resolve(previous.declined)
+      setRequest({ ...DEFAULTS, input: null, ...opts })
     })
   }, [])
 
-  /* Unmounting with a question still open answers it "no" for the same
-     reason: an await that never returns is worse than a declined action. */
-  useEffect(() => () => { resolver.current?.(false); resolver.current = null }, [])
+  /* A confirm is a yes or no, never a field: dropping any input here keeps
+     the boolean it resolves honest whatever the caller passed. */
+  const confirm = useCallback((options) => {
+    const opts = typeof options === 'string' ? { message: options } : (options || {})
+    return open({ ...opts, input: null }, false)
+  }, [open])
+
+  const prompt = useCallback((options) => {
+    const opts = typeof options === 'string' ? { message: options } : (options || {})
+    return open({ ...opts, input: { ...INPUT_DEFAULTS, ...(opts.input || {}) } }, null)
+  }, [open])
+
+  /* Unmounting with a question still open answers it for the same reason:
+     an await that never returns is worse than a declined action. */
+  useEffect(() => () => {
+    pending.current?.resolve(pending.current.declined)
+    pending.current = null
+  }, [])
+
+  /* One object, kept stable, so a page that takes confirm() out of context
+     is not re-rendered every time this provider is. */
+  const api = React.useMemo(() => ({ confirm, prompt }), [confirm, prompt])
 
   return (
-    <ConfirmContext.Provider value={confirm}>
+    <ConfirmContext.Provider value={api}>
       {children}
       {request && <ConfirmDialog request={request} onSettle={settle} />}
     </ConfirmContext.Provider>
@@ -77,21 +120,38 @@ export function ConfirmProvider({ children }) {
 }
 
 function ConfirmDialog({ request, onSettle }) {
-  const { title, message, detail, confirmLabel, cancelLabel, tone } = request
+  const { title, message, detail, confirmLabel, cancelLabel, tone, input } = request
   const confirmRef = useRef(null)
+  const inputRef = useRef(null)
+  const [value, setValue] = useState(input?.defaultValue ?? '')
 
-  /* Escape cancels, Enter confirms — the two keys the native dialog
-     answered to, kept so the habit still works. The listener is on the
-     document because the click that opened the dialog may have left focus
-     on a button that is now behind the backdrop. */
+  /* What the question resolves to when it is declined: a prompt hands back
+     null the way window.prompt did, a confirm hands back false. */
+  const declined = input ? null : false
+  const answer = input ? value.trim() : true
+  const blocked = !!input?.required && !value.trim()
+
+  const cancel = useCallback(() => onSettle(declined), [onSettle, declined])
+
+  const accept = useCallback((e) => {
+    e?.preventDefault()
+    if (blocked) return
+    onSettle(answer)
+  }, [onSettle, answer, blocked])
+
+  /* Escape cancels. Enter is left to the form: the deciding button is its
+     submit control, so Enter confirms from anywhere inside the dialog —
+     including from the field — and a required field still gets its say
+     rather than being submitted empty by a keystroke the form never saw.
+     The Escape listener is on the document because the click that opened
+     the dialog may have left focus on a button behind the backdrop. */
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); onSettle(false) }
-      else if (e.key === 'Enter') { e.preventDefault(); onSettle(true) }
+      if (e.key === 'Escape') { e.preventDefault(); cancel() }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onSettle])
+  }, [cancel])
 
   /* The page behind must not scroll away under the dialog — on a phone the
      backdrop covers the viewport and a scroll gesture would otherwise move
@@ -102,9 +162,10 @@ function ConfirmDialog({ request, onSettle }) {
     return () => { document.body.style.overflow = previous }
   }, [])
 
-  /* Focus lands on the deciding button so the dialog is reachable by
-     keyboard and read out by a screen reader the moment it opens. */
-  useEffect(() => { confirmRef.current?.focus() }, [])
+  /* Focus lands on the field when there is one to fill in, and otherwise
+     on the deciding button, so the dialog is reachable by keyboard and
+     read out by a screen reader the moment it opens. */
+  useEffect(() => { (inputRef.current || confirmRef.current)?.focus() }, [])
 
   const { dark } = useTheme() || {}
   const danger = tone === 'danger'
@@ -120,11 +181,12 @@ function ConfirmDialog({ request, onSettle }) {
 
   return (
     <div
-      onMouseDown={e => { if (e.target === e.currentTarget) onSettle(false) }}
+      onMouseDown={e => { if (e.target === e.currentTarget) cancel() }}
       className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,30,20,0.45)', backdropFilter: 'blur(2px)' }}
     >
-      <div
+      <form
+        onSubmit={accept}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
@@ -158,13 +220,38 @@ function ConfirmDialog({ request, onSettle }) {
                 {detail}
               </p>
             )}
+
+            {input && (
+              <div className="mt-3.5">
+                {input.label && (
+                  <label
+                    htmlFor="confirm-input"
+                    className="block text-[11px] uppercase tracking-wider font-medium mb-1.5"
+                    style={{ color: 'var(--ink-60)' }}
+                  >
+                    {input.label}
+                  </label>
+                )}
+                <input
+                  id="confirm-input"
+                  ref={inputRef}
+                  type="text"
+                  value={value}
+                  onChange={e => setValue(e.target.value)}
+                  placeholder={input.placeholder || undefined}
+                  maxLength={input.maxLength || undefined}
+                  required={!!input.required}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            )}
           </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
           <button
             type="button"
-            onClick={() => onSettle(false)}
+            onClick={cancel}
             className="inline-flex items-center justify-center font-medium rounded-lg border border-ink-10 px-4 py-2 text-sm cursor-pointer transition-all duration-150 hover:bg-cream-dark"
             style={{ background: 'var(--surface)', color: 'var(--ink)', outlineOffset: 2 }}
           >
@@ -172,21 +259,31 @@ function ConfirmDialog({ request, onSettle }) {
           </button>
           <button
             ref={confirmRef}
-            type="button"
-            onClick={() => onSettle(true)}
-            className="inline-flex items-center justify-center font-medium rounded-lg border px-4 py-2 text-sm cursor-pointer transition-all duration-150 hover:opacity-90"
-            style={{ background: fill, borderColor: fill, color: fillText, outlineOffset: 2 }}
+            type="submit"
+            disabled={blocked}
+            className={`inline-flex items-center justify-center font-medium rounded-lg border px-4 py-2 text-sm transition-all duration-150 ${blocked ? 'cursor-not-allowed' : 'cursor-pointer hover:opacity-90'}`}
+            style={{ background: fill, borderColor: fill, color: fillText, outlineOffset: 2, opacity: blocked ? 0.5 : 1 }}
           >
             {confirmLabel}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }
 
+function useDialogs(hook) {
+  const api = useContext(ConfirmContext)
+  if (!api) throw new Error(`${hook}() needs a <ConfirmProvider> above it`)
+  return api
+}
+
+/** An async confirm(): resolves true or false. */
 export function useConfirm() {
-  const confirm = useContext(ConfirmContext)
-  if (!confirm) throw new Error('useConfirm() needs a <ConfirmProvider> above it')
-  return confirm
+  return useDialogs('useConfirm').confirm
+}
+
+/** An async prompt(): resolves the trimmed text, or null if declined. */
+export function usePrompt() {
+  return useDialogs('usePrompt').prompt
 }

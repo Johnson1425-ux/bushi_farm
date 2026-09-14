@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
-import { useConfirm } from '../lib/ConfirmContext'
+import { useConfirm, usePrompt } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
@@ -450,6 +450,7 @@ function CashUp({ branchId, isAttendant }) {
    PAGE
 ══════════════════════════════════════════════════════════════ */
 export default function Till() {
+  const prompt = usePrompt()
   const { user } = useAuth()
   const isAttendant = user?.role === 'attendant'
 
@@ -580,11 +581,18 @@ export default function Till() {
   }
 
   const voidSale = async (sale) => {
-    const reason = prompt(`Void ${sale.receipt_no}? Give a reason — it goes on the record.`)
-    if (!reason || !reason.trim()) return
+    const reason = await prompt({
+      title: `Void ${sale.receipt_no}`,
+      message: 'The sale is reversed and every unit on it goes back into branch stock.',
+      detail: 'The reason is kept on the record against this receipt.',
+      input: { label: 'Reason', placeholder: 'Why is this being voided?' },
+      confirmLabel: 'Void the sale',
+      cancelLabel: 'Keep it',
+    })
+    if (!reason) return
     try {
       await apiFetch(`/pos/sales/${sale.id}/void`, {
-        method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
+        method: 'POST', body: JSON.stringify({ reason }),
       })
       notify.success(`${sale.receipt_no} voided and the stock put back.`)
       setReceipt(null)

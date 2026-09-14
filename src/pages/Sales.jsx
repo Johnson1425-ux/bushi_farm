@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { notify } from '../lib/notify'
+import { usePrompt } from '../lib/ConfirmContext'
 
 /* ══════════════════════════════════════════════════════════════
    SALES
@@ -59,6 +60,7 @@ const TD = ({ children, mono, right, style = {} }) => (
 
 /* ── branch sales, from the till ── */
 function BranchSales({ from, to, branchId, branches, onBranch, products }) {
+  const prompt = usePrompt()
   const [sales,   setSales]   = useState([])
   const [summary, setSummary] = useState(null)
   const [receipt, setReceipt] = useState(null)
@@ -91,12 +93,20 @@ function BranchSales({ from, to, branchId, branches, onBranch, products }) {
   useEffect(() => { load() }, [load])
 
   const voidSale = async (s) => {
-    const reason = prompt(`Void ${s.receipt_no}? Give a reason — it goes on the record.`)
-    if (!reason || !reason.trim()) return
+    const reason = await prompt({
+      title: `Void ${s.receipt_no}`,
+      message: 'The sale is reversed and every unit on it goes back into branch stock.',
+      detail: 'The reason is kept on the record against this receipt.',
+      input: { label: 'Reason', placeholder: 'Why is this being voided?' },
+      confirmLabel: 'Void the sale',
+      cancelLabel: 'Keep it',
+    })
+    if (!reason) return
     try {
-      await apiFetch(`/pos/sales/${s.id}/void`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) })
+      await apiFetch(`/pos/sales/${s.id}/void`, { method: 'POST', body: JSON.stringify({ reason }) })
       setReceipt(null)
       await load()
+      notify.success(`${s.receipt_no} voided and the stock put back.`)
     } catch (e) { notify.error(e.message) }
   }
 
