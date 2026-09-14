@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { useConfirm } from '../lib/ConfirmContext'
 
 /* ══════════════════════════════════════════════════════════════
    THE TILL
@@ -193,6 +194,7 @@ function Receipt({ sale, onClose, onVoid, canVoid }) {
    CASH UP
 ══════════════════════════════════════════════════════════════ */
 function CashUp({ branchId, isAttendant, onNotice }) {
+  const confirm = useConfirm()
   const [date,    setDate]    = useState(today())
   const [data,    setData]    = useState(null)
   const [loading, setLoading] = useState(true)
@@ -233,7 +235,16 @@ function CashUp({ branchId, isAttendant, onNotice }) {
   const variance = num(form?.counted_cash) - expected
 
   const save = async (close) => {
-    if (close && !confirm('Close the day? The count is signed off and only a manager can reopen it.')) return
+    if (close) {
+      const ok = await confirm({
+        title: 'Close the day',
+        message: 'The count is signed off as it stands.',
+        detail: 'Only a manager can reopen it afterwards.',
+        confirmLabel: 'Close the day',
+        tone: 'default',
+      })
+      if (!ok) return
+    }
     setBusy(true)
     try {
       const d = await apiFetch('/pos/cash-up', {

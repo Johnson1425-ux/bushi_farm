@@ -3,6 +3,7 @@ import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import HealthRecordForm from '../components/HealthRecordForm'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -392,6 +393,7 @@ function UploadModal({ cows, onClose, onSuccess }) {
 }
 
 export default function HealthRecords() {
+  const confirm = useConfirm()
   const [records, setRecords]     = useState([])
   const [cows, setCows]           = useState([])
   const [loading, setLoading]     = useState(true)
@@ -435,7 +437,13 @@ export default function HealthRecords() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this health record?')) return
+    const ok = await confirm({
+      title: 'Delete health record',
+      message: 'The record leaves the cow’s health history.',
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/health-records/${id}`, { method: 'DELETE' })
     await fetchRecords()
   }

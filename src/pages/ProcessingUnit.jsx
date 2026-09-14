@@ -6,6 +6,7 @@ import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../compon
 import { useAuth } from '../lib/AuthContext'
 import { streamAi } from '../lib/aiApi'
 import Markdown from '../components/Markdown'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const fmt = (n, dec = 1) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: dec })
 const num = (v) => Number(v) || 0
@@ -216,6 +217,7 @@ function ProcessingReport({ label }) {
 }
 
 export default function ProcessingUnit() {
+  const confirm = useConfirm()
   const { user } = useAuth()
   const isAdmin  = user?.role === 'admin'
 
@@ -253,7 +255,13 @@ export default function ProcessingUnit() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this upload and all its data?')) return
+    const ok = await confirm({
+      title: 'Delete upload',
+      message: 'The workbook and every figure read out of it are removed.',
+      detail: 'The month can be uploaded again afterwards.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/processing/${id}`, { method: 'DELETE' })
     setUploads(prev => prev.filter(u => String(u.id) !== String(id)))
     if (String(id) === selectedId) { setSelectedId(null); setData(null) }

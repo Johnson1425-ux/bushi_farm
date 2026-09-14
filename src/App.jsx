@@ -30,6 +30,7 @@ import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
 import ContactPage    from './pages/ContactPage'
 import CustomerLayout from './pages/CustomerLayout'
+import NotFound       from './pages/NotFound'
 import { useAlerts, Toaster } from './lib/useAlerts'
 
 // ── Guards ───────────────────────────────────────────────────────────────────
@@ -204,8 +205,12 @@ export default function App() {
           <Route path="/contact"  element={<ContactPage />} />
         </Route>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Catch-all.
+
+            A wrong address gets a page that says so, rather than a silent
+            redirect to the landing page — that threw the address away and,
+            for a signed-in user, pushed them out of the app over a typo. */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
 
       <Analytics />

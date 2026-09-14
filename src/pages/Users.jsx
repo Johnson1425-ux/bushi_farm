@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { apiFetch, initials } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
 import { Card, Btn, PageHeader } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 function RoleBadge({ role }) {
   return (
@@ -22,6 +23,7 @@ const ROLE_OPTIONS = [
 ]
 
 export default function Users() {
+  const confirm = useConfirm()
   const { user: me } = useAuth()
   const [users,    setUsers]    = useState([])
   const [showForm, setShowForm] = useState(false)
@@ -59,7 +61,13 @@ export default function Users() {
   }
 
   const deleteUser = async (u) => {
-    if (!confirm(`Delete user "${u.username}"? This cannot be undone.`)) return
+    const ok = await confirm({
+      title: 'Delete user',
+      message: `The account "${u.username}" is removed and can no longer sign in.`,
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete user',
+    })
+    if (!ok) return
     try {
       await apiFetch(`/users/${u.id}`, { method: 'DELETE' })
       load(); flash(`User "${u.username}" deleted.`)

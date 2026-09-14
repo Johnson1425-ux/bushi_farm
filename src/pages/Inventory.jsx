@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
 import { Card, Btn, PageHeader, EmptyState } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const fmt   = n => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
 const today = () => new Date().toISOString().slice(0, 10)
@@ -47,6 +48,7 @@ function TabBtn({ active, onClick, children }) {
 }
 
 export default function Inventory() {
+  const confirm = useConfirm()
   const [items,         setItems]         = useState([])
   const [logs,          setLogs]          = useState([])
   const [loading,       setLoading]       = useState(true)
@@ -97,7 +99,13 @@ export default function Inventory() {
   }
 
   const handleDeleteItem = async (id) => {
-    if (!confirm('Delete this item and all its logs?')) return
+    const ok = await confirm({
+      title: 'Delete item',
+      message: 'This item and every log filed against it are removed.',
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/inventory/items/${id}`, { method: 'DELETE' })
     await fetchItems()
   }

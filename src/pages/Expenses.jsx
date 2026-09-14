@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 /* ══════════════════════════════════════════════════════════════
    EXPENSES
@@ -907,6 +908,7 @@ function CategoryRow({ c, editing, setEditing, draft, setDraft, patch, destroy, 
 }
 
 function CategoriesView({ onError, onChanged, onOpenCategory }) {
+  const confirm = useConfirm()
   const [rows,    setRows]    = useState(null)
   const [showNew, setShowNew] = useState(false)
   const [form,    setForm]    = useState({ name: '', notes: '' })
@@ -938,7 +940,13 @@ function CategoriesView({ onError, onChanged, onOpenCategory }) {
   }
 
   const destroy = async (c) => {
-    if (!window.confirm(`Delete "${c.name}"? Nothing has ever been filed under it.`)) return
+    const ok = await confirm({
+      title: 'Delete category',
+      message: `"${c.name}" is removed from the list of categories.`,
+      detail: 'Nothing has ever been filed under it, so no entries are affected.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     try { await apiFetch(`/expenses/categories/${c.id}`, { method: 'DELETE' }); refresh() }
     catch (e) { onError(e.message) }
   }
@@ -1233,6 +1241,7 @@ function ImportResult({ result, onClose, onOpenMonth }) {
 }
 
 function BooksView({ onError, onImported, onOpenMonth }) {
+  const confirm = useConfirm()
   const [imports,  setImports]  = useState(null)
   const [result,   setResult]   = useState(null)
   const [issues,   setIssues]   = useState([])
@@ -1269,7 +1278,13 @@ function BooksView({ onError, onImported, onOpenMonth }) {
   }
 
   const remove = async (imp) => {
-    if (!window.confirm(`Remove ${imp.label}? The ${fmt(imp.entry_count)} lines it brought in go with it. Anything typed in by hand stays.`)) return
+    const ok = await confirm({
+      title: `Remove ${imp.label}`,
+      message: `The ${fmt(imp.entry_count)} lines this upload brought in go with it.`,
+      detail: 'Anything typed in by hand stays. The workbook can be uploaded again.',
+      confirmLabel: 'Remove',
+    })
+    if (!ok) return
     try { await apiFetch(`/expenses/imports/${imp.id}`, { method: 'DELETE' }); load(); onImported({}) }
     catch (e) { onError(e.message) }
   }

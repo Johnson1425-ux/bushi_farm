@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, Fragment } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { useConfirm } from '../lib/ConfirmContext'
 
 /* ══════════════════════════════════════════════════════════════
    STOCK & ISSUING
@@ -376,6 +377,7 @@ function IssueTab({ stock, branches, onIssued, onNotice }) {
 
 /* ── the notes themselves ── */
 function NotesTab({ issues, onChanged, onNotice }) {
+  const confirm = useConfirm()
   const [open, setOpen] = useState(null)
   const [detail, setDetail] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -388,7 +390,15 @@ function NotesTab({ issues, onChanged, onNotice }) {
   }
 
   const act = async (id, action, label) => {
-    if (action === 'cancel' && !confirm('Cancel this note? Anything already dispatched goes back to the store.')) return
+    if (action === 'cancel') {
+      const ok = await confirm({
+        title: 'Cancel this note',
+        message: 'Anything already dispatched against it goes back to the store.',
+        confirmLabel: 'Cancel the note',
+        cancelLabel: 'Keep it',
+      })
+      if (!ok) return
+    }
     setBusy(true)
     try {
       if (action === 'delete') await apiFetch(`/issues/${id}`, { method: 'DELETE' })
@@ -526,6 +536,7 @@ function NotesTab({ issues, onChanged, onNotice }) {
 
 /* ── branches and their selling prices ── */
 function BranchesTab({ branches, products, onChanged, onNotice }) {
+  const confirm = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', code: '', location: '', phone: '' })
   const [prices, setPrices] = useState({})
@@ -563,7 +574,15 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
 
   const toggle = async (b) => {
     const closing = b.active
-    if (closing && !confirm(`Close ${b.name}? Its history stays; no new stock can be issued to it.`)) return
+    if (closing) {
+      const ok = await confirm({
+        title: `Close ${b.name}`,
+        message: 'No new stock can be issued to this branch once it is closed.',
+        detail: 'Its history stays, and it can be reopened later.',
+        confirmLabel: 'Close branch',
+      })
+      if (!ok) return
+    }
     try {
       await apiFetch(`/branches/${b.id}`, { method: 'PATCH', body: JSON.stringify({ active: !b.active }) })
       onChanged()
