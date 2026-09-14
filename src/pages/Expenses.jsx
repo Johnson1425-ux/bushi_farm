@@ -1,5 +1,6 @@
 import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
 
 /* ══════════════════════════════════════════════════════════════
@@ -1250,10 +1251,9 @@ function BooksView({ onError, onImported, onOpenMonth }) {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const token = localStorage.getItem('mt_token')
       const res = await fetch(`${BASE}/expenses/import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: await authHeaders(),
         body: fd,
       })
       const data = await res.json()

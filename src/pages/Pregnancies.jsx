@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, Btn, PageHeader, EmptyState, Badge } from '../components/ui'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -119,10 +120,9 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const token = localStorage.getItem('mt_token')
       const res = await fetch(`${BASE}/pregnancies/import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: await authHeaders(),
         body: fd,
       })
       const result = await res.json()
