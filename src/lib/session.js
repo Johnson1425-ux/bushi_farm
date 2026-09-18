@@ -41,13 +41,30 @@ import { BASE } from './api'
    token nobody is waiting for. Worthless to anyone who steals it. */
 const SIGNED_IN_KEY = 'mt_session'
 
+/* Why the session ended, kept just long enough for the sign-in page to
+   say so. Being returned to a login form with no explanation is the worst
+   part of an idle timeout — the attendant assumes the app broke. In
+   sessionStorage because the redirect reloads the page, and because the
+   reason belongs to this tab and should not outlive it. */
+const SIGNED_OUT_REASON_KEY = 'mt_signed_out'
+
 /* Written by the release that kept tokens in localStorage. Read once, to
    trade for a cookie, then scrubbed. */
 const LEGACY_KEYS = ['mt_token', 'mt_refresh', 'mt_token_expiry', 'mt_refresh_lock']
 
-/* Renew this long before the token expires, so a request never leaves
-   with one that dies in flight, and a slightly fast clock is covered. */
-const RENEW_BEFORE_MS = 60 * 1000
+/* Renew once the access token is past this much of its life.
+ *
+ * Half, which does two jobs. A request never leaves carrying a token
+ * about to die in flight, and a slightly fast clock is covered — that
+ * much a few seconds would have done.
+ *
+ * The other job is the idle timeout. The server only learns that a
+ * session is alive when it renews, so how stale its idea of "last used"
+ * can be is decided here: renewing at half-life bounds it at half a
+ * token lifetime, and the server pads its idle window by exactly that
+ * (SESSION_IDLE_MINUTES in lib/refreshTokens.js). Renew later than this
+ * and people get signed out short of the idle time they were promised. */
+const RENEW_AT_FRACTION = 0.5
 
 /* Forces a CORS preflight, which an origin the API does not know cannot
    pass — that is what stops a hostile page from spending the cookie. */
@@ -60,8 +77,9 @@ const write = (k, v) => {
 }
 
 /* The session, for as long as this page is open. */
-let accessToken  = null
-let accessExpiry = 0
+let accessToken    = null
+let accessExpiry   = 0
+let accessLifetime = 0
 
 const listeners = new Set()
 
@@ -72,21 +90,38 @@ export function onSessionEnded(fn) {
 }
 
 function remember({ token, expiresIn }) {
-  accessToken  = token || null
-  accessExpiry = token && expiresIn ? Date.now() + Number(expiresIn) * 1000 : 0
+  accessToken    = token || null
+  accessLifetime = token && expiresIn ? Number(expiresIn) * 1000 : 0
+  accessExpiry   = accessLifetime ? Date.now() + accessLifetime : 0
   write(SIGNED_IN_KEY, token ? '1' : null)
 }
 
 export function clearSession() {
-  accessToken = null
-  accessExpiry = 0
+  accessToken    = null
+  accessExpiry   = 0
+  accessLifetime = 0
   write(SIGNED_IN_KEY, null)
   LEGACY_KEYS.forEach(k => write(k, null))
 }
 
-function endSession() {
+function endSession(reason) {
   clearSession()
-  listeners.forEach(fn => { try { fn() } catch { /* one listener must not stop the others */ } })
+  if (reason) { try { sessionStorage.setItem(SIGNED_OUT_REASON_KEY, reason) } catch { /* ignore */ } }
+  listeners.forEach(fn => { try { fn(reason) } catch { /* one listener must not stop the others */ } })
+}
+
+/**
+ * Why the last session ended, read once and forgotten.
+ *
+ * Returns null when the user simply arrived at the sign-in page, so
+ * nothing is said to someone who was never signed out.
+ */
+export function takeSignedOutReason() {
+  try {
+    const reason = sessionStorage.getItem(SIGNED_OUT_REASON_KEY)
+    sessionStorage.removeItem(SIGNED_OUT_REASON_KEY)
+    return reason
+  } catch { return null }
 }
 
 /** Is this browser carrying a session — in memory, or a cookie left from a previous load? */
@@ -124,9 +159,13 @@ async function doRefresh() {
   LEGACY_KEYS.forEach(k => write(k, null))
 
   if (r.status === 401 || r.status === 403) {
-    /* The server has ended this session — expired, signed out, or revoked
-       because the account changed. Retrying cannot help. */
-    endSession()
+    /* The server has ended this session — idle too long, past its
+       twelve-hour limit, signed out, or revoked because the account
+       changed. Retrying cannot help, and the reason is worth keeping:
+       "signed out after 30 minutes without activity" is the difference
+       between a rule and a bug, to whoever is standing at the till. */
+    const said = await r.json().catch(() => ({}))
+    endSession(said.error || null)
     return null
   }
   if (!r.ok) throw new Error('Could not renew the session. Try again.')
@@ -173,7 +212,8 @@ export function startSession(data) {
  * for an anonymous visitor.
  */
 export async function getAccessToken() {
-  if (accessToken && Date.now() < accessExpiry - RENEW_BEFORE_MS) return accessToken
+  const renewAt = accessExpiry - accessLifetime * RENEW_AT_FRACTION
+  if (accessToken && Date.now() < renewAt) return accessToken
   if (!hasSession()) return null
   await refreshSession()
   return accessToken

@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
+import { takeSignedOutReason } from '../lib/session'
 import { Logo } from '../components/ui'
 
 export default function Login() {
@@ -10,6 +11,12 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error,    setError]    = useState('')
   const [loading,  setLoading]  = useState(false)
+  /* Set when the session ended on its own rather than by anyone asking —
+     an idle timeout, the twelve-hour limit, an admin changing the
+     account. Shown once, so a fresh visitor sees nothing. */
+  const [endedBecause, setEndedBecause] = useState('')
+
+  useEffect(() => { setEndedBecause(takeSignedOutReason() || '') }, [])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -85,6 +92,13 @@ export default function Login() {
               className="w-full"
             />
           </div>
+
+          {endedBecause && !error && (
+            <div className="bg-amber/10 border border-amber/30 rounded-lg text-[13px] text-ink-60"
+              style={{ padding: '10px 14px', marginBottom: 16 }}>
+              {endedBecause}
+            </div>
+          )}
 
           {error && (
             <div className="bg-red/10 border border-red/30 rounded-lg text-[13px] text-red"
