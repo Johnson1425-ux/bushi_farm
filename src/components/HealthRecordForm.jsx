@@ -30,6 +30,10 @@ const IDENTIFICATION = [
   { key: 'cow_tag',          label: 'ID/Tag no.' },
   { key: 'age',              label: 'Age',              placeholder: 'e.g. 4 years' },
   { key: 'breed',            label: 'Breed' },
+  /* Parentage: the farm's addition, not on the printed sheet. Beside
+     breed, because that is what they qualify. */
+  { key: 'dam',              label: 'Dam',              hint: 'mother' },
+  { key: 'sire',             label: 'Sire',             hint: 'father' },
   { key: 'sex',              label: 'Sex',              options: ['Female', 'Male'] },
   { key: 'body_weight',      label: 'Body weight',      placeholder: 'e.g. 420 kg' },
   { key: 'repro_status',     label: 'Status',           hint: 'pregnant / cycling / serviced',
