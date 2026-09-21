@@ -646,7 +646,7 @@ function ItemList({ items, onMove, onEdit, onArchive, onRestore, onDelete, onOpe
   return (
     <>
       <div className="flex flex-wrap gap-3 items-center rounded-lg mb-4 p-4" style={{ background: 'var(--cream-dark)' }}>
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name, code, supplier…" style={{ minWidth: 220 }} />
+        <input type='search' value={q} onChange={e => setQ(e.target.value)} placeholder="Search name, code, supplier…" style={{ minWidth: 220 }} />
         <select value={category} onChange={e => setCategory(e.target.value)}>
           <option value="all">All categories</option>
           {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
