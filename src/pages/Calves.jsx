@@ -138,11 +138,11 @@ function CalfForm({ calf, cows, prefill, onClose, onSaved }) {
 
         <div className="grid grid-cols-2 gap-x-4">
           <Field label="Name">
-            <input name="name" required maxLength={100} autoFocus={!editing} className="w-full"
+            <input type='text' name="name" required maxLength={100} autoFocus={!editing} className="w-full"
               defaultValue={calf?.name || ''} placeholder="What she is called" />
           </Field>
           <Field label="Tag" hint="(optional)">
-            <input name="tag" maxLength={50} className="w-full" defaultValue={calf?.tag || ''} />
+            <input type='text' name="tag" maxLength={50} className="w-full" defaultValue={calf?.tag || ''} />
           </Field>
           <Field label="Sex">
             <select name="sex" className="w-full" defaultValue={calf?.sex || 'female'}>
@@ -151,7 +151,7 @@ function CalfForm({ calf, cows, prefill, onClose, onSaved }) {
             </select>
           </Field>
           <Field label="Date of birth">
-            <input name="date_of_birth" type="date" required max={today()} className="w-full"
+            <input type='date' name="date_of_birth" required max={today()} className="w-full"
               defaultValue={calf?.date_of_birth || prefill?.date_of_birth || today()} />
           </Field>
           <Field label="Dam" hint="(the mother)">
@@ -171,20 +171,20 @@ function CalfForm({ calf, cows, prefill, onClose, onSaved }) {
             </select>
           </Field>
           <Field label="Sire" hint="(bull or semen batch)">
-            <input name="sire" maxLength={200} className="w-full"
+            <input type='text' name="sire" maxLength={200} className="w-full"
               defaultValue={calf?.sire || prefill?.sire || ''} />
           </Field>
           <Field label="Breed" hint="(optional)">
-            <input name="breed" maxLength={100} className="w-full" defaultValue={calf?.breed || ''} />
+            <input type='text' name="breed" maxLength={100} className="w-full" defaultValue={calf?.breed || ''} />
           </Field>
           <Field label="Birth weight" hint="(kg, optional)">
-            <input name="birth_weight" type="number" step="0.1" min="0" className="w-full"
+            <input type='number' name="birth_weight" step="0.1" min="0" className="w-full"
               defaultValue={calf?.birth_weight ?? ''} />
           </Field>
         </div>
 
         <Field label="Notes" hint="(optional)">
-          <input name="notes" maxLength={1000} className="w-full" defaultValue={calf?.notes || ''}
+          <input type='text' name="notes" maxLength={1000} className="w-full" defaultValue={calf?.notes || ''}
             placeholder="How the calving went, anything worth remembering" />
         </Field>
 
