@@ -26,6 +26,9 @@ const fmt = (n, dec = 0) => Number(n ?? 0).toLocaleString(undefined, {
   minimumFractionDigits: 0, maximumFractionDigits: dec,
 })
 const money = n => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
+/* The farm banks in Tanzanian shillings and every other page says so —
+   Expenses, Sales, the Till. This one shipped saying UGX. */
+const tsh   = n => `TSh ${money(n)}`
 const num   = v => (Number.isFinite(Number(v)) ? Number(v) : 0)
 const today = () => new Date().toISOString().slice(0, 10)
 const daysAgo = d => new Date(Date.now() - d * 864e5).toISOString().slice(0, 10)
@@ -61,6 +64,7 @@ const RECORDABLE = ['in', 'out', 'damage', 'return']
 const CATEGORIES = [
   ['packaging',  'Packaging',  'Bottles, caps, labels, crates, film'],
   ['ingredient', 'Ingredients', 'Cultures, sugar, flavours, stabilisers'],
+  ['medicine',   'Medicines',  'Veterinary drugs, drenches, vaccines'],
   ['chemical',   'Chemicals',  'CIP detergents, sanitisers'],
   ['spare',      'Spares',     'Machine spares and fittings'],
   ['tool',       'Tools',      'Equipment and hand tools'],
@@ -68,6 +72,30 @@ const CATEGORIES = [
   ['general',    'General',    'Everything else'],
 ]
 const catLabel = c => CATEGORIES.find(x => x[0] === c)?.[1] ?? 'General'
+
+/* An item bought in a container and used out of it a bit at a time: a
+   100 ml bottle of oxytetracycline, a 25 kg sack of meal. `pack_size` is
+   1 for everything else, and these all quietly no-op for those. */
+/* Strictly boolean. Returning the item itself when it is null hands
+   React `checked={undefined}`, which makes the checkbox uncontrolled on
+   first render and controlled on the next — and React warns that the
+   value it holds is then nobody's to rely on. */
+const hasPacks  = i => Boolean(i && i.pack_unit && num(i.pack_size) > 1)
+const packsOf   = (qty, i) => (num(i?.pack_size) > 0 ? num(qty) / num(i.pack_size) : num(qty))
+const baseOf    = (packs, i) => num(packs) * (num(i?.pack_size) > 0 ? num(i.pack_size) : 1)
+
+/** "bottle" / "bottles" — 4.45 of them is still plural. */
+const plural = (n, word) => `${word}${Math.abs(num(n)) === 1 ? '' : 's'}`
+
+/** "480 ml (4.8 bottles)", or just "6,500 pcs" when there is no pack. */
+const qtyLabel = (qty, item) => hasPacks(item)
+  ? `${fmt(qty, 2)} ${item.unit} · ${fmt(packsOf(qty, item), 2)} ${plural(packsOf(qty, item), item.pack_unit)}`
+  : `${fmt(qty, 2)} ${item?.unit ?? ''}`.trim()
+
+/** How the item is bought: "bottle of 100 ml — TSh 9,000". */
+const packLabel = item => hasPacks(item)
+  ? `${item.pack_unit} of ${fmt(item.pack_size, 2)} ${item.unit}${item.pack_cost > 0 ? ` — ${tsh(item.pack_cost)}` : ''}`
+  : null
 
 const STATE = {
   out: { label: 'Out of stock', color: 'var(--red)',   chip: 'rgba(217,64,64,0.12)' },
@@ -460,14 +488,19 @@ function Overview({ summary, items, onOrder, onOpen }) {
     <>
       <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <MetricCard label="Lines carried" value={fmt(summary.items)} unit="active items" />
-        <MetricCard label="Value on the shelf" value={money(summary.stock_value)} unit="TZS" accent />
+        <MetricCard label="Value on the shelf" value={money(summary.stock_value)} unit="TSh" accent />
         <MetricCard label="Out of stock" value={fmt(summary.out_of_stock)}
           unit={summary.out_of_stock === 1 ? 'line' : 'lines'} note="Nothing left to issue" />
         <MetricCard label="Due an order" value={fmt(summary.low_stock)}
           unit={summary.low_stock === 1 ? 'line' : 'lines'} note="At or below reorder level" />
+        {/* What the store spent on stock it actually used, as against
+            what it spent restocking. For the drug shelf this is the
+            answer to "what did the medicines cost this month". */}
+        <MetricCard label="Used" value={money(p.consumed_value)} unit="TSh"
+          note={`Issued ${money(p.issued_value)} · damaged ${money(p.damaged_value)}`} />
         <MetricCard label="Damaged" value={fmt(p.damaged)}
           unit={`units · ${p.damage_rate}% of what left the shelf`}
-          note={`${money(p.damaged_value)} TZS, last 30 days`} />
+          note={`${money(p.damaged_value)} TSh, last 30 days`} />
       </div>
 
       <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
@@ -479,8 +512,9 @@ function Overview({ summary, items, onOrder, onOpen }) {
               {summary.needs_ordering.length > 0 && (
                 <Btn size="sm" onClick={() => downloadCsv(
                   `order-sheet-${today()}.csv`,
-                  ['Item', 'Category', 'On hand', 'Unit', 'Reorder level', 'Suggested order'],
-                  summary.needs_ordering.map(r => [r.name, catLabel(r.category), r.current_stock, r.unit, r.reorder_level, r.suggested_order]),
+                  ['Item', 'Category', 'On hand', 'Unit', 'Reorder level', 'Suggested order', 'Order in packs', 'Pack', 'Estimated cost'],
+                  summary.needs_ordering.map(r => [r.name, catLabel(r.category), r.current_stock, r.unit,
+                    r.reorder_level, r.suggested_order, r.suggested_packs ?? '', r.pack_unit ?? '', r.estimated_cost]),
                 )}>Export</Btn>
               )}
             </CardTitle>
@@ -490,7 +524,7 @@ function Overview({ summary, items, onOrder, onOpen }) {
             : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="w-full border-collapse text-[13px]">
-                  <thead><tr><TH>Item</TH><TH right>On hand</TH><TH right>Level</TH><TH right>Order</TH><TH /></tr></thead>
+                  <thead><tr><TH>Item</TH><TH right>On hand</TH><TH right>Level</TH><TH right>Order</TH><TH right>Est.</TH><TH /></tr></thead>
                   <tbody>
                     {summary.needs_ordering.map(r => (
                       <Row key={r.id} onClick={() => onOpen(r.id)}>
@@ -498,9 +532,18 @@ function Overview({ summary, items, onOrder, onOpen }) {
                           {r.name}
                           <div className="mt-1"><StateChip state={r.state} /></div>
                         </TD>
-                        <TD right mono color={r.state === 'out' ? 'var(--red)' : 'var(--amber)'}>{fmt(r.current_stock, 2)} {r.unit}</TD>
+                        <TD right mono color={r.state === 'out' ? 'var(--red)' : 'var(--amber)'}>
+                          {fmt(r.current_stock, 2)} {r.unit}
+                        </TD>
                         <TD right mono>{fmt(r.reorder_level, 2)}</TD>
-                        <TD right mono strong>{fmt(r.suggested_order, 2)}</TD>
+                        {/* An order is placed in whole containers — six
+                            bottles, not 600 ml — so the sheet says so. */}
+                        <TD right mono strong>
+                          {r.suggested_packs
+                            ? <>{fmt(r.suggested_packs)} {plural(r.suggested_packs, r.pack_unit)}</>
+                            : fmt(r.suggested_order, 2)}
+                        </TD>
+                        <TD right mono>{r.estimated_cost > 0 ? money(r.estimated_cost) : '—'}</TD>
                         <TD right>
                           <Btn size="sm" onClick={e => { e.stopPropagation(); onOrder(r) }}>Book in</Btn>
                         </TD>
@@ -522,10 +565,10 @@ function Overview({ summary, items, onOrder, onOpen }) {
           <table className="w-full border-collapse text-[13px]">
             <tbody>
               {[
-                ['in',     'Received',    p.received,  `${money(p.received_value)} TZS`],
+                ['in',     'Received',    p.received,  `${tsh(p.received_value)}`],
                 ['return', 'Returned to store', p.returned, ''],
-                ['out',    'Issued to production', p.issued, ''],
-                ['damage', 'Damaged / written off', p.damaged, `${money(p.damaged_value)} TZS`],
+                ['out',    'Issued to use', p.issued, tsh(p.issued_value)],
+                ['damage', 'Damaged / written off', p.damaged, `${tsh(p.damaged_value)}`],
                 ['adjust', 'Count adjustments', p.adjusted, ''],
               ].map(([type, label, value, aside]) => (
                 <tr key={type}>
@@ -546,7 +589,7 @@ function Overview({ summary, items, onOrder, onOpen }) {
           {p.damaged > 0 && (
             <div className="mt-4 rounded-lg text-xs" style={{ padding: '10px 14px', background: 'rgba(217,64,64,0.08)', color: 'var(--red)' }}>
               {p.damage_rate}% of everything that left the shelf was damage rather than use
-              — {fmt(p.damaged, 2)} units, {money(p.damaged_value)} TZS.
+              — {fmt(p.damaged, 2)} units, {tsh(p.damaged_value)}.
             </div>
           )}
         </Card>
@@ -622,9 +665,14 @@ function ItemList({ items, onMove, onEdit, onArchive, onRestore, onDelete, onOpe
         <div className="flex-1" />
         <Btn size="sm" onClick={() => downloadCsv(
           `stock-list-${today()}.csv`,
-          ['Item', 'Code', 'Category', 'Unit', 'On hand', 'Reorder level', 'Unit cost', 'Value', 'Received', 'Issued', 'Damaged', 'Returned', 'Supplier', 'Location'],
-          shown.map(i => [i.name, i.code, catLabel(i.category), i.unit, i.current_stock, i.reorder_level,
-            i.unit_cost, i.stock_value, i.total_in, i.total_out, i.total_damaged, i.total_returned, i.supplier, i.location]),
+          ['Item', 'Code', 'Category', 'Unit', 'Bought as', 'Pack size', 'Pack cost',
+           'On hand', 'On hand (packs)', 'Reorder level', 'Unit cost', 'Value',
+           'Received', 'Issued', 'Damaged', 'Returned', 'Supplier', 'Location'],
+          shown.map(i => [i.name, i.code, catLabel(i.category), i.unit,
+            i.pack_unit, hasPacks(i) ? i.pack_size : '', hasPacks(i) ? i.pack_cost : '',
+            i.current_stock, hasPacks(i) ? i.current_packs : '', i.reorder_level,
+            i.unit_cost, i.stock_value, i.total_in, i.total_out, i.total_damaged, i.total_returned,
+            i.supplier, i.location]),
         )}>Export CSV</Btn>
       </div>
 
@@ -661,12 +709,24 @@ function ItemList({ items, onMove, onEdit, onArchive, onRestore, onDelete, onOpe
                   <TD>{catLabel(i.category)}</TD>
                   <TD right mono strong color={i.state === 'out' ? 'var(--red)' : i.state === 'low' ? 'var(--amber)' : 'var(--ink)'}>
                     {fmt(i.current_stock, 2)} <span style={{ color: 'var(--ink-30)' }}>{i.unit}</span>
+                    {hasPacks(i) && (
+                      <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-30)' }}>
+                        {fmt(i.current_packs, 2)} {plural(i.current_packs, i.pack_unit)}
+                      </div>
+                    )}
                   </TD>
                   <TD right mono>{i.reorder_level > 0 ? fmt(i.reorder_level, 2) : '—'}</TD>
                   <TD right mono color={i.total_in > 0 ? 'var(--green-600)' : 'var(--ink-30)'}>{i.total_in > 0 ? fmt(i.total_in, 2) : '—'}</TD>
                   <TD right mono color={i.total_out > 0 ? 'var(--amber)' : 'var(--ink-30)'}>{i.total_out > 0 ? fmt(i.total_out, 2) : '—'}</TD>
                   <TD right mono color={i.total_damaged > 0 ? 'var(--red)' : 'var(--ink-30)'}>{i.total_damaged > 0 ? fmt(i.total_damaged, 2) : '—'}</TD>
-                  <TD right mono>{i.unit_cost > 0 ? money(i.stock_value) : '—'}</TD>
+                  <TD right mono>
+                    {i.unit_cost > 0 ? money(i.stock_value) : '—'}
+                    {i.unit_cost > 0 && (
+                      <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-30)' }}>
+                        {money(hasPacks(i) ? i.pack_cost : i.unit_cost)}/{hasPacks(i) ? i.pack_unit : i.unit}
+                      </div>
+                    )}
+                  </TD>
                   <TD right mono>{i.last_received || '—'}</TD>
                   <TD right>
                     <div className="flex gap-1.5 justify-end" onClick={e => e.stopPropagation()}>
@@ -713,6 +773,22 @@ function ItemList({ items, onMove, onEdit, onArchive, onRestore, onDelete, onOpe
 function ItemForm({ item, onSave, onClose }) {
   const [busy, setBusy] = useState(false)
 
+  /* Is this bought in a container it is then used out of? Kept in state
+     rather than read off the form, because the whole lower half of the
+     dialog — what a pack holds, what a pack costs, whether opening stock
+     is counted in bottles or millilitres — only makes sense once it is. */
+  const [packed,   setPacked]   = useState(() => hasPacks(item))
+  const [packUnit, setPackUnit] = useState(item?.pack_unit ?? 'bottle')
+  const [packSize, setPackSize] = useState(String(item?.pack_size ?? 100))
+  const [unit,     setUnit]     = useState(item?.unit ?? (item ? item.unit : 'ml'))
+  const [packCost, setPackCost] = useState(String(item?.pack_cost ?? ''))
+  const [unitCost, setUnitCost] = useState(String(item?.unit_cost ?? ''))
+
+  /* The division the vet was doing on paper. Shown as it is typed so the
+     per-dose cost is agreed before anything is saved, not discovered in a
+     report a month later. */
+  const perUnit = packed && num(packSize) > 0 ? num(packCost) / num(packSize) : num(unitCost)
+
   const submit = async (e) => {
     e.preventDefault()
     const fd = new FormData(e.target)
@@ -720,17 +796,20 @@ function ItemForm({ item, onSave, onClose }) {
       name:          fd.get('name'),
       code:          fd.get('code'),
       category:      fd.get('category'),
-      unit:          fd.get('unit'),
+      unit:          unit,
       supplier:      fd.get('supplier'),
       location:      fd.get('location'),
       reorder_level: num(fd.get('reorder_level')),
       reorder_qty:   num(fd.get('reorder_qty')),
-      unit_cost:     num(fd.get('unit_cost')),
       notes:         fd.get('notes'),
+      ...(packed
+        ? { pack_unit: packUnit, pack_size: num(packSize), pack_cost: num(packCost) }
+        : { pack_unit: null, pack_size: 1, unit_cost: num(unitCost) }),
     }
     if (!item) {
-      body.opening_stock = num(fd.get('opening_stock'))
-      body.opening_date  = fd.get('opening_date')
+      body.opening_stock    = num(fd.get('opening_stock'))
+      body.opening_in_packs = packed
+      body.opening_date     = fd.get('opening_date')
     }
     setBusy(true)
     try {
@@ -743,40 +822,106 @@ function ItemForm({ item, onSave, onClose }) {
   return (
     <Modal
       title={item ? `Edit ${item.name}` : 'Add an item to the store'}
-      sub={item ? 'Changing the reorder level or unit cost does not touch the movement history.' : null}
+      sub={item
+        ? 'Changing a price here sets what stock is worth from now on. Movements already recorded keep the cost they were given.'
+        : null}
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <Field label="Name" name="name" defaultValue={item?.name} required placeholder="e.g. 500ml yoghurt bottle" />
+        <Field label="Name" name="name" defaultValue={item?.name} required placeholder="e.g. Oxytetracycline 10%" />
         <Grid2>
           <Field label="Item code" name="code" defaultValue={item?.code} placeholder="optional" />
-          <Field label="Unit" name="unit" defaultValue={item?.unit ?? 'pcs'} required placeholder="pcs, kg, litres, box" />
+          <Field label="Category" name="category">
+            <select name="category" className="w-full" defaultValue={item?.category ?? 'packaging'}>
+              {CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </Field>
         </Grid2>
-        <Field label="Category" name="category">
-          <select name="category" className="w-full" defaultValue={item?.category ?? 'packaging'}>
-            {CATEGORIES.map(([v, l, hint]) => <option key={v} value={v}>{l} — {hint}</option>)}
-          </select>
-        </Field>
+
+        {/* ── how it is bought, and how it is used ──────────────────
+            One bottle is what the invoice prices; a millilitre is what
+            the vet draws. An item that is used out of an opened
+            container has to record both, or one of the two can never be
+            entered. */}
+        <div className="rounded-lg mb-4" style={{ background: 'var(--cream-dark)', padding: '14px 16px' }}>
+          <label className="flex items-start gap-2 cursor-pointer" style={{ marginBottom: packed ? 14 : 0 }}>
+            <input type="checkbox" checked={packed} onChange={e => setPacked(e.target.checked)} style={{ marginTop: 3 }} />
+            <span>
+              <span className="text-sm font-medium" style={{ color: 'var(--ink)' }}>
+                Bought in a container, used a bit at a time
+              </span>
+              <span className="block text-[11px] mt-0.5" style={{ color: 'var(--ink-60)' }}>
+                A 100 ml bottle of medicine, a 25 kg sack of meal, a 20 L drum of caustic —
+                priced whole, used in doses.
+              </span>
+            </span>
+          </label>
+
+          {packed ? (
+            <>
+              {/* Reads as a sentence across the row: a bottle holds 100 ml,
+                   used in ml. The price gets its own line so its label has
+                   room to name the container. */}
+              <div className="grid gap-x-3" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                <Field label="Bought as">
+                  <input value={packUnit} onChange={e => setPackUnit(e.target.value)} className="w-full"
+                    placeholder="bottle" required />
+                </Field>
+                <Field label="Holds">
+                  <input type="number" min="0" step="any" value={packSize} className="w-full" required
+                    onChange={e => setPackSize(e.target.value)} />
+                </Field>
+                <Field label="Used in">
+                  <input value={unit} onChange={e => setUnit(e.target.value)} className="w-full"
+                    placeholder="ml" required />
+                </Field>
+              </div>
+              <Field label={`Price of one ${packUnit || 'pack'} (TSh)`}>
+                <input type="number" min="0" step="any" value={packCost} className="w-full"
+                  onChange={e => setPackCost(e.target.value)} placeholder="9000" />
+              </Field>
+              <div className="text-xs rounded" style={{ color: 'var(--green-800)', background: 'var(--green-50)', padding: '8px 12px' }}>
+                {num(packSize) > 0 && num(packCost) > 0
+                  ? <>One {packUnit || 'pack'} of {fmt(packSize, 2)} {unit || 'units'} at {tsh(packCost)} —
+                      so one {unit || 'unit'} costs <strong>{tsh(perUnit)}</strong>, and using{' '}
+                      {fmt(num(packSize) / 5, 2)} {unit || 'units'} costs <strong>{tsh(perUnit * num(packSize) / 5)}</strong>.</>
+                  : <>Stock is held in {unit || 'the smaller unit'}; deliveries are booked in {packUnit || 'packs'}.</>}
+              </div>
+            </>
+          ) : (
+            <Grid2>
+              <Field label="Unit">
+                <input value={unit} onChange={e => setUnit(e.target.value)} className="w-full"
+                  placeholder="pcs, kg, litres, box" required />
+              </Field>
+              <Field label={`Cost per ${unit || 'unit'} (TSh)`}>
+                <input type="number" min="0" step="any" value={unitCost} className="w-full"
+                  onChange={e => setUnitCost(e.target.value)} placeholder="0" />
+              </Field>
+            </Grid2>
+          )}
+        </div>
+
         <Grid2>
-          <Field label="Reorder level" name="reorder_level" type="number" min="0" step="any"
+          <Field label={`Reorder level${unit ? ` (${unit})` : ''}`} name="reorder_level" type="number" min="0" step="any"
             defaultValue={item?.reorder_level ?? 0}
             hint="Warn at this figure. Leave at 0 for no warning." />
-          <Field label="Usual order size" name="reorder_qty" type="number" min="0" step="any"
+          <Field label={`Usual order size${unit ? ` (${unit})` : ''}`} name="reorder_qty" type="number" min="0" step="any"
             defaultValue={item?.reorder_qty ?? 0}
             hint="Suggested on the order sheet." />
         </Grid2>
         <Grid2>
-          <Field label="Unit cost (TZS)" name="unit_cost" type="number" min="0" step="any"
-            defaultValue={item?.unit_cost ?? 0}
-            hint="Updated automatically by a priced delivery." />
           <Field label="Supplier" name="supplier" defaultValue={item?.supplier} placeholder="optional" />
+          <Field label="Kept where" name="location" defaultValue={item?.location} placeholder="e.g. Drug store, fridge" />
         </Grid2>
-        <Field label="Kept where" name="location" defaultValue={item?.location} placeholder="e.g. Main store, rack B" />
 
         {!item && (
           <Grid2>
-            <Field label="Opening stock" name="opening_stock" type="number" min="0" step="any" defaultValue={0}
-              hint="Booked in as a receipt, so it appears on the stock card." />
+            <Field label={`Opening stock${packed ? ` (${packUnit || 'packs'})` : unit ? ` (${unit})` : ''}`}
+              name="opening_stock" type="number" min="0" step="any" defaultValue={0}
+              hint={packed
+                ? `Counted as you count them on the shelf — whole ${packUnit || 'pack'}s.`
+                : 'Booked in as a receipt, so it appears on the stock card.'} />
             <Field label="Counted on" name="opening_date" type="date" defaultValue={today()} />
           </Grid2>
         )}
@@ -810,11 +955,33 @@ function MovementForm({ items, preset, onDone, onClose }) {
 
   const item = items.find(i => String(i.id) === String(itemId))
   const meta = MOVEMENTS[type]
-  const quantity = num(qty)
+
+  /* A delivery arrives as whole containers and a dose is drawn in the
+     smaller unit, so the box offers both and the ledger is told which was
+     typed. Receipts default to packs — you book in five bottles — and
+     everything else to the base unit, because that is how it is used. */
+  const packed  = hasPacks(item)
+  const [inPacks, setInPacks] = useState(preset.type === 'in')
+  const usePacks = packed && inPacks
+  const entryUnit = usePacks ? (item?.pack_unit ?? 'pack') : (item?.unit ?? '')
+
+  const quantity = usePacks ? baseOf(qty, item) : num(qty)
 
   const after   = item ? item.current_stock + meta.sign * quantity : null
   const impossible = meta.sign === -1 && item && quantity > item.current_stock
   const belowLevel = after !== null && item && item.reorder_level > 0 && after <= item.reorder_level && after > 0
+
+  /* What it costs. A receipt is priced by whoever books it in; everything
+     else is costed at what the shelf is currently worth — which is the
+     whole point of the exercise: 20 ml out of a 9,000 bottle is 1,800,
+     and nobody should have to work that out themselves. */
+  const [priceMode, setPriceMode] = useState('keep')
+  const [newPrice,  setNewPrice]  = useState('')
+  const receiptRate = priceMode === 'new' && num(newPrice) > 0
+    ? (packed ? num(newPrice) / num(item.pack_size) : num(newPrice))
+    : num(item?.unit_cost)
+  const rate = type === 'in' ? receiptRate : num(item?.unit_cost)
+  const cost = quantity > 0 ? quantity * rate : 0
 
   const submit = async (e) => {
     e.preventDefault()
@@ -826,15 +993,24 @@ function MovementForm({ items, preset, onDone, onClose }) {
         body: JSON.stringify({
           item_id:   itemId,
           type,
-          quantity,
+          quantity:  num(qty),
+          in_packs:  usePacks,
           date:      fd.get('date'),
           reference: fd.get('reference'),
           party:     fd.get('party'),
-          unit_cost: fd.get('unit_cost') || undefined,
+          /* Only a receipt carries a price, and only when one was typed.
+             Left out, the item's own cost stands. */
+          ...(type === 'in' && priceMode === 'new' && num(newPrice) > 0
+            ? (packed ? { pack_cost: num(newPrice) } : { unit_cost: num(newPrice) })
+            : {}),
           notes:     fd.get('notes'),
         }),
       })
-      notify.success(`${meta.label}: ${fmt(quantity, 2)} ${item.unit} of ${item.name}. Now ${fmt(res.balance_after, 2)} on hand.`)
+      notify.success(
+        `${meta.label}: ${qtyLabel(res.quantity, item)} of ${item.name}`
+        + `${res.cost ? ` — ${tsh(res.cost)}` : ''}. `
+        + `Now ${qtyLabel(res.balance_after, item)} on hand.`
+      )
       await onDone()
     } catch (err) {
       notify.error(err.message)
@@ -854,7 +1030,7 @@ function MovementForm({ items, preset, onDone, onClose }) {
               return (
                 <optgroup key={cat} label={label}>
                   {group.map(i => (
-                    <option key={i.id} value={i.id}>{i.name} — {fmt(i.current_stock, 2)} {i.unit} on hand</option>
+                    <option key={i.id} value={i.id}>{i.name} — {qtyLabel(i.current_stock, i)} on hand</option>
                   ))}
                 </optgroup>
               )
@@ -886,10 +1062,25 @@ function MovementForm({ items, preset, onDone, onClose }) {
         </Field>
 
         <Grid2>
-          <Field label={`Quantity${item ? ` (${item.unit})` : ''}`}>
+          <Field label={`Quantity${entryUnit ? ` (${entryUnit})` : ''}`}>
             <input type="number" min="0" step="any" value={qty} onChange={e => setQty(e.target.value)}
               required className="w-full"
               style={{ borderColor: impossible ? 'var(--red)' : undefined, color: impossible ? 'var(--red)' : undefined }} />
+            {/* Five bottles in, twenty millilitres out — the same item,
+                counted the way each job counts it. */}
+            {packed && (
+              <div className="flex gap-1.5 mt-2">
+                {[[false, item.unit], [true, `${item.pack_unit}s`]].map(([v, label]) => (
+                  <button key={label} type="button" onClick={() => setInPacks(v)}
+                    className="text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-all"
+                    style={{
+                      borderColor: inPacks === v ? 'var(--green-600)' : 'var(--ink-10)',
+                      background:  inPacks === v ? 'var(--green-50)'  : 'transparent',
+                      color:       inPacks === v ? 'var(--green-800)' : 'var(--ink-60)',
+                    }}>in {label}</button>
+                ))}
+              </div>
+            )}
           </Field>
           <Field label="Date" name="date" type="date" defaultValue={today()} required max={today()} />
         </Grid2>
@@ -902,10 +1093,11 @@ function MovementForm({ items, preset, onDone, onClose }) {
             color:      impossible ? 'var(--red)' : belowLevel ? 'var(--amber)' : 'var(--ink-60)',
           }}>
             {impossible
-              ? <>Only {fmt(item.current_stock, 2)} {item.unit} on hand — {type === 'damage' ? 'writing off' : 'issuing'} {fmt(quantity, 2)} would take the balance below zero. Book in the delivery first, or post a stock count if the book is wrong.</>
+              ? <>Only {qtyLabel(item.current_stock, item)} on hand — {type === 'damage' ? 'writing off' : 'issuing'} {fmt(quantity, 2)} {item.unit} would take the balance below zero. Book in the delivery first, or post a stock count if the book is wrong.</>
               : <>
-                  {fmt(item.current_stock, 2)} {item.unit} on hand → <strong>{fmt(after, 2)} {item.unit}</strong> after this.
-                  {belowLevel && ` That is at or below the reorder level of ${fmt(item.reorder_level, 2)}.`}
+                  {usePacks && <>{fmt(qty, 2)} {plural(qty, item.pack_unit)} is {fmt(quantity, 2)} {item.unit}. </>}
+                  {qtyLabel(item.current_stock, item)} on hand → <strong>{qtyLabel(after, item)}</strong> after this.
+                  {belowLevel && ` That is at or below the reorder level of ${fmt(item.reorder_level, 2)} ${item.unit}.`}
                 </>}
           </div>
         )}
@@ -915,10 +1107,63 @@ function MovementForm({ items, preset, onDone, onClose }) {
           <Field label={type === 'in' ? 'Supplier' : type === 'out' ? 'Issued to' : 'Who reported it'} name="party" placeholder="optional" />
         </Grid2>
 
-        {type === 'in' && (
-          <Field label="Unit cost (TZS)" name="unit_cost" type="number" min="0" step="any"
-            defaultValue={item?.unit_cost || ''}
-            hint="Updates the item's cost, so the value of the shelf follows the latest price." />
+        {/* ── what it costs ────────────────────────────────────────
+            The reason the veteran asked for any of this. Stock going out
+            is costed at what the shelf is worth, so drawing 20 ml of a
+            9,000 bottle shows 1,800 before it is filed — no arithmetic
+            on the back of the delivery note, and no guessing later what
+            a treatment came to. */}
+        {item && (
+          type === 'in' ? (
+            <div className="rounded-lg mb-4" style={{ background: 'var(--cream-dark)', padding: '12px 14px' }}>
+              <div className="text-xs font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--ink-60)' }}>
+                Price on this delivery
+              </div>
+              <div className="flex gap-1.5 mb-2 flex-wrap">
+                {[['keep', item.unit_cost > 0
+                    ? `Same as before — ${tsh(packed ? item.pack_cost : item.unit_cost)}${packed ? ` a ${item.pack_unit}` : ''}`
+                    : 'No price recorded'],
+                  ['new', 'It came at a different price']].map(([v, label]) => (
+                  <button key={v} type="button" onClick={() => setPriceMode(v)}
+                    className="text-[11px] px-2.5 py-1 rounded-full border cursor-pointer transition-all"
+                    style={{
+                      borderColor: priceMode === v ? 'var(--green-600)' : 'var(--ink-10)',
+                      background:  priceMode === v ? 'var(--green-50)'  : 'transparent',
+                      color:       priceMode === v ? 'var(--green-800)' : 'var(--ink-60)',
+                    }}>{label}</button>
+                ))}
+              </div>
+              {priceMode === 'new' && (
+                <input type="number" min="0" step="any" value={newPrice} className="w-full"
+                  onChange={e => setNewPrice(e.target.value)}
+                  placeholder={packed ? `Price per ${item.pack_unit}` : `Price per ${item.unit}`} />
+              )}
+              {quantity > 0 && rate > 0 && (
+                <div className="text-xs mt-2" style={{ color: 'var(--ink-60)' }}>
+                  This delivery is worth <strong>{tsh(cost)}</strong>.
+                  {priceMode === 'new' && num(newPrice) > 0 && item.unit_cost > 0
+                    && num(newPrice) !== (packed ? item.pack_cost : item.unit_cost) && (
+                    <> The shelf now holds stock bought at two prices, so what is on it will be
+                       valued at the average of the two from here on.</>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : quantity > 0 && (
+            <div className="rounded-lg mb-4 flex items-baseline justify-between gap-3 flex-wrap"
+              style={{ background: 'var(--green-50)', padding: '12px 14px' }}>
+              <span className="text-xs" style={{ color: 'var(--green-800)' }}>
+                {rate > 0
+                  ? <>{fmt(quantity, 2)} {item.unit} at {tsh(rate)} a {item.unit}
+                      {packed && <> — {tsh(item.pack_cost)} a {item.pack_unit} of {fmt(item.pack_size, 2)}</>}</>
+                  : <>No cost is recorded for {item.name}, so this movement carries no value.
+                      Add a price on the item to cost what gets used.</>}
+              </span>
+              {rate > 0 && (
+                <span className="font-semibold text-[17px]" style={{ color: 'var(--green-800)' }}>{tsh(cost)}</span>
+              )}
+            </div>
+          )
         )}
 
         <Field label="Notes" name="notes"
@@ -927,7 +1172,9 @@ function MovementForm({ items, preset, onDone, onClose }) {
         <div className="flex gap-2 justify-end mt-2">
           <Btn onClick={onClose}>Cancel</Btn>
           <Btn type="submit" variant="primary" disabled={busy || impossible || !itemId || !(quantity > 0)}>
-            {busy ? <><Spinner /> Recording…</> : `Record ${meta.label.toLowerCase()}`}
+            {busy
+              ? <><Spinner /> Recording…</>
+              : `Record ${meta.label.toLowerCase()}${cost > 0 ? ` — ${tsh(cost)}` : ''}`}
           </Btn>
         </div>
       </form>
@@ -976,19 +1223,26 @@ function StockCard({ itemId, onClose, onChanged, onMove }) {
   return (
     <Modal wide onClose={onClose}
       title={data.name}
-      sub={[catLabel(data.category), data.code, data.supplier, data.location].filter(Boolean).join(' · ')}
+      sub={[catLabel(data.category), packLabel(data), data.code, data.supplier, data.location]
+        .filter(Boolean).join(' · ')}
     >
       <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
         <MetricCard label="On hand" value={fmt(data.current_stock, 2)} unit={data.unit}
-          note={data.reorder_level > 0 ? `Reorder at ${fmt(data.reorder_level, 2)}` : 'No reorder level set'} accent />
+          note={hasPacks(data)
+            ? `${fmt(data.current_packs, 2)} ${plural(data.current_packs, data.pack_unit)}`
+            : data.reorder_level > 0 ? `Reorder at ${fmt(data.reorder_level, 2)}` : 'No reorder level set'} accent />
         <MetricCard label="Received" value={fmt(data.total_in, 2)} unit={data.unit} />
         <MetricCard label="Issued" value={fmt(data.total_out, 2)} unit={data.unit} />
         <MetricCard label="Damaged" value={fmt(data.total_damaged, 2)} unit={data.unit}
           note={data.total_out + data.total_damaged > 0
             ? `${Math.round((data.total_damaged / (data.total_out + data.total_damaged)) * 1000) / 10}% of what left`
             : null} />
-        <MetricCard label="Value" value={money(data.stock_value)} unit="TZS"
-          note={data.unit_cost > 0 ? `at ${money(data.unit_cost)}/${data.unit}` : 'no unit cost set'} />
+        <MetricCard label="Value" value={money(data.stock_value)} unit="TSh"
+          note={data.unit_cost > 0
+            ? hasPacks(data)
+              ? `${money(data.pack_cost)} a ${data.pack_unit} · ${money(data.unit_cost)}/${data.unit}`
+              : `at ${money(data.unit_cost)}/${data.unit}`
+            : 'no unit cost set'} />
       </div>
 
       {data.notes && (
@@ -1006,19 +1260,21 @@ function StockCard({ itemId, onClose, onChanged, onMove }) {
         <div className="flex-1" />
         <Btn size="sm" onClick={() => downloadCsv(
           `${data.name.replace(/[^\w]+/g, '-')}-stock-card.csv`,
-          ['Date', 'Movement', 'Quantity', 'Balance after', 'Reference', 'Party', 'Recorded by', 'Notes'],
-          data.movements.map(m => [m.date, MOVEMENTS[m.type].label, m.quantity, m.running_balance, m.reference, m.party, m.recorded_by, m.notes]),
+          ['Date', 'Movement', 'Quantity', 'Unit', 'Packs', 'Rate', 'Cost', 'Balance after', 'Reference', 'Party', 'Recorded by', 'Notes'],
+          data.movements.map(m => [m.date, MOVEMENTS[m.type].label, m.quantity, data.unit,
+            hasPacks(data) ? m.packs : '', m.unit_cost ?? '', m.cost ?? '',
+            m.running_balance, m.reference, m.party, m.recorded_by, m.notes]),
         )}>Export card</Btn>
       </div>
 
       <div style={{ maxHeight: 380, overflowY: 'auto', overflowX: 'auto' }}>
         <table className="w-full border-collapse text-[13px]">
           <thead style={{ position: 'sticky', top: 0, background: 'var(--surface)' }}>
-            <tr><TH>Date</TH><TH>Movement</TH><TH right>Qty</TH><TH right>Balance</TH><TH>Reference</TH><TH>Who</TH><TH>Notes</TH><TH /></tr>
+            <tr><TH>Date</TH><TH>Movement</TH><TH right>Qty</TH><TH right>Cost</TH><TH right>Balance</TH><TH>Reference</TH><TH>Who</TH><TH>Notes</TH><TH /></tr>
           </thead>
           <tbody>
             {data.movements.length === 0 && (
-              <tr><TD colSpan={8}><EmptyState>Nothing has moved yet.</EmptyState></TD></tr>
+              <tr><TD colSpan={9}><EmptyState>Nothing has moved yet.</EmptyState></TD></tr>
             )}
             {data.movements.map(m => {
               const meta = MOVEMENTS[m.type]
@@ -1029,6 +1285,17 @@ function StockCard({ itemId, onClose, onChanged, onMove }) {
                   <TD><TypeChip type={m.type} /></TD>
                   <TD right mono strong color={signed < 0 ? 'var(--red)' : 'var(--green-600)'}>
                     {signPrefix(m.type, signed)}{fmt(Math.abs(signed), 2)}
+                    {hasPacks(data) && (
+                      <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-30)' }}>
+                        {fmt(Math.abs(m.packs), 3)} {plural(m.packs, data.pack_unit)}
+                      </div>
+                    )}
+                  </TD>
+                  {/* The rate is the one that stood when the movement
+                      happened, not today's — so a dose drawn in March
+                      still reads what it cost in March. */}
+                  <TD right mono title={m.unit_cost ? `at ${money(m.unit_cost)} per ${data.unit}` : null}>
+                    {m.cost === null ? '—' : money(Math.abs(m.cost))}
                   </TD>
                   <TD right mono strong>{fmt(m.running_balance, 2)}</TD>
                   <TD mono>{m.reference || '—'}</TD>
@@ -1094,8 +1361,12 @@ function Movements({ items, onChanged }) {
      by hand and getting it wrong. */
   const totals = useMemo(() => {
     const t = { in: 0, out: 0, damage: 0, return: 0, adjust: 0 }
-    for (const l of logs) t[l.type] = (t[l.type] || 0) + l.quantity
-    return t
+    const v = { in: 0, out: 0, damage: 0, return: 0, adjust: 0 }
+    for (const l of logs) {
+      t[l.type] = (t[l.type] || 0) + l.quantity
+      v[l.type] = (v[l.type] || 0) + (l.cost ?? 0)
+    }
+    return { qty: t, value: v }
   }, [logs])
 
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }))
@@ -1122,8 +1393,10 @@ function Movements({ items, onChanged }) {
         <div className="flex-1" />
         <Btn size="sm" onClick={() => downloadCsv(
           `stock-movements-${f.from || 'all'}-to-${f.to || today()}.csv`,
-          ['Date', 'Item', 'Category', 'Movement', 'Quantity', 'Unit', 'Reference', 'Party', 'Recorded by', 'Notes'],
-          logs.map(l => [l.date, l.item_name, catLabel(l.category), MOVEMENTS[l.type].label, l.quantity, l.unit, l.reference, l.party, l.recorded_by, l.notes]),
+          ['Date', 'Item', 'Category', 'Movement', 'Quantity', 'Unit', 'Packs', 'Rate', 'Cost', 'Reference', 'Party', 'Recorded by', 'Notes'],
+          logs.map(l => [l.date, l.item_name, catLabel(l.category), MOVEMENTS[l.type].label,
+            l.quantity, l.unit, hasPacks(l) ? l.packs : '', l.unit_cost ?? '', l.cost ?? '',
+            l.reference, l.party, l.recorded_by, l.notes]),
         )}>Export CSV</Btn>
       </div>
 
@@ -1131,8 +1404,14 @@ function Movements({ items, onChanged }) {
         {Object.entries(MOVEMENTS).map(([t, m]) => (
           <div key={t} className="rounded-lg border px-4 py-3" style={{ borderColor: 'var(--ink-10)', background: 'var(--surface)' }}>
             <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--ink-60)' }}>{m.label}</div>
-            <div className="text-[20px] font-semibold" style={{ color: totals[t] ? m.color : 'var(--ink-30)' }}>
-              {fmt(totals[t] || 0, 2)}
+            <div className="text-[20px] font-semibold" style={{ color: totals.qty[t] ? m.color : 'var(--ink-30)' }}>
+              {fmt(totals.qty[t] || 0, 2)}
+            </div>
+            {/* Quantities across different items do not add up to
+                anything meaningful — millilitres plus crates — but their
+                value does, and that is the figure being asked for. */}
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-30)' }}>
+              {totals.value[t] ? tsh(Math.abs(totals.value[t])) : '—'}
             </div>
           </div>
         ))}
@@ -1142,11 +1421,11 @@ function Movements({ items, onChanged }) {
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr><TH>Date</TH><TH>Item</TH><TH>Movement</TH><TH right>Qty</TH><TH>Reference</TH><TH>Party</TH><TH>Recorded by</TH><TH>Notes</TH><TH /></tr>
+              <tr><TH>Date</TH><TH>Item</TH><TH>Movement</TH><TH right>Qty</TH><TH right>Cost</TH><TH>Reference</TH><TH>Party</TH><TH>Recorded by</TH><TH>Notes</TH><TH /></tr>
             </thead>
             <tbody>
-              {busy && <tr><TD colSpan={9}><EmptyState><Spinner /> Loading…</EmptyState></TD></tr>}
-              {!busy && logs.length === 0 && <tr><TD colSpan={9}><EmptyState>No movements in this range.</EmptyState></TD></tr>}
+              {busy && <tr><TD colSpan={10}><EmptyState><Spinner /> Loading…</EmptyState></TD></tr>}
+              {!busy && logs.length === 0 && <tr><TD colSpan={10}><EmptyState>No movements in this range.</EmptyState></TD></tr>}
               {!busy && logs.map(l => {
                 const meta   = MOVEMENTS[l.type]
                 const signed = l.type === 'adjust' ? l.quantity : meta.sign * l.quantity
@@ -1157,6 +1436,14 @@ function Movements({ items, onChanged }) {
                     <TD><TypeChip type={l.type} /></TD>
                     <TD right mono strong color={signed < 0 ? 'var(--red)' : 'var(--green-600)'}>
                       {signPrefix(l.type, signed)}{fmt(Math.abs(signed), 2)} <span style={{ color: 'var(--ink-30)' }}>{l.unit}</span>
+                      {hasPacks(l) && (
+                        <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-30)' }}>
+                          {fmt(Math.abs(l.packs), 3)} {plural(l.packs, l.pack_unit)}
+                        </div>
+                      )}
+                    </TD>
+                    <TD right mono title={l.unit_cost ? `at ${money(l.unit_cost)} per ${l.unit}` : null}>
+                      {l.cost === null ? '—' : money(Math.abs(l.cost))}
                     </TD>
                     <TD mono>{l.reference || '—'}</TD>
                     <TD>{l.party || '—'}</TD>
@@ -1302,7 +1589,11 @@ function CountSheet({ countId, onClose, onChanged }) {
   const load = useCallback(async () => {
     const c = await apiFetch(`/inventory/counts/${countId}`)
     setCount(c)
-    setEntered(Object.fromEntries(c.lines.map(l => [l.item_id, String(l.counted_qty)])))
+    /* An empty box means nobody has been to that shelf yet, so it stays
+       empty rather than showing a 0 that would be posted as one. */
+    setEntered(Object.fromEntries(
+      c.lines.map(l => [l.item_id, l.counted_qty === null ? '' : String(l.counted_qty)])
+    ))
   }, [countId])
 
   useEffect(() => { load().catch(e => notify.error(e.message)) }, [load])
@@ -1312,14 +1603,17 @@ function CountSheet({ countId, onClose, onChanged }) {
   const lines = useMemo(() => {
     if (!count) return []
     return count.lines.map(l => {
-      const counted  = draft ? num(entered[l.item_id]) : l.counted_qty
-      const variance = Math.round((counted - l.book_qty) * 1000) / 1000
-      return { ...l, counted, variance, variance_value: Math.round(variance * l.unit_cost * 100) / 100 }
+      const raw       = draft ? entered[l.item_id] : l.counted_qty
+      const isCounted = raw !== '' && raw !== null && raw !== undefined
+      const counted   = num(raw)
+      const variance  = isCounted ? Math.round((counted - l.book_qty) * 1000) / 1000 : 0
+      return { ...l, isCounted, counted, variance, variance_value: Math.round(variance * l.unit_cost * 100) / 100 }
     })
   }, [count, entered, draft])
 
-  const shown     = onlyVar ? lines.filter(l => l.variance !== 0) : lines
-  const variances = lines.filter(l => l.variance !== 0)
+  const shown     = onlyVar ? lines.filter(l => l.isCounted && l.variance !== 0) : lines
+  const variances = lines.filter(l => l.isCounted && l.variance !== 0)
+  const uncounted = lines.filter(l => !l.isCounted)
   const shrinkage = variances.reduce((t, l) => t + l.variance_value, 0)
 
   const save = async () => {
@@ -1327,7 +1621,9 @@ function CountSheet({ countId, onClose, onChanged }) {
     try {
       await apiFetch(`/inventory/counts/${countId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ lines: lines.map(l => ({ item_id: l.item_id, counted_qty: l.counted })) }),
+        body: JSON.stringify({
+          lines: lines.map(l => ({ item_id: l.item_id, counted_qty: l.isCounted ? l.counted : null })),
+        }),
       })
       notify.success('Count saved. It stays a draft until you post it.')
       await load()
@@ -1339,9 +1635,12 @@ function CountSheet({ countId, onClose, onChanged }) {
     const ok = await confirm({
       title: `Post ${count.ref}`,
       message: variances.length === 0
-        ? 'Every line agrees with the book. Posting closes the count and writes no adjustments.'
+        ? 'Every line you counted agrees with the book. Posting closes the count and writes no adjustments.'
         : `${variances.length} line(s) disagree with the book. Posting writes one adjustment each, dated ${count.count_date}.`,
-      detail: 'A posted count cannot be edited or deleted — it is the record behind the adjustments it makes.',
+      detail: (uncounted.length
+        ? `${uncounted.length} line(s) have not been counted; they are left exactly as they are. `
+        : '')
+        + 'A posted count cannot be edited or deleted — it is the record behind the adjustments it makes.',
       confirmLabel: 'Post the count',
       tone: variances.length ? 'danger' : 'default',
     })
@@ -1350,12 +1649,17 @@ function CountSheet({ countId, onClose, onChanged }) {
     try {
       await apiFetch(`/inventory/counts/${countId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ lines: lines.map(l => ({ item_id: l.item_id, counted_qty: l.counted })) }),
+        body: JSON.stringify({
+          lines: lines.map(l => ({ item_id: l.item_id, counted_qty: l.isCounted ? l.counted : null })),
+        }),
       })
       const res = await apiFetch(`/inventory/counts/${countId}/post`, { method: 'POST' })
-      notify.success(res.adjustments.length
-        ? `${res.ref} posted — ${res.adjustments.length} balance(s) corrected.`
-        : `${res.ref} posted. The book was already right.`)
+      notify.success(
+        (res.adjustments.length
+          ? `${res.ref} posted — ${res.adjustments.length} balance(s) corrected.`
+          : `${res.ref} posted. The book was already right.`)
+        + (res.not_counted ? ` ${res.not_counted} line(s) were left uncounted and are unchanged.` : '')
+      )
       await load(); await onChanged()
     } catch (e) { notify.error(e.message) }
     finally { setBusy(false) }
@@ -1369,17 +1673,21 @@ function CountSheet({ countId, onClose, onChanged }) {
       sub={`${count.count_date} · ${count.status.toUpperCase()}${count.counted_by ? ` · opened by ${count.counted_by}` : ''}${count.posted_by ? ` · posted by ${count.posted_by}` : ''}`}
     >
       <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-        <MetricCard label="Lines" value={fmt(lines.length)} unit="items counted" />
+        <MetricCard label="Counted" value={`${fmt(lines.length - uncounted.length)} / ${fmt(lines.length)}`}
+          unit="lines"
+          note={uncounted.length ? `${fmt(uncounted.length)} not counted — left unchanged` : 'Whole sheet counted'} />
         <MetricCard label="Disagreeing" value={fmt(variances.length)} unit="lines"
           note={variances.length ? 'Each writes one adjustment' : 'Book matches the shelf'} />
-        <MetricCard label="Net variance value" value={money(shrinkage)} unit="TZS"
+        <MetricCard label="Net variance value" value={money(shrinkage)} unit="TSh"
           note={shrinkage < 0 ? 'Stock is short of the book' : shrinkage > 0 ? 'More on the shelf than booked' : 'Balanced'} />
       </div>
 
       {draft && (
         <div className="rounded-lg text-xs mb-4" style={{ padding: '10px 14px', background: 'var(--cream-dark)', color: 'var(--ink-60)' }}>
-          Type what is actually on the shelf. The book figure is what the movement log says right now —
-          if a delivery is recorded while you count, save and reopen so you are comparing against the same book.
+          Type what is actually on the shelf. A box left empty means that line has not been counted —
+          it is skipped when the count is posted, and its balance is left alone. The book figure is what
+          the movement log says right now, so if a delivery is recorded while you count, save and reopen
+          to compare against the same book.
         </div>
       )}
 
@@ -1391,8 +1699,11 @@ function CountSheet({ countId, onClose, onChanged }) {
         <div className="flex-1" />
         <Btn size="sm" onClick={() => downloadCsv(
           `${count.ref}.csv`,
-          ['Item', 'Category', 'Unit', 'Book', 'Counted', 'Variance', 'Variance value'],
-          lines.map(l => [l.name, catLabel(l.category), l.unit, l.book_qty, l.counted, l.variance, l.variance_value]),
+          ['Item', 'Category', 'Unit', 'Pack', 'Book', 'Book (packs)', 'Counted', 'Variance', 'Unit cost', 'Variance value'],
+          lines.map(l => [l.name, catLabel(l.category), l.unit, l.pack_unit ?? '',
+            l.book_qty, l.pack_size > 1 ? l.book_packs : '',
+            l.isCounted ? l.counted : 'not counted',
+            l.isCounted ? l.variance : '', l.unit_cost, l.isCounted ? l.variance_value : '']),
         )}>Export sheet</Btn>
       </div>
 
@@ -1403,27 +1714,40 @@ function CountSheet({ countId, onClose, onChanged }) {
           </thead>
           <tbody>
             {shown.length === 0 && (
-              <tr><TD colSpan={6}><EmptyState>{onlyVar ? 'Every line agrees with the book.' : 'This count has no lines.'}</EmptyState></TD></tr>
+              <tr><TD colSpan={6}><EmptyState>{onlyVar ? 'Every line counted so far agrees with the book.' : 'This count has no lines.'}</EmptyState></TD></tr>
             )}
             {shown.map(l => (
               <Row key={l.id}>
                 <TD strong>{l.name}</TD>
                 <TD>{catLabel(l.category)}</TD>
-                <TD right mono>{fmt(l.book_qty, 2)} <span style={{ color: 'var(--ink-30)' }}>{l.unit}</span></TD>
+                <TD right mono>
+                  {fmt(l.book_qty, 2)} <span style={{ color: 'var(--ink-30)' }}>{l.unit}</span>
+                  {l.pack_unit && l.pack_size > 1 && (
+                    <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-30)' }}>
+                      {fmt(l.book_packs, 2)} {plural(l.book_packs, l.pack_unit)}
+                    </div>
+                  )}
+                </TD>
                 <td className="px-4 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
                   {draft ? (
-                    <input type="number" min="0" step="any" style={{ width: 110, textAlign: 'right' }}
+                    <input type="number" min="0" step="any" placeholder="not counted"
+                      style={{ width: 110, textAlign: 'right' }}
                       value={entered[l.item_id] ?? ''}
                       onChange={e => setEntered(prev => ({ ...prev, [l.item_id]: e.target.value }))} />
                   ) : (
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{fmt(l.counted, 2)}</span>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12,
+                      color: l.isCounted ? 'inherit' : 'var(--ink-30)' }}>
+                      {l.isCounted ? fmt(l.counted, 2) : '—'}
+                    </span>
                   )}
                 </td>
-                <TD right mono strong color={l.variance === 0 ? 'var(--ink-30)' : l.variance < 0 ? 'var(--red)' : 'var(--green-600)'}>
-                  {l.variance === 0 ? '—' : `${l.variance > 0 ? '+' : '−'}${fmt(Math.abs(l.variance), 2)}`}
+                <TD right mono strong color={!l.isCounted ? 'var(--ink-30)' : l.variance === 0 ? 'var(--ink-30)' : l.variance < 0 ? 'var(--red)' : 'var(--green-600)'}>
+                  {!l.isCounted
+                    ? <span style={{ fontStyle: 'italic' }}>not counted</span>
+                    : l.variance === 0 ? '—' : `${l.variance > 0 ? '+' : '−'}${fmt(Math.abs(l.variance), 2)}`}
                 </TD>
                 <TD right mono color={l.variance_value < 0 ? 'var(--red)' : 'var(--ink-60)'}>
-                  {l.variance === 0 ? '—' : money(l.variance_value)}
+                  {!l.isCounted || l.variance === 0 ? '—' : money(l.variance_value)}
                 </TD>
               </Row>
             ))}
@@ -1493,8 +1817,13 @@ function Report() {
         {data && (
           <Btn size="sm" onClick={() => downloadCsv(
             `inventory-report-${data.from}-to-${data.to}.csv`,
-            ['Item', 'Category', 'Unit', 'Opening', 'Received', 'Returned', 'Issued', 'Damaged', 'Adjustments', 'Closing', 'Closing value', 'Damage rate %'],
-            moved.map(r => [r.name, catLabel(r.category), r.unit, r.opening, r.received, r.returned, r.issued, r.damaged, r.adjusted, r.closing, r.closing_value, r.damage_rate]),
+            ['Item', 'Category', 'Unit', 'Pack', 'Pack size', 'Opening', 'Received', 'Returned', 'Issued', 'Damaged',
+             'Adjustments', 'Closing', 'Closing (packs)', 'Cost received', 'Cost issued', 'Cost damaged',
+             'Cost used', 'Closing value', 'Damage rate %'],
+            moved.map(r => [r.name, catLabel(r.category), r.unit, r.pack_unit ?? '', r.pack_size > 1 ? r.pack_size : '',
+              r.opening, r.received, r.returned, r.issued, r.damaged, r.adjusted, r.closing,
+              r.pack_size > 1 ? r.closing_packs : '',
+              r.received_value, r.issued_value, r.damaged_value, r.consumed_value, r.closing_value, r.damage_rate]),
           )}>Export CSV</Btn>
         )}
       </div>
@@ -1506,10 +1835,11 @@ function Report() {
           <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
             <MetricCard label="Received" value={fmt(data.totals.received, 2)} unit="units in" />
             <MetricCard label="Issued" value={fmt(data.totals.issued, 2)} unit="units to production" />
+            <MetricCard label="Cost of what was used" value={money(data.totals.consumed_value)} unit="TSh"
+              note={`Issued ${money(data.totals.issued_value)} · damaged ${money(data.totals.damaged_value)}`} />
             <MetricCard label="Damaged" value={fmt(data.totals.damaged, 2)} unit="units written off"
-              note={`${money(data.totals.damaged_value)} TZS`} />
-            <MetricCard label="Count adjustments" value={fmt(data.totals.adjusted, 2)} unit="units corrected" />
-            <MetricCard label="Closing value" value={money(data.totals.closing_value)} unit="TZS" accent />
+              note={`${tsh(data.totals.damaged_value)}`} />
+            <MetricCard label="Closing value" value={money(data.totals.closing_value)} unit="TSh" accent />
           </div>
 
           <Card noPad>
@@ -1519,12 +1849,12 @@ function Report() {
                   <tr>
                     <TH>Item</TH><TH right>Opening</TH><TH right>Received</TH><TH right>Returned</TH>
                     <TH right>Issued</TH><TH right>Damaged</TH><TH right>Adjust</TH>
-                    <TH right>Closing</TH><TH right>Damage %</TH><TH right>Value</TH>
+                    <TH right>Closing</TH><TH right>Cost used</TH><TH right>Damage %</TH><TH right>Value</TH>
                   </tr>
                 </thead>
                 <tbody>
                   {moved.length === 0 && (
-                    <tr><TD colSpan={10}><EmptyState>Nothing moved in this period.</EmptyState></TD></tr>
+                    <tr><TD colSpan={11}><EmptyState>Nothing moved in this period.</EmptyState></TD></tr>
                   )}
                   {moved.map(r => (
                     <Row key={r.id}>
@@ -1542,6 +1872,16 @@ function Report() {
                       </TD>
                       <TD right mono strong color={r.state === 'out' ? 'var(--red)' : r.state === 'low' ? 'var(--amber)' : 'var(--ink)'}>
                         {fmt(r.closing, 2)}
+                        {r.pack_unit && r.pack_size > 1 && (
+                          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-30)' }}>
+                            {fmt(r.closing_packs, 2)} {plural(r.closing_packs, r.pack_unit)}
+                          </div>
+                        )}
+                      </TD>
+                      {/* Issued and damaged, costed at the rate each movement
+                          carried — what the period actually consumed, in money. */}
+                      <TD right mono strong color={r.consumed_value > 0 ? 'var(--ink)' : 'var(--ink-30)'}>
+                        {r.consumed_value > 0 ? money(r.consumed_value) : '—'}
                       </TD>
                       <TD right mono color={r.damage_rate > 5 ? 'var(--red)' : 'var(--ink-60)'}>
                         {r.issued + r.damaged > 0 ? `${r.damage_rate}%` : '—'}
@@ -1560,7 +1900,9 @@ function Report() {
                       <TD right mono strong>{fmt(data.totals.issued, 2)}</TD>
                       <TD right mono strong color="var(--red)">{fmt(data.totals.damaged, 2)}</TD>
                       <TD right mono strong>{fmt(data.totals.adjusted, 2)}</TD>
-                      <TD colSpan={2} />
+                      <TD />
+                      <TD right mono strong>{money(data.totals.consumed_value)}</TD>
+                      <TD />
                       <TD right mono strong>{money(data.totals.closing_value)}</TD>
                     </tr>
                   </tfoot>

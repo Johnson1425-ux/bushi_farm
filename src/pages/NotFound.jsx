@@ -21,7 +21,7 @@ const HOME_FOR = {
 const SUGGESTIONS = {
   admin:     [['/cows', 'Cows'], ['/records', 'Milk records'], ['/expenses', 'Expenses'], ['/users', 'Users']],
   manager:   [['/cows', 'Cows'], ['/records', 'Milk records'], ['/stock', 'Stock issuing'], ['/reports', 'Reports']],
-  veteran:   [['/cows', 'Cows'], ['/health', 'Health'], ['/health-records', 'Health records'], ['/pregnancies', 'Pregnancies']],
+  veteran:   [['/cows', 'Cows'], ['/calves', 'Calves'], ['/health', 'Health'], ['/health-records', 'Health records'], ['/pregnancies', 'Pregnancies']],
   attendant: [['/till', 'Till'], ['/branch', 'Branch stock'], ['/customers', 'Customers']],
 }
 

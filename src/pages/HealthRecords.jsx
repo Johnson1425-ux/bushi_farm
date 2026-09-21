@@ -92,6 +92,8 @@ function RecordDetailModal({ record, onClose }) {
         <KV label="Cow Tag / ID"       value={record.cow_tag} />
         <KV label="Linked Cow"         value={record.cow_name} />
         <KV label="Breed"              value={record.breed} />
+        <KV label="Dam"                value={record.dam} />
+        <KV label="Sire"               value={record.sire} />
         <KV label="Age"                value={record.age} />
         <KV label="Sex"                value={record.sex} />
         <KV label="Status"             value={record.repro_status} />

@@ -7,6 +7,7 @@ import LandingPage    from './pages/LandingPage'
 import Sidebar        from './components/Sidebar'
 import Dashboard      from './pages/Dashboard'
 import Cows           from './pages/Cows'
+import Calves         from './pages/Calves'
 import Compare        from './pages/Compare'
 import Records        from './pages/Records'
 import DailyRecords   from './pages/DailyRecords'
@@ -134,6 +135,7 @@ function AppShell() {
 
 function DashboardPage()    { const { cows, summary, setPage } = useOutletContext(); return <Dashboard cows={cows} summary={summary} setPage={setPage} /> }
 function CowsPage()         { const { cows, loadData } = useOutletContext(); return <Cows cows={cows} onChanged={loadData} /> }
+function CalvesPage()       { const { cows, loadData } = useOutletContext(); return <Calves cows={cows} onChanged={loadData} /> }
 function ComparePage()      { const { cows } = useOutletContext(); return <Compare cows={cows} /> }
 function RecordsPage()      { const { cows, summary } = useOutletContext(); return <Records cows={cows} summary={summary} /> }
 function ImportPage()       { const { loadData } = useOutletContext(); return <ImportData onImported={loadData} /> }
@@ -170,6 +172,9 @@ export default function App() {
           {/* Everyone signed in, except an attendant — see homeFor() */}
           <Route path="/dashboard"     element={<FarmRoute><DashboardPage /></FarmRoute>} />
           <Route path="/cows"          element={<FarmRoute><CowsPage /></FarmRoute>} />
+          {/* The young stock. Read by the vet and the manager alike, so it
+              sits with the herd rather than behind either one's gate. */}
+          <Route path="/calves"        element={<FarmRoute><CalvesPage /></FarmRoute>} />
 
           {/* A branch counter */}
           <Route path="/branch"        element={<BranchRoute><BranchPage /></BranchRoute>} />
