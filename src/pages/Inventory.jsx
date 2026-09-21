@@ -8,16 +8,6 @@ import { notify } from '../lib/notify'
 /* ══════════════════════════════════════════════════════════════
    THE STORE
 
-   Everything the production and processing unit consumes rather than
-   sells — packaging bottles, caps, labels, crates, cultures, CIP
-   chemicals, machine spares, PPE.
-
-   The page it replaces could answer one question: how many are there.
-   It could not answer any of the ones a store is actually kept for —
-   how many came in and from whom, how many went out and to which shift,
-   how many were broken rather than used, when to reorder, what the shelf
-   is worth, or whether the book still agrees with the shelf.
-
    Five tabs, in the order the work happens:
 
      Overview   what needs ordering this morning, and what it costs
@@ -470,14 +460,14 @@ function Overview({ summary, items, onOrder, onOpen }) {
     <>
       <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
         <MetricCard label="Lines carried" value={fmt(summary.items)} unit="active items" />
-        <MetricCard label="Value on the shelf" value={money(summary.stock_value)} unit="UGX" accent />
+        <MetricCard label="Value on the shelf" value={money(summary.stock_value)} unit="TZS" accent />
         <MetricCard label="Out of stock" value={fmt(summary.out_of_stock)}
           unit={summary.out_of_stock === 1 ? 'line' : 'lines'} note="Nothing left to issue" />
         <MetricCard label="Due an order" value={fmt(summary.low_stock)}
           unit={summary.low_stock === 1 ? 'line' : 'lines'} note="At or below reorder level" />
         <MetricCard label="Damaged" value={fmt(p.damaged)}
           unit={`units · ${p.damage_rate}% of what left the shelf`}
-          note={`${money(p.damaged_value)} UGX, last 30 days`} />
+          note={`${money(p.damaged_value)} TZS, last 30 days`} />
       </div>
 
       <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
@@ -532,10 +522,10 @@ function Overview({ summary, items, onOrder, onOpen }) {
           <table className="w-full border-collapse text-[13px]">
             <tbody>
               {[
-                ['in',     'Received',    p.received,  `${money(p.received_value)} UGX`],
+                ['in',     'Received',    p.received,  `${money(p.received_value)} TZS`],
                 ['return', 'Returned to store', p.returned, ''],
                 ['out',    'Issued to production', p.issued, ''],
-                ['damage', 'Damaged / written off', p.damaged, `${money(p.damaged_value)} UGX`],
+                ['damage', 'Damaged / written off', p.damaged, `${money(p.damaged_value)} TZS`],
                 ['adjust', 'Count adjustments', p.adjusted, ''],
               ].map(([type, label, value, aside]) => (
                 <tr key={type}>
@@ -556,7 +546,7 @@ function Overview({ summary, items, onOrder, onOpen }) {
           {p.damaged > 0 && (
             <div className="mt-4 rounded-lg text-xs" style={{ padding: '10px 14px', background: 'rgba(217,64,64,0.08)', color: 'var(--red)' }}>
               {p.damage_rate}% of everything that left the shelf was damage rather than use
-              — {fmt(p.damaged, 2)} units, {money(p.damaged_value)} UGX.
+              — {fmt(p.damaged, 2)} units, {money(p.damaged_value)} TZS.
             </div>
           )}
         </Card>
@@ -776,7 +766,7 @@ function ItemForm({ item, onSave, onClose }) {
             hint="Suggested on the order sheet." />
         </Grid2>
         <Grid2>
-          <Field label="Unit cost (UGX)" name="unit_cost" type="number" min="0" step="any"
+          <Field label="Unit cost (TZS)" name="unit_cost" type="number" min="0" step="any"
             defaultValue={item?.unit_cost ?? 0}
             hint="Updated automatically by a priced delivery." />
           <Field label="Supplier" name="supplier" defaultValue={item?.supplier} placeholder="optional" />
@@ -926,7 +916,7 @@ function MovementForm({ items, preset, onDone, onClose }) {
         </Grid2>
 
         {type === 'in' && (
-          <Field label="Unit cost (UGX)" name="unit_cost" type="number" min="0" step="any"
+          <Field label="Unit cost (TZS)" name="unit_cost" type="number" min="0" step="any"
             defaultValue={item?.unit_cost || ''}
             hint="Updates the item's cost, so the value of the shelf follows the latest price." />
         )}
@@ -997,7 +987,7 @@ function StockCard({ itemId, onClose, onChanged, onMove }) {
           note={data.total_out + data.total_damaged > 0
             ? `${Math.round((data.total_damaged / (data.total_out + data.total_damaged)) * 1000) / 10}% of what left`
             : null} />
-        <MetricCard label="Value" value={money(data.stock_value)} unit="UGX"
+        <MetricCard label="Value" value={money(data.stock_value)} unit="TZS"
           note={data.unit_cost > 0 ? `at ${money(data.unit_cost)}/${data.unit}` : 'no unit cost set'} />
       </div>
 
@@ -1382,7 +1372,7 @@ function CountSheet({ countId, onClose, onChanged }) {
         <MetricCard label="Lines" value={fmt(lines.length)} unit="items counted" />
         <MetricCard label="Disagreeing" value={fmt(variances.length)} unit="lines"
           note={variances.length ? 'Each writes one adjustment' : 'Book matches the shelf'} />
-        <MetricCard label="Net variance value" value={money(shrinkage)} unit="UGX"
+        <MetricCard label="Net variance value" value={money(shrinkage)} unit="TZS"
           note={shrinkage < 0 ? 'Stock is short of the book' : shrinkage > 0 ? 'More on the shelf than booked' : 'Balanced'} />
       </div>
 
@@ -1517,9 +1507,9 @@ function Report() {
             <MetricCard label="Received" value={fmt(data.totals.received, 2)} unit="units in" />
             <MetricCard label="Issued" value={fmt(data.totals.issued, 2)} unit="units to production" />
             <MetricCard label="Damaged" value={fmt(data.totals.damaged, 2)} unit="units written off"
-              note={`${money(data.totals.damaged_value)} UGX`} />
+              note={`${money(data.totals.damaged_value)} TZS`} />
             <MetricCard label="Count adjustments" value={fmt(data.totals.adjusted, 2)} unit="units corrected" />
-            <MetricCard label="Closing value" value={money(data.totals.closing_value)} unit="UGX" accent />
+            <MetricCard label="Closing value" value={money(data.totals.closing_value)} unit="TZS" accent />
           </div>
 
           <Card noPad>
