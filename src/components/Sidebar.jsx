@@ -24,6 +24,8 @@ const NAV_GROUPS = [
     items: [
       // Vets need the herd list to find an animal, but not the production detail.
       { id: 'cows',          icon: '🐄',  label: 'All Cows', roles: ALL },
+      // The young stock. The vet delivers them, the manager counts them.
+      { id: 'calves',        icon: '🐮',  label: 'Calves',   roles: ['admin', 'manager', 'veteran'] },
       { id: 'compare',       icon: '↔️',  label: 'Compare',      roles: ['admin', 'manager'] },
       { id: 'records',       icon: '≡',   label: 'Records',      roles: ['admin', 'manager'] },
       { id: 'daily-records', icon: '🗒️', label: 'Daily Records', roles: ['admin', 'manager'] },
