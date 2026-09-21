@@ -1388,7 +1388,7 @@ function Movements({ items, onChanged }) {
         </select>
         <input type="date" value={f.from} onChange={e => set('from', e.target.value)} />
         <input type="date" value={f.to}   onChange={e => set('to', e.target.value)} />
-        <input value={f.q} onChange={e => set('q', e.target.value)} placeholder="Reference, supplier, note…" style={{ minWidth: 180 }} />
+        <input type='search' value={f.q} onChange={e => set('q', e.target.value)} placeholder="Reference, supplier, note…" style={{ minWidth: 180 }} />
         <Btn size="sm" onClick={() => setF({ item_id: '', type: 'all', category: 'all', from: '', to: '', q: '' })}>Clear</Btn>
         <div className="flex-1" />
         <Btn size="sm" onClick={() => downloadCsv(
