@@ -84,7 +84,7 @@ function Modal({ title, onClose, children, wide }) {
 function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onNotice }) {
   const [data, setData] = useState(null)
   const [view, setView] = useState('ledger')
-  const [mode, setMode] = useState(null)      // 'payment' | 'charge' | 'adjustment'
+  const [mode, setMode] = useState(null)      // 'payment' | 'adjustment'
   const [form, setForm] = useState({ amount: '', description: '', date: today(), branch_id: '' })
   const [busy, setBusy] = useState(false)
 
@@ -96,7 +96,7 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onN
   useEffect(() => { load() }, [load])
 
   const submit = async () => {
-    const path = mode === 'payment' ? 'payments' : mode === 'charge' ? 'charges' : 'adjustments'
+    const path = mode === 'payment' ? 'payments' : 'adjustments'
     setBusy(true)
     try {
       await apiFetch(`/customers/${id}/${path}`, {
@@ -145,7 +145,10 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onN
         </div>
         <div className="flex gap-2 flex-wrap">
           <Btn size="sm" variant="primary" onClick={() => setMode('payment')}>Record payment</Btn>
-          {canManage && <Btn size="sm" onClick={() => setMode('charge')}>Add charge</Btn>}
+          {/* Nothing here adds to what a customer owes. A debt is created by
+              selling to them on credit at the till, which takes the stock off
+              the shelf at the same time — a charge typed in on its own would
+              bill them for milk the stock ledger still thinks is in the shop. */}
           {canManage && <Btn size="sm" onClick={() => setMode('adjustment')}>Adjust</Btn>}
         </div>
       </div>
@@ -153,9 +156,7 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant, onN
       {mode && (
         <Card>
           <CardTitle>
-            {mode === 'payment' ? 'Payment received'
-              : mode === 'charge' ? 'Charge (goods handed over off the till)'
-              : 'Adjustment — write-off or correction'}
+            {mode === 'payment' ? 'Payment received' : 'Adjustment — write-off or correction'}
           </CardTitle>
           {mode === 'adjustment' && (
             <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
