@@ -142,6 +142,8 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
                 <div key={i}>
                   ✓ {m.label} — {fmt(m.summary.packed_units, 0)} packed,
                   {' '}{fmt(m.summary.damaged_units, 0)} damaged
+                  {m.summary.issued_units > 0 &&
+                    `, ${fmt(m.summary.issued_units, 0)} issued on the sheet`}
                 </div>
               ))}
             </div>
@@ -273,9 +275,12 @@ export default function ProcessingUnit() {
      to it, carried-in milk included. Litres for packs are derived from the
      pack size on import, so they cannot drift from the unit counts.
 
-     Issued figures do not come from the workbook. They are the issue notes
-     raised on Stock & Issuing for the days this month covers, which is why
-     a month can still change after it has been uploaded. */
+     Issued figures come from the issue notes raised on Stock & Issuing for
+     the days this month covers, which is why a month can still change after
+     it has been uploaded. Months from before anyone was raising those notes
+     fall back to the workbook's own ISSUED column — otherwise the farm's
+     whole history would read as nothing ever having left the store. The two
+     are never added together; data.issued_source says which is in use. */
   const stats = data ? (() => {
     const sum = (arr, key) => (arr || []).reduce((a, r) => a + num(r[key]), 0)
     const farm         = sum(data.received, 'farm_litres') + sum(data.received, 'mwabulugu_litres')
@@ -414,6 +419,36 @@ export default function ProcessingUnit() {
             </div>
           )}
 
+          {data.issued_source === 'workbook' && (
+            <div className="rounded-lg border p-3 mb-4 text-[13px]"
+              style={{ background: 'rgba(52,120,200,0.06)', borderColor: 'var(--blue)' }}>
+              <div className="font-semibold mb-1" style={{ color: 'var(--blue)' }}>
+                Issued figures read from the workbook
+              </div>
+              <div style={{ color: 'var(--ink-60)' }}>
+                No issue notes were raised for this month, so the sheet's own ISSUED column is
+                used. It records a total with no branch against it. Raise a note on{' '}
+                <strong>Stock &amp; Issuing</strong> for any day in this month and the app's
+                figures take over from then on.
+              </div>
+            </div>
+          )}
+
+          {data.issued_both && (
+            <div className="rounded-lg border p-3 mb-4 text-[13px]"
+              style={{ background: 'rgba(232,160,32,0.08)', borderColor: 'var(--amber)' }}>
+              <div className="font-semibold mb-1" style={{ color: 'var(--amber)' }}>
+                This is the month the record changed over
+              </div>
+              <div style={{ color: 'var(--ink-60)' }}>
+                The issue notes are in use — {fmt(data.issued_ledger, 0)} units — and the
+                workbook also has an issued column, showing {fmt(data.issued_workbook, 0)}.
+                {' '}The two are not added together. If the gap is larger than the days before
+                you started issuing in the app, the sheet is worth a look.
+              </div>
+            </div>
+          )}
+
           {data.upload?.source === 'legacy' && (
             <div className="text-xs mb-4" style={{ color: 'var(--ink-60)' }}>
               Read from the farm's own workbook layout. Litres are worked out from the pack
@@ -430,7 +465,10 @@ export default function ProcessingUnit() {
               { label: 'Packed (units)',  value: fmt(stats.packedUnits, 0), unit: 'units', color: 'var(--amber)' },
               { label: 'Packed (litres)', value: fmt(stats.packedL),        unit: 'L',     color: 'var(--amber)' },
               { label: 'Yield',           value: stats.yieldPct,                           color: 'var(--green-600)' },
-              { label: 'Issued to branches', value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)' },
+              {
+                label: data.issued_source === 'workbook' ? 'Issued (from sheet)' : 'Issued to branches',
+                value: fmt(stats.issuedUnits, 0), unit: 'units', color: 'var(--blue)',
+              },
               { label: 'Damaged (units)', value: fmt(stats.damagedUnits, 0), unit: 'units', color: 'var(--red)' },
               { label: 'Damage Rate',     value: stats.damagePct,                          color: 'var(--red)' },
               { label: 'Fresh Milk Lost', value: fmt(stats.freshDamaged),   unit: 'L',     color: 'var(--red)' },
@@ -560,8 +598,9 @@ export default function ProcessingUnit() {
               <CardTitle>Stock Reconciliation</CardTitle>
               <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
                 Opening + packed − issued − damaged. Opening, packed and damaged come from the
-                uploaded workbook; issued comes from the branch issue notes raised for this month,
-                so this balance moves as stock goes out. Litres follow from the pack size.
+                uploaded workbook. Issued comes from the branch issue notes raised for this month —
+                or, for months before those notes existed, from the workbook's own issued column.
+                {' '}Litres follow from the pack size.
               </p>
             </div>
             <table className="w-full border-collapse text-[13px]">
