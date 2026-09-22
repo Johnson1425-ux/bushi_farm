@@ -287,6 +287,11 @@ export default function ProcessingUnit() {
     const purchased    = sum(data.received, 'purchased_litres')
     const openingFresh = num(data.upload?.opening_fresh_litres)
     const available    = farm + purchased + openingFresh
+    /* Sealed packs already on the racks when the month opened — the
+       workbook's B/D column. Not the same thing as openingFresh, which is
+       raw milk still in the tank, so the two are never added: one is
+       litres waiting to be packed, the other is packs waiting to go out. */
+    const openingUnits = sum(data.stock, 'opening_units')
     const packedUnits  = sum(data.packed,  'units')
     const packedL      = sum(data.packed,  'litres')
     const issuedUnits  = sum(data.issued,  'units')
@@ -297,7 +302,7 @@ export default function ProcessingUnit() {
     const freshDamaged = num(data.upload?.fresh_damage_litres)
     const pct = (part, whole) => (whole > 0 ? ((part / whole) * 100).toFixed(1) + '%' : '—')
     return {
-      farm, purchased, openingFresh, available,
+      farm, purchased, openingFresh, available, openingUnits,
       packedUnits, packedL, issuedUnits, damagedUnits, stockUnits, freshDamaged,
       yieldPct: pct(packedL, available),
       damagePct: pct(damagedUnits, packedUnits),
@@ -461,7 +466,11 @@ export default function ProcessingUnit() {
             {[
               { label: 'Farm Milk',       value: fmt(stats.farm),           unit: 'L',     color: 'var(--green-600)' },
               { label: 'Purchased Milk',  value: fmt(stats.purchased),      unit: 'L',     color: 'var(--ink-60)' },
-              { label: 'Carried In',      value: fmt(stats.openingFresh),   unit: 'L',     color: 'var(--ink-60)' },
+              { label: 'Milk Carried In', value: fmt(stats.openingFresh),   unit: 'L',     color: 'var(--ink-60)' },
+              /* The packs half of the balance, placed where the row starts
+                 reading as arithmetic: carried in, packed, issued,
+                 damaged, and what is left. */
+              { label: 'Carried In (units)', value: fmt(stats.openingUnits, 0), unit: 'units', color: 'var(--ink-60)' },
               { label: 'Packed (units)',  value: fmt(stats.packedUnits, 0), unit: 'units', color: 'var(--amber)' },
               { label: 'Packed (litres)', value: fmt(stats.packedL),        unit: 'L',     color: 'var(--amber)' },
               { label: 'Yield',           value: stats.yieldPct,                           color: 'var(--green-600)' },
