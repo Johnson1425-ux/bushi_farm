@@ -275,12 +275,11 @@ export default function ProcessingUnit() {
      to it, carried-in milk included. Litres for packs are derived from the
      pack size on import, so they cannot drift from the unit counts.
 
-     Issued figures come from the issue notes raised on Stock & Issuing for
-     the days this month covers, which is why a month can still change after
-     it has been uploaded. Months from before anyone was raising those notes
-     fall back to the workbook's own ISSUED column — otherwise the farm's
-     whole history would read as nothing ever having left the store. The two
-     are never added together; data.issued_source says which is in use. */
+     Issued figures come from the uploaded workbook while its ISSUED column
+     is still being filled in, and from the issue notes raised on Stock &
+     Issuing once it is not. The sheet decides: upload a month with the
+     column empty and that month is the app's from then on. The two are
+     never added together; data.issued_source says which is in use. */
   const stats = data ? (() => {
     const sum = (arr, key) => (arr || []).reduce((a, r) => a + num(r[key]), 0)
     const farm         = sum(data.received, 'farm_litres') + sum(data.received, 'mwabulugu_litres')
@@ -424,17 +423,17 @@ export default function ProcessingUnit() {
             </div>
           )}
 
-          {data.issued_source === 'workbook' && (
+          {data.issued_source === 'workbook' && !data.issued_both && (
             <div className="rounded-lg border p-3 mb-4 text-[13px]"
               style={{ background: 'rgba(52,120,200,0.06)', borderColor: 'var(--blue)' }}>
               <div className="font-semibold mb-1" style={{ color: 'var(--blue)' }}>
                 Issued figures read from the workbook
               </div>
               <div style={{ color: 'var(--ink-60)' }}>
-                No issue notes were raised for this month, so the sheet's own ISSUED column is
-                used. It records a total with no branch against it. Raise a note on{' '}
-                <strong>Stock &amp; Issuing</strong> for any day in this month and the app's
-                figures take over from then on.
+                This month's sheet has its ISSUED column filled in, so that is what is counted.
+                It records a total with no branch against it. When you are ready to issue in the
+                app instead, upload a month with the column left empty and the issue notes take
+                over for it.
               </div>
             </div>
           )}
@@ -443,13 +442,28 @@ export default function ProcessingUnit() {
             <div className="rounded-lg border p-3 mb-4 text-[13px]"
               style={{ background: 'rgba(232,160,32,0.08)', borderColor: 'var(--amber)' }}>
               <div className="font-semibold mb-1" style={{ color: 'var(--amber)' }}>
-                This is the month the record changed over
+                Both records have figures for this month
               </div>
               <div style={{ color: 'var(--ink-60)' }}>
-                The issue notes are in use — {fmt(data.issued_ledger, 0)} units — and the
-                workbook also has an issued column, showing {fmt(data.issued_workbook, 0)}.
-                {' '}The two are not added together. If the gap is larger than the days before
-                you started issuing in the app, the sheet is worth a look.
+                The workbook is in use — {fmt(data.issued_workbook, 0)} units — and issue notes
+                raised for these days account for {fmt(data.issued_ledger, 0)}. The two are not
+                added together. This is normal while stock is being sent to branches so the
+                tills can sell: the sheet stays in charge until you upload a month without its
+                issued column.
+              </div>
+            </div>
+          )}
+
+          {data.issued_source === 'ledger' && (
+            <div className="rounded-lg border p-3 mb-4 text-[13px]"
+              style={{ background: 'var(--green-50)', borderColor: 'var(--green-100)' }}>
+              <div className="font-semibold mb-1" style={{ color: 'var(--green-800)' }}>
+                Issued figures come from the app
+              </div>
+              <div style={{ color: 'var(--ink-60)' }}>
+                This month's sheet was uploaded with no issued column, so the issue notes raised
+                on <strong>Stock &amp; Issuing</strong> are counted — each one naming the branch
+                the stock went to.
               </div>
             </div>
           )}
@@ -607,8 +621,8 @@ export default function ProcessingUnit() {
               <CardTitle>Stock Reconciliation</CardTitle>
               <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
                 Opening + packed − issued − damaged. Opening, packed and damaged come from the
-                uploaded workbook. Issued comes from the branch issue notes raised for this month —
-                or, for months before those notes existed, from the workbook's own issued column.
+                uploaded workbook. So does issued, while the sheet's issued column is still being
+                filled in; a month uploaded without it counts the branch issue notes instead.
                 {' '}Litres follow from the pack size.
               </p>
             </div>
