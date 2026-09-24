@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
-import { Card, CardTitle, Btn, PageHeader, EmptyState, MetricCard, Spinner } from '../components/ui'
+import { Card, CardTitle, Btn, PageHeader, EmptyState, MetricCard, Spinner, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
 
@@ -729,23 +729,18 @@ function ItemList({ items, onMove, onEdit, onArchive, onRestore, onDelete, onOpe
                   </TD>
                   <TD right mono>{i.last_received || '—'}</TD>
                   <TD right>
-                    <div className="flex gap-1.5 justify-end" onClick={e => e.stopPropagation()}>
-                      {i.status === 'active' ? (
-                        <>
-                          <Btn size="sm" variant="primary" onClick={() => onMove(i, 'in')}>In</Btn>
-                          <Btn size="sm" onClick={() => onMove(i, 'out')} disabled={i.current_stock <= 0}
-                            title={i.current_stock <= 0 ? 'Nothing on hand to issue' : 'Issue to production'}>Out</Btn>
-                          <Btn size="sm" onClick={() => onEdit(i)}>Edit</Btn>
-                          <Btn size="sm" onClick={() => onArchive(i)}>Archive</Btn>
-                        </>
-                      ) : (
-                        <>
-                          <Btn size="sm" variant="primary" onClick={() => onRestore(i)}>Restore</Btn>
-                          {i.total_in === 0 && i.total_out === 0 && i.total_damaged === 0 && i.total_returned === 0 && (
-                            <Btn size="sm" variant="danger" onClick={() => onDelete(i)}>Delete</Btn>
-                          )}
-                        </>
-                      )}
+                    <div className="flex justify-end" onClick={e => e.stopPropagation()}>
+                      <RowMenu label={`Actions for ${i.name}`} items={i.status === 'active' ? [
+                        { label: 'Stock in', onClick: () => onMove(i, 'in') },
+                        { label: 'Stock out', onClick: () => onMove(i, 'out'), disabled: i.current_stock <= 0,
+                          title: i.current_stock <= 0 ? 'Nothing on hand to issue' : 'Issue to production' },
+                        { label: 'Edit', onClick: () => onEdit(i) },
+                        { label: 'Archive', onClick: () => onArchive(i) },
+                      ] : [
+                        { label: 'Restore', onClick: () => onRestore(i) },
+                        i.total_in === 0 && i.total_out === 0 && i.total_damaged === 0 && i.total_returned === 0 &&
+                          { label: 'Delete', danger: true, onClick: () => onDelete(i) },
+                      ]} />
                     </div>
                   </TD>
                 </Row>
@@ -1556,9 +1551,11 @@ function Counts({ onOpen }) {
                   <TD>{c.counted_by || '—'}</TD>
                   <TD mono>{c.posted_at ? String(c.posted_at).slice(0, 10) : '—'}</TD>
                   <TD right>
-                    <div onClick={e => e.stopPropagation()} className="flex gap-1.5 justify-end">
-                      <Btn size="sm" onClick={() => onOpen(c.id)}>{c.status === 'draft' ? 'Continue' : 'View'}</Btn>
-                      {c.status === 'draft' && <Btn size="sm" variant="danger" onClick={() => discard(c)}>Discard</Btn>}
+                    <div onClick={e => e.stopPropagation()} className="flex justify-end">
+                      <RowMenu items={[
+                        { label: c.status === 'draft' ? 'Continue' : 'View', onClick: () => onOpen(c.id) },
+                        c.status === 'draft' && { label: 'Discard', danger: true, onClick: () => discard(c) },
+                      ]} />
                     </div>
                   </TD>
                 </Row>

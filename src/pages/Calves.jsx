@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
-import { Card, Btn, PageHeader, EmptyState } from '../components/ui'
+import { Card, Btn, PageHeader, EmptyState, RowMenu } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
@@ -468,22 +468,16 @@ export default function Calves({ cows = [], onChanged }) {
                     )}
                   </td>
                   <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <div className="flex gap-2 justify-end">
-                      {canRecord && c.status !== 'moved_to_herd' && (
-                        <>
-                          <Btn size="sm" onClick={() => setEditing(c)}>Edit</Btn>
-                          <Btn size="sm" onClick={() => setStatus(c)}>Update</Btn>
-                        </>
-                      )}
-                      {canMove && ['on_farm', 'weaned'].includes(c.status) && c.sex === 'female' && (
-                        <Btn size="sm" variant="primary" onClick={() => moveToHerd(c)}
-                          title="She is old enough to milk — give her a place in the herd">
-                          → Herd
-                        </Btn>
-                      )}
-                      {canDelete && c.status !== 'moved_to_herd' && (
-                        <Btn size="sm" variant="danger" onClick={() => remove(c)}>Delete</Btn>
-                      )}
+                    <div className="flex justify-end">
+                      <RowMenu label={`Actions for ${c.name}`} items={[
+                        canRecord && c.status !== 'moved_to_herd' && { label: 'Edit', onClick: () => setEditing(c) },
+                        canRecord && c.status !== 'moved_to_herd' && { label: 'Update status', onClick: () => setStatus(c) },
+                        canMove && ['on_farm', 'weaned'].includes(c.status) && c.sex === 'female' && {
+                          label: 'Move to herd', onClick: () => moveToHerd(c),
+                          title: 'She is old enough to milk — give her a place in the herd',
+                        },
+                        canDelete && c.status !== 'moved_to_herd' && { label: 'Delete', danger: true, onClick: () => remove(c) },
+                      ]} />
                     </div>
                   </td>
                 </tr>

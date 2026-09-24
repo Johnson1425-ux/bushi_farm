@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
-import { Card, Btn, PageHeader, EmptyState, Badge } from '../components/ui'
+import { Card, Btn, PageHeader, EmptyState, Badge, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -261,19 +261,17 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
                 </td>
                 <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-30)', borderColor: 'var(--ink-10)' }}>{p.notes || '—'}</td>
                 <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                  <div className="flex gap-2">
-                    {p.status === 'active' && <Btn size="sm" variant="primary" onClick={() => setUpdateModal(p)}>Update</Btn>}
-                    {/* A delivery that has not been followed up with a calf is
-                        half a record. The dam and the birth date travel in the
-                        address, so the calf form opens already filled in. */}
-                    {p.status === 'delivered' && (
-                      <Btn size="sm" variant="primary" onClick={() => recordCalf(p)}
-                        title="Put the calf she delivered on the books">
-                        Record calf
-                      </Btn>
-                    )}
-                    <Btn size="sm" variant="danger" onClick={() => handleDelete(p.id)}>Delete</Btn>
-                  </div>
+                  {/* A delivery that has not been followed up with a calf is
+                      half a record. The dam and the birth date travel in the
+                      address, so the calf form opens already filled in. */}
+                  <RowMenu items={[
+                    p.status === 'active' && { label: 'Update', onClick: () => setUpdateModal(p) },
+                    p.status === 'delivered' && {
+                      label: 'Record calf', onClick: () => recordCalf(p),
+                      title: 'Put the calf she delivered on the books',
+                    },
+                    { label: 'Delete', danger: true, onClick: () => handleDelete(p.id) },
+                  ]} />
                 </td>
               </tr>
             ))}

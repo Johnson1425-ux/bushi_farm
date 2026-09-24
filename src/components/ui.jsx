@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { statusClass } from '../lib/api'
 import logo from '../assets/logo.png'
 
@@ -173,5 +174,103 @@ export function Spinner() {
       className="inline-block w-3.5 h-3.5 rounded-full border-2 align-middle mr-1.5"
       style={{ borderColor: 'var(--ink-10)', borderTopColor: 'var(--green-400)', animation: 'spin .7s linear infinite' }}
     />
+  )
+}
+/**
+ * A row's actions folded behind a "⋮" button.
+ *
+ * `items` is a list of { label, onClick, danger, disabled, title }; falsy
+ * entries are skipped so callers can write `cond && { ... }` inline. With
+ * nothing left to show the trigger is not rendered at all.
+ *
+ * The menu is portalled to <body> with fixed positioning — the tables sit
+ * inside overflow-x-auto wrappers that would otherwise clip it.
+ */
+export function RowMenu({ items, label = 'Actions' }) {
+  const list = (items || []).filter(Boolean)
+  const [open, setOpen] = useState(false)
+  const [at, setAt] = useState(null)
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+
+  useLayoutEffect(() => {
+    if (!open || !btnRef.current) return
+    const r = btnRef.current.getBoundingClientRect()
+    const menuH = menuRef.current?.offsetHeight || list.length * 36 + 8
+    const below = r.bottom + 4 + menuH <= window.innerHeight
+    setAt({
+      right: Math.max(8, window.innerWidth - r.right),
+      top: below ? r.bottom + 4 : Math.max(8, r.top - 4 - menuH),
+    })
+  }, [open, list.length])
+
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    const onDown = e => {
+      if (menuRef.current?.contains(e.target) || btnRef.current?.contains(e.target)) return
+      close()
+    }
+    const onKey = e => { if (e.key === 'Escape') { close(); btnRef.current?.focus() } }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
+
+  if (!list.length) return null
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
+        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-ink-10 text-ink hover:bg-cream-dark cursor-pointer transition-all duration-150"
+        style={{ background: 'var(--surface)', fontSize: 18, lineHeight: 1 }}
+      >
+        ⋮
+      </button>
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          onClick={e => e.stopPropagation()}
+          className="rounded-lg border border-ink-10 py-1 shadow-lg"
+          style={{
+            position: 'fixed', zIndex: 1000, minWidth: 160,
+            top: at?.top ?? -9999, right: at?.right ?? 0,
+            visibility: at ? 'visible' : 'hidden',
+            background: 'var(--surface)',
+          }}
+        >
+          {list.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              role="menuitem"
+              title={it.title}
+              disabled={it.disabled}
+              onClick={() => { setOpen(false); it.onClick?.() }}
+              className={`block w-full text-left px-3.5 py-2 text-sm border-0 bg-transparent ${it.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-cream-dark'}`}
+              style={{ color: it.danger ? 'var(--red)' : 'var(--ink)' }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
   )
 }

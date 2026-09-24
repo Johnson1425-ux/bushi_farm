@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import { apiFetch } from '../lib/api'
-import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import { Card, CardTitle, Btn, PageHeader, EmptyState, RowMenu } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
@@ -467,19 +467,15 @@ function NotesTab({ issues, onChanged }) {
                     <TD mono right>{i.lines}</TD>
                     <TD mono right>{fmt(i.units)}</TD>
                     <td className="px-5 py-3 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
-                      <div className="flex gap-2 justify-end">
-                        {i.status === 'draft' && (
-                          <>
-                            <Btn size="sm" variant="primary" disabled={busy}
-                              onClick={() => act(i.id, 'dispatch', `${i.issue_no} dispatched.`)}>Dispatch</Btn>
-                            <Btn size="sm" variant="danger" disabled={busy}
-                              onClick={() => act(i.id, 'delete', `${i.issue_no} deleted.`)}>Delete</Btn>
-                          </>
-                        )}
-                        {i.status === 'dispatched' && (
-                          <Btn size="sm" variant="danger" disabled={busy}
-                            onClick={() => act(i.id, 'cancel', `${i.issue_no} cancelled.`)}>Cancel</Btn>
-                        )}
+                      <div className="flex justify-end" onClick={e => e.stopPropagation()}>
+                        <RowMenu label={`Actions for ${i.issue_no}`} items={[
+                          i.status === 'draft' && { label: 'Dispatch', disabled: busy,
+                            onClick: () => act(i.id, 'dispatch', `${i.issue_no} dispatched.`) },
+                          i.status === 'draft' && { label: 'Delete', danger: true, disabled: busy,
+                            onClick: () => act(i.id, 'delete', `${i.issue_no} deleted.`) },
+                          i.status === 'dispatched' && { label: 'Cancel issue', danger: true, disabled: busy,
+                            onClick: () => act(i.id, 'cancel', `${i.issue_no} cancelled.`) },
+                        ]} />
                       </div>
                     </td>
                   </tr>

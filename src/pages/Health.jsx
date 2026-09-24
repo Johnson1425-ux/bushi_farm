@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../lib/api'
-import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import { Card, CardTitle, Btn, PageHeader, EmptyState, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -234,11 +234,11 @@ export default function Health() {
                     </span>
                   </td>
                   <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <div className="flex gap-2">
-                      <Btn size="sm" variant="primary" onClick={() => setViewTreat(d)}>Treatments</Btn>
-                      <Btn size="sm" onClick={() => { setEditDisease(d); setShowModal(true) }}>Edit</Btn>
-                      <Btn size="sm" variant="danger" onClick={() => handleDelete(d.id)}>Delete</Btn>
-                    </div>
+                    <RowMenu items={[
+                      { label: 'Treatments', onClick: () => setViewTreat(d) },
+                      { label: 'Edit', onClick: () => { setEditDisease(d); setShowModal(true) } },
+                      { label: 'Delete', danger: true, onClick: () => handleDelete(d.id) },
+                    ]} />
                   </td>
                 </tr>
               ))}
