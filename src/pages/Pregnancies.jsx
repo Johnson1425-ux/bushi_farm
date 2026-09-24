@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, Btn, PageHeader, EmptyState, Badge } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -39,6 +42,8 @@ function DaysChip({ days, status }) {
 }
 
 export default function Pregnancies({ cows: cowsProp = [] }) {
+  const confirm  = useConfirm()
+  const navigate = useNavigate()
   const [pregnancies, setPregnancies] = useState([])
   const [cows,        setCows]        = useState(cowsProp)
   const [loading,     setLoading]     = useState(true)
@@ -106,8 +111,28 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
     setUpdateModal(null)
   }
 
+  /* Hand the delivery over to the calf register.
+
+     The birth date is the one recorded against the pregnancy when there is
+     one; a delivery marked without a date falls back to the date it was
+     expected, which is the closest thing the record knows. */
+  const recordCalf = (p) => {
+    const q = new URLSearchParams({
+      pregnancy: p.id,
+      dam:       p.cow_id,
+      born:      p.actual_birth_date || p.expected_due_date,
+    })
+    navigate(`/calves?${q}`)
+  }
+
   const handleDelete = async (id) => {
-    if (!confirm('Delete this pregnancy record?')) return
+    const ok = await confirm({
+      title: 'Delete pregnancy record',
+      message: 'The record and the dates on it are removed.',
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/pregnancies/${id}`, { method: 'DELETE' })
     await fetchPregnancies()
   }
@@ -119,10 +144,9 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const token = localStorage.getItem('mt_token')
       const res = await fetch(`${BASE}/pregnancies/import`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: await authHeaders(),
         body: fd,
       })
       const result = await res.json()
@@ -239,6 +263,15 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
                 <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                   <div className="flex gap-2">
                     {p.status === 'active' && <Btn size="sm" variant="primary" onClick={() => setUpdateModal(p)}>Update</Btn>}
+                    {/* A delivery that has not been followed up with a calf is
+                        half a record. The dam and the birth date travel in the
+                        address, so the calf form opens already filled in. */}
+                    {p.status === 'delivered' && (
+                      <Btn size="sm" variant="primary" onClick={() => recordCalf(p)}
+                        title="Put the calf she delivered on the books">
+                        Record calf
+                      </Btn>
+                    )}
                     <Btn size="sm" variant="danger" onClick={() => handleDelete(p.id)}>Delete</Btn>
                   </div>
                 </td>

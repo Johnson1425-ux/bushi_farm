@@ -24,6 +24,8 @@ const NAV_GROUPS = [
     items: [
       // Vets need the herd list to find an animal, but not the production detail.
       { id: 'cows',          icon: '🐄',  label: 'All Cows', roles: ALL },
+      // The young stock. The vet delivers them, the manager counts them.
+      { id: 'calves',        icon: '🐮',  label: 'Calves',   roles: ['admin', 'manager', 'veteran'] },
       { id: 'compare',       icon: '↔️',  label: 'Compare',      roles: ['admin', 'manager'] },
       { id: 'records',       icon: '≡',   label: 'Records',      roles: ['admin', 'manager'] },
       { id: 'daily-records', icon: '🗒️', label: 'Daily Records', roles: ['admin', 'manager'] },
@@ -53,13 +55,17 @@ const NAV_GROUPS = [
     items: [
       { id: 'sales',      icon: '💰', label: 'Sales',           roles: ['admin', 'manager'] },
       { id: 'reports',    icon: '📊', label: 'Sales Reports',         roles: ['admin', 'manager'] },
+      // What the farm spends is management's book — the same two roles as
+      // the reports. An attendant runs one counter and has no business in
+      // the household's line or the payroll.
+      { id: 'expenses',   icon: '🧮', label: 'Expenses',        roles: ['admin', 'manager'] },
       // An attendant names customers on sales and takes payments at the
       // counter, so the book is theirs to read.
       { id: 'customers',  icon: '📒', label: 'Customers & Debtors', roles: ['admin', 'manager', 'attendant'] },
       { id: 'stock',      icon: '📦', label: 'Stock & Issuing', roles: ['admin', 'manager'] },
       // An attendant's two pages. Managers reach both to oversee a branch.
-      { id: 'till',       icon: '🧾', label: 'Till',            roles: ['admin', 'manager', 'attendant'] },
-      { id: 'branch',     icon: '🏪', label: 'My Stock',       roles: ['admin', 'manager', 'attendant'] },
+      { id: 'till',       icon: '🧾', label: 'Till',            roles: ['admin', 'attendant'] },
+      { id: 'branch',     icon: '🏪', label: 'My Stock',       roles: ['admin', 'attendant'] },
     ],
   },
   {

@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
+import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import HealthRecordForm from '../components/HealthRecordForm'
+import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -17,14 +20,11 @@ const today = () => new Date().toISOString().slice(0, 10)
  * of these searchable — so that name is used when it is there, and
  * `fallback` covers the blank form and any response that omits it.
  */
-async function downloadDocx(path, fallback) {
-  const token = localStorage.getItem('mt_token')
-  const res = await fetch(`${BASE}${path}`, { headers: { Authorization: `Bearer ${token}` } })
-  if (!res.ok) throw new Error('Could not download the document. Try again.')
-
-  const disposition = res.headers.get('content-disposition') || ''
-  const named = /filename="?([^"]+)"?/.exec(disposition)?.[1]
-
+async function downloadTemplate() {
+  const res = await fetch(`${BASE}/health-records/template`, {
+    headers: await authHeaders(),
+  })
+  if (!res.ok) throw new Error('Could not download the form. Try again.')
   const url = URL.createObjectURL(await res.blob())
   const a = document.createElement('a')
   a.href = url
@@ -295,10 +295,9 @@ function UploadModal({ cows, onClose, onSuccess }) {
       if (cowId) fd.append('cow_id', cowId)
 
       // Use raw fetch for multipart (apiFetch wraps JSON)
-      const token = localStorage.getItem('mt_token')
       const res = await fetch(
         `${BASE}/health-records/import`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }
+        { method: 'POST', headers: await authHeaders(), body: fd }
       )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Upload failed')
@@ -413,6 +412,7 @@ function UploadModal({ cows, onClose, onSuccess }) {
 }
 
 export default function HealthRecords() {
+  const confirm = useConfirm()
   const [records, setRecords]     = useState([])
   const [cows, setCows]           = useState([])
   const [loading, setLoading]     = useState(true)
@@ -450,7 +450,7 @@ export default function HealthRecords() {
       const full = await apiFetch(`/health-records/${id}`)
       if (mode === 'edit') setEditRecord(full); else setViewRecord(full)
     } catch (e) {
-      alert(e.message)
+      notify.error(e.message)
     } finally {
       setOpening(null)
     }
@@ -475,9 +475,16 @@ export default function HealthRecords() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this health record?')) return
+    const ok = await confirm({
+      title: 'Delete health record',
+      message: 'The record leaves the cow’s health history.',
+      detail: 'This cannot be undone.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/health-records/${id}`, { method: 'DELETE' })
     await fetchRecords()
+    notify.success('Health record deleted.')
   }
 
   const filtered = records.filter(r => {

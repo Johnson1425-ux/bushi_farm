@@ -1,4 +1,5 @@
 import { BASE, apiFetch } from './api'
+import { authHeaders } from './session'
 
 /**
  * Consume a Server-Sent Events response from an /api/ai endpoint.
@@ -12,18 +13,19 @@ import { BASE, apiFetch } from './api'
  */
 export function streamAi(path, body, handlers = {}) {
   const controller = new AbortController()
-  const token = localStorage.getItem('mt_token')
 
   const run = async () => {
     let res
     try {
+      /* Renewed before the stream opens rather than read from storage: a
+         report can run for a minute or more, and starting one on a token
+         that expires halfway through would drop the connection mid-answer.
+         The token is only checked when the request is received, so a fresh
+         one lasts the whole stream. */
       res = await fetch(BASE + path, {
         method: 'POST',
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(body || {}),
       })
     } catch (err) {

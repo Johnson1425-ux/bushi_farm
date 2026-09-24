@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, Fragment } from 'react'
 import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { useAuth } from '../lib/AuthContext'
+import { useConfirm } from '../lib/ConfirmContext'
+import { notify } from '../lib/notify'
 
 /* ══════════════════════════════════════════════════════════════
    STOCK & ISSUING
@@ -67,6 +69,13 @@ const TD = ({ children, mono, right }) => (
     }}>{children}</td>
 )
 
+/**
+ * The banner, now kept for one job: the shortfalls above the issue form.
+ *
+ * Everything else this page used it for is a toast. A shortfall is not a
+ * message — it is a list of the products to cut before the note can go, and
+ * it belongs above the form it is about until the operator has dealt with it.
+ */
 function Notice({ kind = 'error', children, onClose }) {
   const styles = {
     error:   { bg: 'rgba(217,64,64,0.08)',  border: 'var(--red)',       color: 'var(--red)' },
@@ -86,7 +95,7 @@ function Notice({ kind = 'error', children, onClose }) {
 }
 
 /* ── the store: what is on hand, and recording a day's packing ── */
-function StoreTab({ stock, onChanged, uploads, onNotice }) {
+function StoreTab({ stock, onChanged, uploads }) {
   const [showProduction, setShowProduction] = useState(false)
   const [date,  setDate]  = useState(today())
   const [rows,  setRows]  = useState({})
@@ -104,16 +113,16 @@ function StoreTab({ stock, onChanged, uploads, onNotice }) {
       }))
       .filter(e => e.packed_units > 0 || e.damaged_units > 0)
 
-    if (!entries.length) return onNotice({ kind: 'error', text: 'Enter at least one figure.' })
+    if (!entries.length) return notify.error('Enter at least one figure.')
 
     setBusy(true)
     try {
       await apiFetch('/stock/production', { method: 'POST', body: JSON.stringify({ date, entries }) })
       setRows({}); setShowProduction(false)
-      onNotice({ kind: 'success', text: `Production for ${date} recorded.` })
+      notify.success(`Production for ${date} recorded.`)
       onChanged()
     } catch (e) {
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setBusy(false) }
   }
 
@@ -124,14 +133,13 @@ function StoreTab({ stock, onChanged, uploads, onNotice }) {
     setBusy(true)
     try {
       const r = await apiFetch('/stock/opening', { method: 'POST', body: JSON.stringify({ upload_id: uploadId }) })
-      onNotice({
-        kind: r.unmatched?.length ? 'warn' : 'success',
-        text: `Opening balances set from ${r.from} — ${fmt(r.units)} units across ${r.products} products.`
-          + (r.unmatched?.length ? ` Not matched to the catalogue: ${r.unmatched.join(', ')}.` : ''),
-      })
+      const summary = `Opening balances set from ${r.from} — ${fmt(r.units)} units across ${r.products} products.`
+        + (r.unmatched?.length ? ` Not matched to the catalogue: ${r.unmatched.join(', ')}.` : '')
+      if (r.unmatched?.length) notify.warn(summary)
+      else notify.success(summary)
       onChanged()
     } catch (e) {
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setBusy(false) }
   }
 
@@ -244,7 +252,7 @@ function StoreTab({ stock, onChanged, uploads, onNotice }) {
 }
 
 /* ── raising an issue note ── */
-function IssueTab({ stock, branches, onIssued, onNotice }) {
+function IssueTab({ stock, branches, onIssued }) {
   const [branchId, setBranchId] = useState('')
   const [date,     setDate]     = useState(today())
   const [notes,    setNotes]    = useState('')
@@ -260,8 +268,8 @@ function IssueTab({ stock, branches, onIssued, onNotice }) {
   const totalUnits = lines.reduce((a, l) => a + l.units, 0)
 
   const submit = async (dispatch) => {
-    if (!branchId) return onNotice({ kind: 'error', text: 'Choose a branch.' })
-    if (!lines.length) return onNotice({ kind: 'error', text: 'Add at least one product.' })
+    if (!branchId) return notify.error('Choose a branch.')
+    if (!lines.length) return notify.error('Add at least one product.')
 
     setBusy(true); setShortfalls([])
     try {
@@ -270,17 +278,14 @@ function IssueTab({ stock, branches, onIssued, onNotice }) {
         body: JSON.stringify({ branch_id: Number(branchId), issue_date: date, notes, items: lines, dispatch }),
       })
       setQty({}); setNotes('')
-      onNotice({
-        kind: 'success',
-        text: `${issue.issue_no} ${dispatch ? 'dispatched to' : 'saved as a draft for'} ${issue.branch_name}.`,
-      })
+      notify.success(`${issue.issue_no} ${dispatch ? 'dispatched to' : 'saved as a draft for'} ${issue.branch_name}.`)
       onIssued()
     } catch (e) {
       /* A shortfall is the one failure worth showing line by line: the
          operator has to know which product to cut, not just that the note
          was refused. */
       if (e.body?.shortfalls) setShortfalls(e.body.shortfalls)
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setBusy(false) }
   }
 
@@ -375,7 +380,8 @@ function IssueTab({ stock, branches, onIssued, onNotice }) {
 }
 
 /* ── the notes themselves ── */
-function NotesTab({ issues, onChanged, onNotice }) {
+function NotesTab({ issues, onChanged }) {
+  const confirm = useConfirm()
   const [open, setOpen] = useState(null)
   const [detail, setDetail] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -384,20 +390,28 @@ function NotesTab({ issues, onChanged, onNotice }) {
   const expand = async (id) => {
     if (open === id) { setOpen(null); setDetail(null); return }
     setOpen(id); setDetail(null)
-    try { setDetail(await apiFetch(`/issues/${id}`)) } catch (e) { onNotice({ kind: 'error', text: e.message }) }
+    try { setDetail(await apiFetch(`/issues/${id}`)) } catch (e) { notify.error(e.message) }
   }
 
   const act = async (id, action, label) => {
-    if (action === 'cancel' && !confirm('Cancel this note? Anything already dispatched goes back to the store.')) return
+    if (action === 'cancel') {
+      const ok = await confirm({
+        title: 'Cancel this note',
+        message: 'Anything already dispatched against it goes back to the store.',
+        confirmLabel: 'Cancel the note',
+        cancelLabel: 'Keep it',
+      })
+      if (!ok) return
+    }
     setBusy(true)
     try {
       if (action === 'delete') await apiFetch(`/issues/${id}`, { method: 'DELETE' })
       else await apiFetch(`/issues/${id}/${action}`, { method: 'POST', body: JSON.stringify({}) })
-      onNotice({ kind: 'success', text: label })
+      notify.success(label)
       setOpen(null); setDetail(null)
       onChanged()
     } catch (e) {
-      onNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setBusy(false) }
   }
 
@@ -525,7 +539,8 @@ function NotesTab({ issues, onChanged, onNotice }) {
 }
 
 /* ── branches and their selling prices ── */
-function BranchesTab({ branches, products, onChanged, onNotice }) {
+function BranchesTab({ branches, products, onChanged }) {
+  const confirm = useConfirm()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', code: '', location: '', phone: '' })
   const [prices, setPrices] = useState({})
@@ -545,9 +560,9 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
       })
       setBulkForm({ product: '', size: 'LTR', retail_price: '', wholesale_price: '' })
       setShowBulk(false)
-      onNotice({ kind: 'success', text: 'Loose-milk line added.' })
+      notify.success('Loose-milk line added.')
       onChanged()
-    } catch (err) { onNotice({ kind: 'error', text: err.message }) } finally { setBusy(false) }
+    } catch (err) { notify.error(err.message) } finally { setBusy(false) }
   }
 
   const create = async (e) => {
@@ -556,18 +571,26 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
     try {
       await apiFetch('/branches', { method: 'POST', body: JSON.stringify(form) })
       setForm({ name: '', code: '', location: '', phone: '' }); setShowForm(false)
-      onNotice({ kind: 'success', text: 'Branch added.' })
+      notify.success('Branch added.')
       onChanged()
-    } catch (err) { onNotice({ kind: 'error', text: err.message }) } finally { setBusy(false) }
+    } catch (err) { notify.error(err.message) } finally { setBusy(false) }
   }
 
   const toggle = async (b) => {
     const closing = b.active
-    if (closing && !confirm(`Close ${b.name}? Its history stays; no new stock can be issued to it.`)) return
+    if (closing) {
+      const ok = await confirm({
+        title: `Close ${b.name}`,
+        message: 'No new stock can be issued to this branch once it is closed.',
+        detail: 'Its history stays, and it can be reopened later.',
+        confirmLabel: 'Close branch',
+      })
+      if (!ok) return
+    }
     try {
       await apiFetch(`/branches/${b.id}`, { method: 'PATCH', body: JSON.stringify({ active: !b.active }) })
       onChanged()
-    } catch (err) { onNotice({ kind: 'error', text: err.message }) }
+    } catch (err) { notify.error(err.message) }
   }
 
   /* Both lists are edited on one row and saved together: they are two
@@ -585,9 +608,9 @@ function BranchesTab({ branches, products, onChanged, onNotice }) {
         }),
       })
       setPrices(prev => { const next = { ...prev }; delete next[p.id]; return next })
-      onNotice({ kind: 'success', text: `${p.product} ${p.size} prices updated.` })
+      notify.success(`${p.product} ${p.size} prices updated.`)
       onChanged()
-    } catch (err) { onNotice({ kind: 'error', text: err.message }) }
+    } catch (err) { notify.error(err.message) }
   }
 
   return (
@@ -772,7 +795,6 @@ export default function StockIssuing() {
   const [issues,   setIssues]   = useState([])
   const [uploads,  setUploads]  = useState([])
   const [loading,  setLoading]  = useState(true)
-  const [notice,   setNotice]   = useState(null)
 
   const load = useCallback(async () => {
     try {
@@ -784,7 +806,7 @@ export default function StockIssuing() {
       ])
       setOverview(ov); setBranches(br); setProducts(pr); setIssues(iss)
     } catch (e) {
-      setNotice({ kind: 'error', text: e.message })
+      notify.error(e.message)
     } finally { setLoading(false) }
   }, [])
 
@@ -793,12 +815,6 @@ export default function StockIssuing() {
   /* Only needed to offer the one-time opening balance, so a failure here is
      not worth a message — the offer simply does not appear. */
   useEffect(() => { apiFetch('/processing').then(setUploads).catch(() => {}) }, [])
-
-  useEffect(() => {
-    if (!notice) return
-    const t = setTimeout(() => setNotice(null), 6000)
-    return () => clearTimeout(t)
-  }, [notice])
 
   const storeUnits   = overview.processing.reduce((a, s) => a + num(s.units), 0)
   const branchUnits  = overview.branches.reduce((a, b) => a + num(b.units), 0)
@@ -813,10 +829,6 @@ export default function StockIssuing() {
         title="Stock & Issuing"
         sub="What the processing store holds, and where it goes"
       />
-
-      {notice && (
-        <Notice kind={notice.kind} onClose={() => setNotice(null)}>{notice.text}</Notice>
-      )}
 
       <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
         {[
@@ -843,16 +855,16 @@ export default function StockIssuing() {
       </div>
 
       {tab === 'store' && (
-        <StoreTab stock={overview.processing} uploads={uploads} onChanged={load} onNotice={setNotice} />
+        <StoreTab stock={overview.processing} uploads={uploads} onChanged={load} />
       )}
       {tab === 'issue' && (
-        <IssueTab stock={overview.processing} branches={branches} onIssued={load} onNotice={setNotice} />
+        <IssueTab stock={overview.processing} branches={branches} onIssued={load} />
       )}
       {tab === 'notes' && (
-        <NotesTab issues={issues} onChanged={load} onNotice={setNotice} />
+        <NotesTab issues={issues} onChanged={load} />
       )}
       {tab === 'branches' && (
-        <BranchesTab branches={branches} products={products} onChanged={load} onNotice={setNotice} />
+        <BranchesTab branches={branches} products={products} onChanged={load} />
       )}
     </div>
   )
