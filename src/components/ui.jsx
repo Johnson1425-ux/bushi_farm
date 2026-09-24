@@ -62,7 +62,10 @@ export function Btn({ children, variant = 'default', size = 'md', type = 'button
   ].filter(Boolean).join(' ')
 
   return (
-    <button type={type} title={title} className={base} style={{ background: variant === 'danger' ? 'transparent' : variant === 'default' ? 'var(--surface)' : undefined }} onClick={onClick} disabled={disabled}>
+    /* `title` doubles as the accessible name: the buttons that pass one are
+       the icon-only ones, where the glyph is not a name a screen reader can
+       read out. */
+    <button type={type} title={title} aria-label={title} className={base} style={{ background: variant === 'danger' ? 'transparent' : variant === 'default' ? 'var(--surface)' : undefined }} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   )
