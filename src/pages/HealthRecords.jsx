@@ -9,26 +9,40 @@ import { notify } from '../lib/notify'
 const today = () => new Date().toISOString().slice(0, 10)
 
 /**
- * Download the blank form.
+ * Fetch a .docx from the API and hand it to the browser.
  *
  * The endpoint is behind the same token as the rest of the API, so the
- * file is fetched and handed to the browser rather than linked to: a plain
- * <a href> carries no Authorization header and would come back a 401.
+ * file is fetched rather than linked to: a plain <a href> carries no
+ * Authorization header and would come back a 401.
+ *
+ * The server names the file in Content-Disposition — for a saved record
+ * that is the cow and the examination date, which is what makes a folder
+ * of these searchable — so that name is used when it is there, and
+ * `fallback` covers the blank form and any response that omits it.
  */
-async function downloadTemplate() {
-  const res = await fetch(`${BASE}/health-records/template`, {
-    headers: await authHeaders(),
-  })
-  if (!res.ok) throw new Error('Could not download the form. Try again.')
+async function downloadDocx(path, fallback) {
+  const res = await fetch(`${BASE}${path}`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error('Could not download the document. Try again.')
+
+  const disposition = res.headers.get('content-disposition') || ''
+  const named = /filename="?([^"]+)"?/.exec(disposition)?.[1]
+
   const url = URL.createObjectURL(await res.blob())
   const a = document.createElement('a')
   a.href = url
-  a.download = 'Bushi Dairy Farm Individual Health Record.docx'
+  a.download = named || fallback
   document.body.appendChild(a)
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
 }
+
+const downloadTemplate = () =>
+  downloadDocx('/health-records/template', 'Bushi Dairy Farm Individual Health Record.docx')
+
+const downloadRecord = (record) =>
+  downloadDocx(`/health-records/${record.id}/document`,
+    `Health Record - ${record.cow_name || record.cow_tag || 'Unlinked'}.docx`)
 
 /**
  * `fill` is for a dialog whose content brings its own footer.
@@ -82,7 +96,7 @@ function KV({ label, value }) {
   )
 }
 
-function RecordDetailModal({ record, onClose }) {
+function RecordDetailModal({ record, onClose, onDownload }) {
   const cf = Array.isArray(record.clinical_findings) ? record.clinical_findings : []
   const tx = Array.isArray(record.treatments) ? record.treatments : []
 
@@ -206,10 +220,14 @@ function RecordDetailModal({ record, onClose }) {
         <KV label="Licence #"          value={record.license_number} />
       </Section>
 
-      <div className="text-[10px] mt-4" style={{ color: 'var(--ink-30)' }}>
-        {record.source_filename
-          ? `From ${record.source_filename}`
-          : 'Filled in the app'} · Saved {new Date(record.uploaded_at).toLocaleDateString()}
+      <div className="flex items-center justify-between gap-3 flex-wrap mt-5 pt-4"
+        style={{ borderTop: '1px solid var(--ink-10)' }}>
+        <div className="text-[10px]" style={{ color: 'var(--ink-30)' }}>
+          {record.source_filename
+            ? `From ${record.source_filename}`
+            : 'Filled in the app'} · Saved {new Date(record.uploaded_at).toLocaleDateString()}
+        </div>
+        <Btn size="sm" onClick={onDownload}>⬇ Download .docx</Btn>
       </div>
     </Modal>
   )
@@ -404,6 +422,7 @@ export default function HealthRecords() {
   const [viewRecord, setViewRecord] = useState(null)
   const [editRecord, setEditRecord] = useState(null)
   const [opening, setOpening]     = useState(null)
+  const [downloading, setDownloading] = useState(null)
   const [filterCow, setFilterCow] = useState('')
   const [search, setSearch]       = useState('')
 
@@ -436,6 +455,24 @@ export default function HealthRecords() {
       notify.error(e.message)
     } finally {
       setOpening(null)
+    }
+  }
+
+  /**
+   * Hand this record to the vet as a Word document.
+   *
+   * The row carries enough to name the file if the server's own name does
+   * not arrive, so this works straight off the list without first fetching
+   * the whole record.
+   */
+  const handleDownload = async (record) => {
+    setDownloading(record.id)
+    try {
+      await downloadRecord(record)
+    } catch (e) {
+      notify.error(e.message)
+    } finally {
+      setDownloading(null)
     }
   }
 
@@ -573,6 +610,11 @@ export default function HealthRecords() {
                     </Btn>
                     <Btn size="sm" disabled={opening === r.id}
                       onClick={() => openRecord(r.id, 'edit')}>Edit</Btn>
+                    <Btn size="sm" disabled={downloading === r.id}
+                      title="Download this record as a Word document"
+                      onClick={() => handleDownload(r)}>
+                      {downloading === r.id ? '…' : '⬇'}
+                    </Btn>
                     <Btn size="sm" variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
                   </div>
                 </td>
@@ -594,6 +636,7 @@ export default function HealthRecords() {
         <RecordDetailModal
           record={viewRecord}
           onClose={() => setViewRecord(null)}
+          onDownload={() => handleDownload(viewRecord)}
         />
       )}
 
