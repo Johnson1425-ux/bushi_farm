@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
-import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
+import { Card, CardTitle, Btn, PageHeader, EmptyState, RowMenu } from '../components/ui'
 import HealthRecordForm from '../components/HealthRecordForm'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
@@ -44,112 +43,6 @@ const downloadTemplate = () =>
 const downloadRecord = (record) =>
   downloadDocx(`/health-records/${record.id}/document`,
     `Health Record - ${record.cow_name || record.cow_tag || 'Unlinked'}.docx`)
-
-/**
- * The actions on a row, behind a three-dots button.
- *
- * Four buttons abreast crowded the row and made every record shout its
- * options at once; here the row stays readable and the actions are one
- * click away.
- *
- * The menu is rendered into the document body rather than beside its
- * button. Its button sits inside a table that scrolls sideways on a narrow
- * screen, and a scroll container clips what overflows it — in a card only
- * one row tall, an in-place menu was cut off after its first item. Out
- * here nothing can clip it, and it is placed against the button's own
- * position on screen instead.
- *
- * It closes on a click anywhere else, on Escape, and on choosing
- * something — a menu left open while the page moves under it is worse
- * than no menu. The listeners exist only while it is open, so a table of
- * thirty rows is not thirty listeners.
- */
-const MENU_ITEM_HEIGHT = 37
-const MENU_WIDTH = 176
-
-function RowMenu({ items, busy }) {
-  const [open, setOpen] = useState(false)
-  const [at, setAt]     = useState(null)
-  const button = useRef(null)
-  const menu   = useRef(null)
-
-  /* Where the menu goes: under the button, right edges aligned, unless the
-     bottom of the window is too close — then above it, so the last item is
-     never off screen. */
-  const place = () => {
-    const r = button.current?.getBoundingClientRect()
-    if (!r) return
-    const height = items.length * MENU_ITEM_HEIGHT + 8
-    const room   = window.innerHeight - r.bottom
-    setAt(room < height + 12 && r.top > height + 12
-      ? { bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right }
-      : { top: r.bottom + 4, right: window.innerWidth - r.right })
-  }
-
-  useEffect(() => {
-    if (!open) return
-    place()
-    const onDown = e => {
-      if (button.current?.contains(e.target) || menu.current?.contains(e.target)) return
-      setOpen(false)
-    }
-    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
-    /* Capture, so the table's own sideways scrolling moves the menu too and
-       not just the window's. */
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    window.addEventListener('resize', place)
-    window.addEventListener('scroll', place, true)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-      window.removeEventListener('resize', place)
-      window.removeEventListener('scroll', place, true)
-    }
-  }, [open])
-
-  return (
-    <>
-      <button ref={button} type="button" title="Actions" aria-label="Actions"
-        aria-haspopup="menu" aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-        disabled={busy}
-        className="rounded-lg border cursor-pointer px-2.5 py-1.5 text-sm leading-none transition-colors"
-        style={{
-          borderColor: 'var(--ink-10)',
-          background: open ? 'var(--cream-dark)' : 'var(--surface)',
-          color: 'var(--ink-60)',
-          opacity: busy ? 0.5 : 1,
-        }}>
-        {busy ? '…' : '⋯'}
-      </button>
-
-      {open && at && createPortal(
-        <div ref={menu} role="menu"
-          className="fixed z-[200] rounded-lg border overflow-hidden"
-          style={{
-            ...at,
-            width: MENU_WIDTH,
-            background: 'var(--surface)', borderColor: 'var(--ink-10)',
-            boxShadow: '0 8px 24px rgba(10,30,20,0.18)',
-          }}>
-          {items.map(item => (
-            <button key={item.label} type="button" role="menuitem"
-              onClick={() => { setOpen(false); item.onClick() }}
-              className="w-full text-left px-3.5 py-2 text-[13px] border-0 cursor-pointer flex items-center gap-2.5 transition-colors"
-              style={{ background: 'transparent', color: item.danger ? 'var(--red)' : 'var(--ink)' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <span aria-hidden="true" style={{ width: 14, textAlign: 'center', opacity: 0.75 }}>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </>
-  )
-}
 
 /**
  * `fill` is for a dialog whose content brings its own footer.
