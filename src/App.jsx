@@ -7,6 +7,7 @@ import LandingPage    from './pages/LandingPage'
 import Sidebar        from './components/Sidebar'
 import Dashboard      from './pages/Dashboard'
 import Cows           from './pages/Cows'
+import Calves         from './pages/Calves'
 import Compare        from './pages/Compare'
 import Records        from './pages/Records'
 import DailyRecords   from './pages/DailyRecords'
@@ -24,12 +25,15 @@ import BranchStock    from './pages/BranchStock'
 import Till           from './pages/Till'
 import Reports        from './pages/Reports'
 import Customers      from './pages/Customers'
+import Expenses       from './pages/Expenses'
 import AIReports      from './pages/AIReports'
 import AboutUs       from './pages/AboutUs'
 import ProductsPage   from './pages/ProductsPage'
 import ContactPage    from './pages/ContactPage'
 import CustomerLayout from './pages/CustomerLayout'
-import { useAlerts, Toaster } from './lib/useAlerts'
+import NotFound       from './pages/NotFound'
+import { useAlerts } from './lib/useAlerts'
+import { Toaster } from './lib/notify'
 
 // ── Guards ───────────────────────────────────────────────────────────────────
 
@@ -111,9 +115,14 @@ function AppShell() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Toaster />
       <Sidebar page={page} setPage={setPage} summary={summary} online={online} />
-      <main className="flex-1 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px' }}>
+      {/* min-w-0, or a flex item refuses to shrink below its content.
+
+          Without it the widest table on a page decides how wide the whole
+          app is, and a phone gets a page that scrolls sideways with the
+          sidebar's edge showing — the tables already scroll inside their
+          own containers, which is where that belongs. */}
+      <main className="flex-1 min-w-0 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px' }}>
         <div className="md:p-[32px_36px] p-0 pt-4">
           <Outlet context={{ cows, summary, loadData, setPage }} />
         </div>
@@ -126,6 +135,7 @@ function AppShell() {
 
 function DashboardPage()    { const { cows, summary, setPage } = useOutletContext(); return <Dashboard cows={cows} summary={summary} setPage={setPage} /> }
 function CowsPage()         { const { cows, loadData } = useOutletContext(); return <Cows cows={cows} onChanged={loadData} /> }
+function CalvesPage()       { const { cows, loadData } = useOutletContext(); return <Calves cows={cows} onChanged={loadData} /> }
 function ComparePage()      { const { cows } = useOutletContext(); return <Compare cows={cows} /> }
 function RecordsPage()      { const { cows, summary } = useOutletContext(); return <Records cows={cows} summary={summary} /> }
 function ImportPage()       { const { loadData } = useOutletContext(); return <ImportData onImported={loadData} /> }
@@ -141,6 +151,7 @@ function BranchPage()       { return <BranchStock /> }
 function TillPage()         { return <Till /> }
 function ReportsPage()      { return <Reports /> }
 function CustomersPage()    { return <Customers /> }
+function ExpensesPage()     { return <Expenses /> }
 function DailyRecordsPage() { return <DailyRecords /> }
 function AIReportsPage()    { const { cows } = useOutletContext(); return <AIReports cows={cows} /> }
 
@@ -161,6 +172,9 @@ export default function App() {
           {/* Everyone signed in, except an attendant — see homeFor() */}
           <Route path="/dashboard"     element={<FarmRoute><DashboardPage /></FarmRoute>} />
           <Route path="/cows"          element={<FarmRoute><CowsPage /></FarmRoute>} />
+          {/* The young stock. Read by the vet and the manager alike, so it
+              sits with the herd rather than behind either one's gate. */}
+          <Route path="/calves"        element={<FarmRoute><CalvesPage /></FarmRoute>} />
 
           {/* A branch counter */}
           <Route path="/branch"        element={<BranchRoute><BranchPage /></BranchRoute>} />
@@ -181,6 +195,7 @@ export default function App() {
           <Route path="/processing"    element={<ProductionRoute><ProcessingPage /></ProductionRoute>} />
           <Route path="/stock"         element={<ProductionRoute><StockPage /></ProductionRoute>} />
           <Route path="/reports"       element={<ProductionRoute><ReportsPage /></ProductionRoute>} />
+          <Route path="/expenses"      element={<ProductionRoute><ExpensesPage /></ProductionRoute>} />
 
           {/* Animal health — admin and vet */}
           <Route path="/health"        element={<HealthRoute><HealthPage /></HealthRoute>} />
@@ -195,10 +210,17 @@ export default function App() {
           <Route path="/contact"  element={<ContactPage />} />
         </Route>
 
-        {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Catch-all.
+
+            A wrong address gets a page that says so, rather than a silent
+            redirect to the landing page — that threw the address away and,
+            for a signed-in user, pushed them out of the app over a typo. */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
 
+      {/* At the root, not in the signed-in shell: a failed sign-in and a
+          message from a public page need somewhere to land too. */}
+      <Toaster />
       <Analytics />
     </>
   )

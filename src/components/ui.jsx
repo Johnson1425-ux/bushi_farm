@@ -48,7 +48,7 @@ export function Logo({ size = 32, plate = true, className = '', style = {} }) {
  * <button type="submit"> nested inside a Btn. Pass type="submit" to be
  * the submit control.
  */
-export function Btn({ children, variant = 'default', size = 'md', type = 'button', title, onClick, className = '', disabled }) {
+export function Btn({ children, variant = 'default', size = 'md', type = 'button', onClick, className = '', disabled, title }) {
   const base = [
     'inline-flex items-center justify-center font-medium rounded-lg border transition-all duration-150 cursor-pointer',
     size === 'sm' ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm',

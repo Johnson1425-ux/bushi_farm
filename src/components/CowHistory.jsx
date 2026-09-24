@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '../lib/api'
 import { Btn } from '../components/ui'
+import { useConfirm } from '../lib/ConfirmContext'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -12,6 +13,7 @@ const EVENT_TYPES = [
 ]
 
 export default function CowHistory({ cow }) {
+  const confirm = useConfirm()
   const [history,  setHistory]  = useState([])
   const [loading,  setLoading]  = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -43,7 +45,12 @@ export default function CowHistory({ cow }) {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this history entry?')) return
+    const ok = await confirm({
+      title: 'Delete history entry',
+      message: 'This entry is removed from the cow’s timeline.',
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
     await apiFetch(`/cow-history/${id}`, { method: 'DELETE' })
     await fetchHistory()
   }

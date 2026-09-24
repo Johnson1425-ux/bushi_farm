@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import toast, { Toaster } from 'react-hot-toast'
+import { notify } from './notify'
 import { apiFetch } from './api'
 
 const STORAGE_KEY = 'mt_alerts_last_shown'
@@ -8,10 +8,6 @@ const ICONS = {
   upcoming_birth:  '🐄',
   overdue_birth:   '⚠️',
   low_stock:       '📦',
-}
-const COLORS = {
-  high:   { background: '#fde8e8', color: '#8a1c1c', border: '1px solid #f5c0c0' },
-  medium: { background: '#fff4de', color: '#7a4800', border: '1px solid #f5d88a' },
 }
 
 export function useAlerts() {
@@ -32,21 +28,11 @@ export function useAlerts() {
 
         setTimeout(() => {
           alerts.forEach((alert, i) => {
-            const style = COLORS[alert.severity] || COLORS.medium
-            setTimeout(() => {
-              toast(
-                `${ICONS[alert.type] || '🔔'} ${alert.message}`,
-                {
-                  duration: alert.severity === 'high' ? 8000 : 5000,
-                  style: {
-                    ...style,
-                    fontSize: 13,
-                    fontFamily: "'Outfit', sans-serif",
-                    maxWidth: 360,
-                  },
-                }
-              )
-            }, i * 700)
+            /* One toast style for the whole app, so a daily alert reads the
+               same as the message a save puts up. Severity picks the tone
+               rather than a palette of its own. */
+            const show = alert.severity === 'high' ? notify.error : notify.warn
+            setTimeout(() => show(`${ICONS[alert.type] || '🔔'} ${alert.message}`), i * 700)
           })
         }, 1500)
       } catch {
@@ -57,5 +43,3 @@ export function useAlerts() {
     run()
   }, [])
 }
-
-export { Toaster }
