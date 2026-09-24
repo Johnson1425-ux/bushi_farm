@@ -254,7 +254,7 @@ function StatusForm({ calf, onClose, onSaved }) {
         </Field>
 
         <Field label="Note" hint="(optional)">
-          <input value={notes} maxLength={1000} onChange={e => setNotes(e.target.value)} className="w-full"
+          <input type="text" value={notes} maxLength={1000} onChange={e => setNotes(e.target.value)} className="w-full"
             placeholder={status === 'sold' ? 'Buyer, price' : status === 'dead' ? 'Cause' : 'Anything worth remembering'} />
         </Field>
 
