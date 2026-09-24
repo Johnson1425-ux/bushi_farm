@@ -469,8 +469,7 @@ export default function HealthRecords() {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Individual Health Records"
-        sub="The examination sheet for one cow — filled here, or uploaded as a Word document">
+      <PageHeader title="Individual Health Records">
         <Btn size="sm" variant="primary" onClick={() => setEditRecord({})}>
           + New Record
         </Btn>
