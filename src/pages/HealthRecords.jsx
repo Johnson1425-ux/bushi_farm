@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
@@ -51,30 +52,65 @@ const downloadRecord = (record) =>
  * options at once; here the row stays readable and the actions are one
  * click away.
  *
+ * The menu is rendered into the document body rather than beside its
+ * button. Its button sits inside a table that scrolls sideways on a narrow
+ * screen, and a scroll container clips what overflows it — in a card only
+ * one row tall, an in-place menu was cut off after its first item. Out
+ * here nothing can clip it, and it is placed against the button's own
+ * position on screen instead.
+ *
  * It closes on a click anywhere else, on Escape, and on choosing
  * something — a menu left open while the page moves under it is worse
- * than no menu. The listener is only attached while it is open, so a
- * table of thirty rows is not thirty listeners.
+ * than no menu. The listeners exist only while it is open, so a table of
+ * thirty rows is not thirty listeners.
  */
+const MENU_ITEM_HEIGHT = 37
+const MENU_WIDTH = 176
+
 function RowMenu({ items, busy }) {
   const [open, setOpen] = useState(false)
-  const box = useRef(null)
+  const [at, setAt]     = useState(null)
+  const button = useRef(null)
+  const menu   = useRef(null)
+
+  /* Where the menu goes: under the button, right edges aligned, unless the
+     bottom of the window is too close — then above it, so the last item is
+     never off screen. */
+  const place = () => {
+    const r = button.current?.getBoundingClientRect()
+    if (!r) return
+    const height = items.length * MENU_ITEM_HEIGHT + 8
+    const room   = window.innerHeight - r.bottom
+    setAt(room < height + 12 && r.top > height + 12
+      ? { bottom: window.innerHeight - r.top + 4, right: window.innerWidth - r.right }
+      : { top: r.bottom + 4, right: window.innerWidth - r.right })
+  }
 
   useEffect(() => {
     if (!open) return
-    const onDown = e => { if (!box.current?.contains(e.target)) setOpen(false) }
-    const onKey  = e => { if (e.key === 'Escape') setOpen(false) }
+    place()
+    const onDown = e => {
+      if (button.current?.contains(e.target) || menu.current?.contains(e.target)) return
+      setOpen(false)
+    }
+    const onKey = e => { if (e.key === 'Escape') setOpen(false) }
+    /* Capture, so the table's own sideways scrolling moves the menu too and
+       not just the window's. */
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
     }
   }, [open])
 
   return (
-    <div ref={box} className="relative inline-block">
-      <button type="button" title="Actions" aria-label="Actions"
+    <>
+      <button ref={button} type="button" title="Actions" aria-label="Actions"
         aria-haspopup="menu" aria-expanded={open}
         onClick={() => setOpen(o => !o)}
         disabled={busy}
@@ -88,12 +124,14 @@ function RowMenu({ items, busy }) {
         {busy ? '…' : '⋯'}
       </button>
 
-      {open && (
-        <div role="menu"
-          className="absolute right-0 z-50 mt-1 rounded-lg border overflow-hidden"
+      {open && at && createPortal(
+        <div ref={menu} role="menu"
+          className="fixed z-[200] rounded-lg border overflow-hidden"
           style={{
+            ...at,
+            width: MENU_WIDTH,
             background: 'var(--surface)', borderColor: 'var(--ink-10)',
-            minWidth: 168, boxShadow: '0 8px 24px rgba(10,30,20,0.14)',
+            boxShadow: '0 8px 24px rgba(10,30,20,0.18)',
           }}>
           {items.map(item => (
             <button key={item.label} type="button" role="menuitem"
@@ -106,9 +144,10 @@ function RowMenu({ items, busy }) {
               {item.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
 
