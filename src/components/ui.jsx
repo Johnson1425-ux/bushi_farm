@@ -181,12 +181,13 @@ export function Spinner() {
  *
  * `items` is a list of { label, onClick, danger, disabled, title }; falsy
  * entries are skipped so callers can write `cond && { ... }` inline. With
- * nothing left to show the trigger is not rendered at all.
+ * nothing left to show the trigger is not rendered at all. `busy` disables
+ * the trigger while an action on the row is still running.
  *
  * The menu is portalled to <body> with fixed positioning — the tables sit
  * inside overflow-x-auto wrappers that would otherwise clip it.
  */
-export function RowMenu({ items, label = 'Actions' }) {
+export function RowMenu({ items, label = 'Actions', busy }) {
   const list = (items || []).filter(Boolean)
   const [open, setOpen] = useState(false)
   const [at, setAt] = useState(null)
@@ -235,11 +236,12 @@ export function RowMenu({ items, label = 'Actions' }) {
         title={label}
         aria-haspopup="menu"
         aria-expanded={open}
+        disabled={busy}
         onClick={e => { e.stopPropagation(); setOpen(v => !v) }}
-        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-ink-10 text-ink hover:bg-cream-dark cursor-pointer transition-all duration-150"
+        className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border border-ink-10 text-ink transition-all duration-150 ${busy ? 'opacity-50 cursor-not-allowed' : 'hover:bg-cream-dark cursor-pointer'}`}
         style={{ background: 'var(--surface)', fontSize: 18, lineHeight: 1 }}
       >
-        ⋮
+        {busy ? '…' : '⋮'}
       </button>
       {open && createPortal(
         <div
@@ -262,9 +264,10 @@ export function RowMenu({ items, label = 'Actions' }) {
               title={it.title}
               disabled={it.disabled}
               onClick={() => { setOpen(false); it.onClick?.() }}
-              className={`block w-full text-left px-3.5 py-2 text-sm border-0 bg-transparent ${it.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-cream-dark'}`}
+              className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2 text-sm border-0 bg-transparent ${it.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-cream-dark'}`}
               style={{ color: it.danger ? 'var(--red)' : 'var(--ink)' }}
             >
+              {it.icon && <span aria-hidden="true" style={{ width: 14, textAlign: 'center', opacity: 0.75 }}>{it.icon}</span>}
               {it.label}
             </button>
           ))}
