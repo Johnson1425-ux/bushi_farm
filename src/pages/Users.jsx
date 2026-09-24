@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { apiFetch, initials } from '../lib/api'
 import { useAuth } from '../lib/AuthContext'
-import { Card, Btn, PageHeader } from '../components/ui'
+import { Card, Btn, PageHeader, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
 
@@ -205,21 +205,13 @@ export default function Users() {
                         <Btn size="sm" onClick={() => setEditing(null)}>Cancel</Btn>
                       </>
                     ) : (
-                      <>
-                        {/* Changing your own role is refused by the API — the
-                            last admin demoting themselves locks everyone out. */}
-                        {u.id !== me?.id && (
-                          <Btn size="sm" onClick={() => setEditing({ id: u.id, role: u.role, branch_id: u.branch_id ?? '' })}>
-                            Change role
-                          </Btn>
-                        )}
-                        <Btn size="sm" onClick={() => { setPwdModal(u); setNewPwd('') }}>
-                          Change password
-                        </Btn>
-                        {u.id !== me?.id && (
-                          <Btn size="sm" variant="danger" onClick={() => deleteUser(u)}>Delete</Btn>
-                        )}
-                      </>
+                      /* Changing your own role is refused by the API — the
+                         last admin demoting themselves locks everyone out. */
+                      <RowMenu label={`Actions for ${u.username}`} items={[
+                        u.id !== me?.id && { label: 'Change role', onClick: () => setEditing({ id: u.id, role: u.role, branch_id: u.branch_id ?? '' }) },
+                        { label: 'Change password', onClick: () => { setPwdModal(u); setNewPwd('') } },
+                        u.id !== me?.id && { label: 'Delete', danger: true, onClick: () => deleteUser(u) },
+                      ]} />
                     )}
                   </div>
                 </td>

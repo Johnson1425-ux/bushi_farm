@@ -1,7 +1,7 @@
 import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch, BASE } from '../lib/api'
 import { authHeaders } from '../lib/session'
-import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
+import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
 
@@ -895,17 +895,11 @@ function CategoryRow({ c, editing, setEditing, draft, setDraft, patch, destroy, 
               </Btn>
             </>
           ) : (
-            <>
-              <Btn size="sm" onClick={() => { setEditing(c.id); setDraft({ name: c.name, notes: c.notes || '' }) }}>
-                Rename
-              </Btn>
-              <Btn size="sm" onClick={() => patch(c.id, { active: !c.active })}>
-                {c.active ? 'Close' : 'Reopen'}
-              </Btn>
-              {c.entry_count === 0 && (
-                <Btn size="sm" variant="danger" onClick={() => destroy(c)}>Delete</Btn>
-              )}
-            </>
+            <RowMenu label={`Actions for ${c.name}`} items={[
+              { label: 'Rename', onClick: () => { setEditing(c.id); setDraft({ name: c.name, notes: c.notes || '' }) } },
+              { label: c.active ? 'Close' : 'Reopen', onClick: () => patch(c.id, { active: !c.active }) },
+              c.entry_count === 0 && { label: 'Delete', danger: true, onClick: () => destroy(c) },
+            ]} />
           )}
         </div>
       </TD>
