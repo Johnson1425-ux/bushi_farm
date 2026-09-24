@@ -45,6 +45,74 @@ const downloadRecord = (record) =>
     `Health Record - ${record.cow_name || record.cow_tag || 'Unlinked'}.docx`)
 
 /**
+ * The actions on a row, behind a three-dots button.
+ *
+ * Four buttons abreast crowded the row and made every record shout its
+ * options at once; here the row stays readable and the actions are one
+ * click away.
+ *
+ * It closes on a click anywhere else, on Escape, and on choosing
+ * something — a menu left open while the page moves under it is worse
+ * than no menu. The listener is only attached while it is open, so a
+ * table of thirty rows is not thirty listeners.
+ */
+function RowMenu({ items, busy }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = e => { if (!box.current?.contains(e.target)) setOpen(false) }
+    const onKey  = e => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={box} className="relative inline-block">
+      <button type="button" title="Actions" aria-label="Actions"
+        aria-haspopup="menu" aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        disabled={busy}
+        className="rounded-lg border cursor-pointer px-2.5 py-1.5 text-sm leading-none transition-colors"
+        style={{
+          borderColor: 'var(--ink-10)',
+          background: open ? 'var(--cream-dark)' : 'var(--surface)',
+          color: 'var(--ink-60)',
+          opacity: busy ? 0.5 : 1,
+        }}>
+        {busy ? '…' : '⋯'}
+      </button>
+
+      {open && (
+        <div role="menu"
+          className="absolute right-0 z-50 mt-1 rounded-lg border overflow-hidden"
+          style={{
+            background: 'var(--surface)', borderColor: 'var(--ink-10)',
+            minWidth: 168, boxShadow: '0 8px 24px rgba(10,30,20,0.14)',
+          }}>
+          {items.map(item => (
+            <button key={item.label} type="button" role="menuitem"
+              onClick={() => { setOpen(false); item.onClick() }}
+              className="w-full text-left px-3.5 py-2 text-[13px] border-0 cursor-pointer flex items-center gap-2.5 transition-colors"
+              style={{ background: 'transparent', color: item.danger ? 'var(--red)' : 'var(--ink)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <span aria-hidden="true" style={{ width: 14, textAlign: 'center', opacity: 0.75 }}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * `fill` is for a dialog whose content brings its own footer.
  *
  * Normally the whole dialog scrolls as one. A form long enough to scroll
@@ -240,10 +308,18 @@ function RecordDetailModal({ record, onClose, onDownload }) {
  * form — it renders the sheet and hands back what was filled, and where
  * that goes is the page's business.
  */
-function RecordFormModal({ record, cows, onClose, onSaved }) {
+function RecordFormModal({ record, prefill, cows, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState(null)
   const editing = Boolean(record?.id)
+
+  /* Starting a record from inside one animal's history already says which
+     animal it is for, so the form opens with her filled in rather than
+     asking again. It is a blank record with her identity on it, not an
+     edit: there is no id, so this still saves as new. */
+  const opening = record || (prefill
+    ? { cow_id: prefill.cow_id ?? '', cow_tag: prefill.cow_tag ?? '' }
+    : null)
 
   const handleSubmit = async (values) => {
     setSaving(true); setError(null)
@@ -265,7 +341,7 @@ function RecordFormModal({ record, cows, onClose, onSaved }) {
     <Modal wide fill onClose={onClose}
       title={editing ? 'Edit Individual Health Record' : 'New Individual Health Record'}>
       <HealthRecordForm
-        record={record}
+        record={opening}
         cows={cows}
         onSubmit={handleSubmit}
         onCancel={onClose}
@@ -413,31 +489,98 @@ function UploadModal({ cows, onClose, onSuccess }) {
   )
 }
 
+/** A cow list row and a record row both need this. */
+const cowLabel = (c) => c.cow_name || (c.cow_tag ? `Tag ${c.cow_tag}` : 'Unlinked')
+
+/** The key that opens one animal's records, linked or not. */
+const cowQuery = (c) =>
+  c.cow_id ? `cow_id=${c.cow_id}` : `cow_tag=${encodeURIComponent(c.cow_tag || '')}`
+
+const shortDate = (v) => (v ? String(v).slice(0, 10) : '—')
+
+/* Whether the date on the row is the one the vet wrote. The sheet's date
+   is free text, so "last Tuesday" is filed under the day it was saved —
+   and the row says so rather than presenting that day as the examination. */
+const wroteADate = (r) => /^\d{4}-\d{2}-\d{2}$/.test(String(r.exam_date || '').trim())
+
+const Th = ({ children, className = '' }) => (
+  <th className={`text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b ${className}`}
+    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{children}</th>
+)
+
+const Td = ({ children, className = '', style = {} }) => (
+  <td className={`px-5 py-3 border-b ${className}`}
+    style={{ borderColor: 'var(--ink-10)', ...style }}>{children}</td>
+)
+
+const HoverRow = ({ children, onClick }) => (
+  <tr
+    onClick={onClick}
+    style={{ transition: 'background 0.15s', cursor: onClick ? 'pointer' : 'default' }}
+    onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+    onMouseLeave={e => e.currentTarget.style.background = ''}>
+    {children}
+  </tr>
+)
+
 export default function HealthRecords() {
   const confirm = useConfirm()
+
+  /* The page opens on the animals and steps into one of them. `openCow` is
+     which animal is being read, and null means the list. */
+  const [herd, setHerd]           = useState([])
+  const [openCow, setOpenCow]     = useState(null)
   const [records, setRecords]     = useState([])
   const [cows, setCows]           = useState([])
   const [loading, setLoading]     = useState(true)
+  const [loadingRecords, setLoadingRecords] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [viewRecord, setViewRecord] = useState(null)
   const [editRecord, setEditRecord] = useState(null)
-  const [opening, setOpening]     = useState(null)
-  const [downloading, setDownloading] = useState(null)
-  const [filterCow, setFilterCow] = useState('')
+  const [busyRecord, setBusyRecord] = useState(null)
   const [search, setSearch]       = useState('')
+  const [from, setFrom]           = useState('')
+  const [to, setTo]               = useState('')
 
-  const fetchRecords = async () => {
-    const params = filterCow ? `?cow_id=${filterCow}` : ''
-    const data = await apiFetch(`/health-records${params}`)
-    setRecords(data)
+  const fetchHerd = async () => {
+    setHerd(await apiFetch('/health-records/by-cow'))
   }
 
   useEffect(() => {
     Promise.all([
-      fetchRecords(),
+      fetchHerd(),
       apiFetch('/cows').then(setCows),
     ]).finally(() => setLoading(false))
-  }, [filterCow])
+  }, [])
+
+  /* One animal's records, narrowed to the chosen period. Re-runs when the
+     dates change, so the filter is the query rather than a sieve over rows
+     already fetched — a cow with years of history should not have to send
+     all of it to show one month. */
+  useEffect(() => {
+    if (!openCow) return
+    let cancelled = false
+    setLoadingRecords(true)
+    const period = [from && `from=${from}`, to && `to=${to}`].filter(Boolean).join('&')
+    apiFetch(`/health-records?${cowQuery(openCow)}${period ? `&${period}` : ''}`)
+      .then(rows => { if (!cancelled) setRecords(rows) })
+      .catch(e => { if (!cancelled) notify.error(e.message) })
+      .finally(() => { if (!cancelled) setLoadingRecords(false) })
+    return () => { cancelled = true }
+  }, [openCow, from, to])
+
+  const enterCow = (c) => { setOpenCow(c); setFrom(''); setTo(''); setRecords([]) }
+  const leaveCow = () => { setOpenCow(null); setRecords([]); fetchHerd() }
+
+  /* After a change, both the animal's records and the herd summary behind
+     it are stale — the count, the latest diagnosis and the last visit all
+     come off the records that just moved. */
+  const refresh = async () => {
+    await fetchHerd()
+    if (!openCow) return
+    const period = [from && `from=${from}`, to && `to=${to}`].filter(Boolean).join('&')
+    setRecords(await apiFetch(`/health-records?${cowQuery(openCow)}${period ? `&${period}` : ''}`))
+  }
 
   /**
    * Open one record, read or edit.
@@ -447,14 +590,14 @@ export default function HealthRecords() {
    * whole sheet, so it is fetched here rather than taken from the row.
    */
   const openRecord = async (id, mode) => {
-    setOpening(id)
+    setBusyRecord(id)
     try {
       const full = await apiFetch(`/health-records/${id}`)
       if (mode === 'edit') setEditRecord(full); else setViewRecord(full)
     } catch (e) {
       notify.error(e.message)
     } finally {
-      setOpening(null)
+      setBusyRecord(null)
     }
   }
 
@@ -466,13 +609,13 @@ export default function HealthRecords() {
    * the whole record.
    */
   const handleDownload = async (record) => {
-    setDownloading(record.id)
+    setBusyRecord(record.id)
     try {
       await downloadRecord(record)
     } catch (e) {
       notify.error(e.message)
     } finally {
-      setDownloading(null)
+      setBusyRecord(null)
     }
   }
 
@@ -485,18 +628,25 @@ export default function HealthRecords() {
     })
     if (!ok) return
     await apiFetch(`/health-records/${id}`, { method: 'DELETE' })
-    await fetchRecords()
+    await refresh()
     notify.success('Health record deleted.')
   }
 
-  const filtered = records.filter(r => {
+  const recordActions = (r) => [
+    { label: 'View',     icon: '👁', onClick: () => openRecord(r.id, 'view') },
+    { label: 'Edit',     icon: '✎',     onClick: () => openRecord(r.id, 'edit') },
+    { label: 'Download', icon: '⬇',     onClick: () => handleDownload(r) },
+    { label: 'Delete',   icon: '✕',     onClick: () => handleDelete(r.id), danger: true },
+  ]
+
+  const visibleHerd = herd.filter(c => {
     if (!search) return true
     const q = search.toLowerCase()
     return (
-      r.cow_name?.toLowerCase().includes(q) ||
-      r.cow_tag?.toLowerCase().includes(q) ||
-      r.final_diagnosis?.toLowerCase().includes(q) ||
-      r.attending_vet?.toLowerCase().includes(q)
+      c.cow_name?.toLowerCase().includes(q) ||
+      c.cow_tag?.toLowerCase().includes(q) ||
+      c.latest_diagnosis?.toLowerCase().includes(q) ||
+      c.latest_vet?.toLowerCase().includes(q)
     )
   })
 
@@ -506,128 +656,179 @@ export default function HealthRecords() {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Individual Health Records">
-        <Btn size="sm" variant="primary" onClick={() => setEditRecord({})}>
+      <PageHeader
+        title={openCow ? cowLabel(openCow) : 'Individual Health Records'}
+        sub={openCow
+          ? `${openCow.record_count} record${openCow.record_count === 1 ? '' : 's'}${openCow.cow_tag ? ` · tag ${openCow.cow_tag}` : ''}`
+          : 'The cows with an examination sheet on file'}>
+        {openCow
+          ? <Btn size="sm" onClick={leaveCow}>← All cows</Btn>
+          : <Btn size="sm" onClick={() => setShowUpload(true)}>⬆ Upload .docx</Btn>}
+        <Btn size="sm" variant="primary"
+          onClick={() => setEditRecord(openCow ? { prefill: openCow } : {})}>
           + New Record
-        </Btn>
-        <Btn size="sm" onClick={() => setShowUpload(true)}>
-          ⬆ Upload .docx
         </Btn>
       </PageHeader>
 
-      {/* Filters */}
-      <div className="flex gap-3 mb-5 flex-wrap">
-        <input
-          type="search"
-          className="flex-1 min-w-[180px]"
-          placeholder="Search cow, diagnosis, vet…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-        <select value={filterCow} onChange={e => setFilterCow(e.target.value)} style={{ minWidth: 160 }}>
-          <option value="">All cows</option>
-          {cows.map(c => (
-            <option key={c.id} value={c.id}>{c.name}{c.tag ? ` #${c.tag}` : ''}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Summary chips */}
-      <div className="flex gap-3 mb-5 flex-wrap">
-        {[
-          { label: 'Total Records', val: records.length },
-          { label: 'Cows Covered', val: new Set(records.map(r => r.cow_id).filter(Boolean)).size },
-          { label: 'This Month', val: records.filter(r => r.uploaded_at?.slice(0, 7) === today().slice(0, 7)).length },
-        ].map(s => (
-          <div key={s.label} className="rounded-lg px-4 py-3 border flex flex-col"
-            style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)' }}>
-            <span className="text-[22px] font-bold" style={{ color: 'var(--green-600)' }}>{s.val}</span>
-            <span className="text-xs" style={{ color: 'var(--ink-60)' }}>{s.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <Card noPad>
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr>
-              {['Date', 'Cow', 'Tag', 'Diagnosis', 'Vet', 'Source', 'Actions'].map(h => (
-                <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
-                  style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={7}>
-                <EmptyState>
-                  No health records yet. Fill one in with <strong>New Record</strong>,
-                  or upload a filled .docx form.
-                </EmptyState>
-              </td></tr>
+      {openCow ? (
+        /* ── one animal's records ── */
+        <>
+          <div className="flex gap-3 mb-5 flex-wrap items-end">
+            <div>
+              <label htmlFor="hr-from" className="block text-[11px] font-medium uppercase tracking-wider mb-1.5"
+                style={{ color: 'var(--ink-60)' }}>From</label>
+              <input id="hr-from" type="date" value={from} max={to || undefined}
+                onChange={e => setFrom(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="hr-to" className="block text-[11px] font-medium uppercase tracking-wider mb-1.5"
+                style={{ color: 'var(--ink-60)' }}>To</label>
+              <input id="hr-to" type="date" value={to} min={from || undefined}
+                onChange={e => setTo(e.target.value)} />
+            </div>
+            {(from || to) && (
+              <Btn size="sm" onClick={() => { setFrom(''); setTo('') }}>Clear dates</Btn>
             )}
-            {filtered.map(r => (
-              <tr key={r.id}
-                style={{ transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
-                onMouseLeave={e => e.currentTarget.style.background = ''}>
-                <td className="px-5 py-3 border-b font-mono text-xs"
-                  style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
-                  {r.exam_date || new Date(r.uploaded_at).toLocaleDateString()}
-                </td>
-                <td className="px-5 py-3 border-b font-semibold text-sm"
-                  style={{ borderColor: 'var(--ink-10)', color: 'var(--ink)' }}>
-                  {r.cow_name || <span style={{ color: 'var(--ink-30)' }}>Unlinked</span>}
-                </td>
-                <td className="px-5 py-3 border-b text-xs"
-                  style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
-                  {r.cow_tag || '—'}
-                </td>
-                <td className="px-5 py-3 border-b"
-                  style={{ borderColor: 'var(--ink-10)', maxWidth: 200 }}>
-                  {r.final_diagnosis
-                    ? <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
-                        {r.final_diagnosis.slice(0, 60)}{r.final_diagnosis.length > 60 ? '…' : ''}
-                      </span>
-                    : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>
-                  }
-                </td>
-                <td className="px-5 py-3 border-b text-xs"
-                  style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
-                  {r.attending_vet || '—'}
-                </td>
-                <td className="px-5 py-3 border-b text-xs"
-                  style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-30)' }}>
-                  {r.source_filename?.slice(0, 24) || '—'}
-                </td>
-                <td className="px-5 py-3 border-b"
-                  style={{ borderColor: 'var(--ink-10)' }}>
-                  <div className="flex gap-2">
-                    <Btn size="sm" variant="primary" disabled={opening === r.id}
-                      onClick={() => openRecord(r.id, 'view')}>
-                      {opening === r.id ? '…' : 'View'}
-                    </Btn>
-                    <Btn size="sm" disabled={opening === r.id}
-                      onClick={() => openRecord(r.id, 'edit')}>Edit</Btn>
-                    <Btn size="sm" disabled={downloading === r.id}
-                      title="Download this record as a Word document"
-                      onClick={() => handleDownload(r)}>
-                      {downloading === r.id ? '…' : '⬇'}
-                    </Btn>
-                    <Btn size="sm" variant="danger" onClick={() => handleDelete(r.id)}>Delete</Btn>
-                  </div>
-                </td>
-              </tr>
+            <span className="text-[11px] ml-auto" style={{ color: 'var(--ink-30)' }}>
+              {loadingRecords
+                ? 'Loading…'
+                : `${records.length} record${records.length === 1 ? '' : 's'}${from || to ? ' in this period' : ''}`}
+            </span>
+          </div>
+
+          <Card noPad>
+            <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
+              <thead>
+                <tr>
+                  {['Date', 'Diagnosis', 'Vet', 'Treatments', 'Source', ''].map((h, i) => (
+                    <Th key={i}>{h}</Th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {!loadingRecords && records.length === 0 && (
+                  <tr><td colSpan={6}>
+                    <EmptyState>
+                      {from || to
+                        ? 'No records for this animal in that period.'
+                        : 'No records for this animal yet.'}
+                    </EmptyState>
+                  </td></tr>
+                )}
+                {records.map(r => (
+                  <HoverRow key={r.id}>
+                    <Td className="font-mono text-xs" style={{ color: 'var(--ink-60)' }}>
+                      {shortDate(r.effective_date)}
+                      {!wroteADate(r) && (
+                        <span className="ml-1.5 text-[10px]" title={r.exam_date ? `Sheet says "${r.exam_date}"` : 'No date on the sheet'}
+                          style={{ color: 'var(--ink-30)' }}>saved</span>
+                      )}
+                    </Td>
+                    <Td style={{ maxWidth: 280 }}>
+                      {r.final_diagnosis || r.tentative_diagnosis
+                        ? <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
+                            {(r.final_diagnosis || r.tentative_diagnosis).slice(0, 70)}
+                            {(r.final_diagnosis || r.tentative_diagnosis).length > 70 ? '…' : ''}
+                          </span>
+                        : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>}
+                    </Td>
+                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{r.attending_vet || '—'}</Td>
+                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{r.treatment_count || 0}</Td>
+                    <Td className="text-xs" style={{ color: 'var(--ink-30)' }}>
+                      {r.source_filename ? r.source_filename.slice(0, 22) : 'Filled in the app'}
+                    </Td>
+                    <Td className="text-right">
+                      <RowMenu items={recordActions(r)} busy={busyRecord === r.id} />
+                    </Td>
+                  </HoverRow>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          </Card>
+        </>
+      ) : (
+        /* ── the animals ── */
+        <>
+          <div className="flex gap-3 mb-5 flex-wrap">
+            <input type="search" className="flex-1 min-w-[180px]"
+              placeholder="Search cow, tag, diagnosis, vet…"
+              value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+
+          <div className="flex gap-3 mb-5 flex-wrap">
+            {[
+              { label: 'Cows with records', val: herd.length },
+              { label: 'Total Records', val: herd.reduce((n, c) => n + c.record_count, 0) },
+              { label: 'Seen this month', val: herd.filter(c => shortDate(c.last_exam).slice(0, 7) === today().slice(0, 7)).length },
+            ].map(s => (
+              <div key={s.label} className="rounded-lg px-4 py-3 border flex flex-col"
+                style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)' }}>
+                <span className="text-[22px] font-bold" style={{ color: 'var(--green-600)' }}>{s.val}</span>
+                <span className="text-xs" style={{ color: 'var(--ink-60)' }}>{s.label}</span>
+              </div>
             ))}
-          </tbody>
-        </table>
-      </Card>
+          </div>
+
+          <Card noPad>
+            <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]" style={{ minWidth: 720 }}>
+              <thead>
+                <tr>
+                  {['Cow', 'Tag', 'Records', 'Last examination', 'Latest diagnosis', 'Vet', ''].map((h, i) => (
+                    <Th key={i}>{h}</Th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visibleHerd.length === 0 && (
+                  <tr><td colSpan={7}>
+                    <EmptyState>
+                      {herd.length === 0
+                        ? <>No health records yet. Fill one in with <strong>New Record</strong>, or upload a filled .docx form.</>
+                        : 'No cow matches that search.'}
+                    </EmptyState>
+                  </td></tr>
+                )}
+                {visibleHerd.map(c => (
+                  <HoverRow key={c.group_key} onClick={() => enterCow(c)}>
+                    <Td className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>
+                      {c.cow_name || <span style={{ color: 'var(--ink-30)' }}>Unlinked</span>}
+                    </Td>
+                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{c.cow_tag || '—'}</Td>
+                    <Td>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium"
+                        style={{ background: 'var(--green-50)', color: 'var(--green-800)' }}>
+                        {c.record_count}
+                      </span>
+                    </Td>
+                    <Td className="font-mono text-xs" style={{ color: 'var(--ink-60)' }}>{shortDate(c.last_exam)}</Td>
+                    <Td style={{ maxWidth: 240 }}>
+                      {c.latest_diagnosis
+                        ? <span className="text-xs" style={{ color: 'var(--ink)' }}>
+                            {c.latest_diagnosis.slice(0, 60)}{c.latest_diagnosis.length > 60 ? '…' : ''}
+                          </span>
+                        : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>}
+                    </Td>
+                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{c.latest_vet || '—'}</Td>
+                    <Td className="text-right">
+                      <Btn size="sm" variant="primary" onClick={() => enterCow(c)}>View</Btn>
+                    </Td>
+                  </HoverRow>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          </Card>
+        </>
+      )}
 
       {showUpload && (
         <UploadModal
           cows={cows}
           onClose={() => setShowUpload(false)}
-          onSuccess={() => { fetchRecords(); }}
+          onSuccess={refresh}
         />
       )}
 
@@ -642,9 +843,10 @@ export default function HealthRecords() {
       {editRecord && (
         <RecordFormModal
           record={editRecord.id ? editRecord : null}
+          prefill={editRecord.prefill}
           cows={cows}
           onClose={() => setEditRecord(null)}
-          onSaved={fetchRecords}
+          onSaved={refresh}
         />
       )}
     </div>
