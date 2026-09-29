@@ -81,7 +81,7 @@ export default function AboutUs() {
 
       {/* ── Stats ── */}
       <section ref={statsRef} style={{ background: 'var(--surface)', borderBottom: '1px solid var(--ink-10)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))' }}>
           {STATS.map((s, i) => (
             <div key={s.label} className="stat-card" style={{
               padding: '32px 20px', textAlign: 'center',
@@ -141,7 +141,7 @@ export default function AboutUs() {
             <p style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--green-600)', marginBottom: 10 }}>Our Values</p>
             <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 800, color: 'var(--ink)', letterSpacing: '-0.5px' }}>Why choose Milktrack?</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 20 }}>
             {VALUES.map(v => (
               <div key={v.title} style={{
                 background: 'var(--surface)', borderRadius: 14, padding: 24,

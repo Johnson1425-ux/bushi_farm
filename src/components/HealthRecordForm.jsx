@@ -219,7 +219,7 @@ function Field({ field, value, onChange }) {
 function Grid({ cols = 3, children }) {
   return (
     <div className="grid gap-x-4 gap-y-4"
-      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${cols === 2 ? 260 : 200}px, 1fr))` }}>
+      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(min(${cols === 2 ? 260 : 200}px, 100%), 1fr))` }}>
       {children}
     </div>
   )
@@ -307,7 +307,7 @@ export default function HealthRecordForm({ record, cows = [], onSubmit, onCancel
 
       {/* ── 02 Clinical examination ── */}
       <Section n={2} title="Clinical examination">
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))' }}>
           {HISTORY.map(f => (
             <Field key={f.key} field={f} value={form[f.key]} onChange={set} />
           ))}
@@ -369,7 +369,7 @@ export default function HealthRecordForm({ record, cows = [], onSubmit, onCancel
           </table>
         </div>
 
-        <div className="grid gap-4 mt-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        <div className="grid gap-4 mt-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))' }}>
           <Field field={{ key: 'significant_findings', label: 'Significant findings', rows: 2 }}
             value={form.significant_findings} onChange={set} />
           <Field field={{ key: 'tentative_diagnosis', label: 'Tentative diagnosis', rows: 2 }}
@@ -390,7 +390,7 @@ export default function HealthRecordForm({ record, cows = [], onSubmit, onCancel
             ))}
           </Grid>
         </div>
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))' }}>
           {LABORATORY.map(f => (
             <Field key={f.key} field={f} value={form[f.key]} onChange={set} />
           ))}
@@ -450,7 +450,7 @@ export default function HealthRecordForm({ record, cows = [], onSubmit, onCancel
           <Btn size="sm" onClick={addTreatment}>+ Add line</Btn>
         </div>
 
-        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))' }}>
           <Field field={{ key: 'recommendation', label: 'Recommendation', rows: 2 }}
             value={form.recommendation} onChange={set} />
           <div>

@@ -42,7 +42,7 @@ function Modal({ title, onClose, children }) {
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,30,20,0.45)' }}
     >
-      <div className="rounded-[16px] w-full max-w-md p-7 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
+      <div className="rounded-[16px] w-full max-w-md p-5 sm:p-7 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5">
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
           <button onClick={onClose} className="border-0 bg-transparent text-[18px] cursor-pointer p-1 leading-none hover:opacity-60" style={{ color: 'var(--ink-30)' }}>✕</button>
@@ -153,7 +153,7 @@ function BranchSales({ from, to, branchId, branches, onBranch, products }) {
         </div>
       )}
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'Revenue',      value: fmtTsh(t?.revenue),     color: 'var(--green-600)' },
           { label: 'Receipts',     value: fmt(t?.receipts),       color: 'var(--ink)' },

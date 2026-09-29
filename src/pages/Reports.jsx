@@ -119,7 +119,7 @@ function ByBranch({ from, to }) {
         <Btn size="sm" onClick={exportCsv}>↓ CSV</Btn>
       </div>
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         <div className="rounded-lg border" style={{ background: 'var(--surface)', borderColor: 'var(--ink-10)', padding: '16px 20px' }}>
           <div className="text-[11px] uppercase tracking-wider font-medium mb-1" style={{ color: 'var(--ink-60)' }}>Total income</div>
           <div className="text-[20px] font-semibold" style={{ color: 'var(--green-600)' }}>{fmtTsh(data.grand_total)}</div>
@@ -223,7 +223,7 @@ function CashBook({ from, to, branches }) {
         <Btn size="sm" onClick={exportCsv}>↓ CSV</Btn>
       </div>
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'Sales',           value: fmtTsh(data.totals.sales),         color: 'var(--ink)' },
           { label: 'Expected cash',   value: fmtTsh(data.totals.expected_cash), color: 'var(--ink)' },
@@ -354,7 +354,7 @@ function Products({ from, to, branches }) {
         <Btn size="sm" onClick={exportCsv}>↓ CSV</Btn>
       </div>
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'Total revenue',     value: fmtTsh(data.totals.revenue),           color: 'var(--green-600)' },
           { label: 'Over the counter',  value: fmtTsh(data.totals.retail_revenue),    color: 'var(--ink)' },
@@ -458,7 +458,7 @@ function DebtorsReport({ to }) {
         <Btn size="sm" onClick={exportCsv}>↓ CSV</Btn>
       </div>
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'Owed to the farm', value: fmtTsh(data.totals.owed),                  color: 'var(--red)' },
           { label: 'Accounts owing',   value: fmt(data.totals.owing_count),              color: 'var(--ink)' },
@@ -482,21 +482,23 @@ function DebtorsReport({ to }) {
               the farm does not do.
             </p>
           </div>
-          <table className="w-full border-collapse text-[13px]">
-            <thead><tr><TH>Age</TH><TH right>Accounts</TH><TH right>Amount</TH><TH right>Share</TH></tr></thead>
-            <tbody>
-              {data.ageing.map(a => (
-                <tr key={a.bucket}>
-                  <TD>{a.bucket}</TD>
-                  <TD right mono>{fmt(a.count)}</TD>
-                  <TD right mono style={{ color: 'var(--red)' }}>{fmt(a.amount)}</TD>
-                  <TD right mono style={{ color: 'var(--ink-60)' }}>
-                    {data.totals.owed > 0 ? `${((a.amount / data.totals.owed) * 100).toFixed(1)}%` : '—'}
-                  </TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead><tr><TH>Age</TH><TH right>Accounts</TH><TH right>Amount</TH><TH right>Share</TH></tr></thead>
+              <tbody>
+                {data.ageing.map(a => (
+                  <tr key={a.bucket}>
+                    <TD>{a.bucket}</TD>
+                    <TD right mono>{fmt(a.count)}</TD>
+                    <TD right mono style={{ color: 'var(--red)' }}>{fmt(a.amount)}</TD>
+                    <TD right mono style={{ color: 'var(--ink-60)' }}>
+                      {data.totals.owed > 0 ? `${((a.amount / data.totals.owed) * 100).toFixed(1)}%` : '—'}
+                    </TD>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
@@ -553,18 +555,20 @@ function DebtorsReport({ to }) {
               subtracting them would make both numbers wrong.
             </p>
           </div>
-          <table className="w-full border-collapse text-[13px]">
-            <thead><tr><TH>Account</TH><TH>Branch</TH><TH right>In credit</TH></tr></thead>
-            <tbody>
-              {credit.map(d => (
-                <tr key={d.id}>
-                  <TD>{d.name}</TD>
-                  <TD style={{ color: 'var(--ink-60)' }}>{d.branch_name || '—'}</TD>
-                  <TD right mono style={{ color: 'var(--green-600)', fontWeight: 600 }}>{fmt(Math.abs(d.balance))}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead><tr><TH>Account</TH><TH>Branch</TH><TH right>In credit</TH></tr></thead>
+              <tbody>
+                {credit.map(d => (
+                  <tr key={d.id}>
+                    <TD>{d.name}</TD>
+                    <TD style={{ color: 'var(--ink-60)' }}>{d.branch_name || '—'}</TD>
+                    <TD right mono style={{ color: 'var(--green-600)', fontWeight: 600 }}>{fmt(Math.abs(d.balance))}</TD>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
     </div>
@@ -612,7 +616,7 @@ export default function Reports() {
         </div>
       </PageHeader>
 
-      <div className="flex mb-5 flex-wrap" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="Income by branch" active={tab === 'branch'}   onClick={() => setTab('branch')} />
         <TabBtn label="Cash book"        active={tab === 'cash'}     onClick={() => setTab('cash')} />
         <TabBtn label="Products"         active={tab === 'products'} onClick={() => setTab('products')} />

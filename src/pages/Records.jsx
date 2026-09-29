@@ -379,31 +379,33 @@ function CowRecordsCard({ cow, overall, onClose }) {
             : filtered.length === 0
               ? <div className="text-center py-6 text-ink-30 text-[13px]">No records for this period.</div>
               : (
-                <table className="w-full border-collapse text-[13px] mb-2">
-                  <thead className="sticky top-0 z-[1]" style={{ background: 'var(--surface)' }}>
-                    <tr>
-                      {/* The vs-avg bar is the widest column and the least
-                          essential, so it steps aside on a phone rather than
-                          pushing Status off the edge. */}
-                      {[['Date', ''], ['Litres', ''], ['vs avg', 'hidden sm:table-cell'], ['Status', '']].map(([h, extra]) => (
-                        <th key={h} className={`text-left px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10 ${extra}`}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(r => {
-                      const cls = statusClass(parseFloat(r.litres), overall)
-                      return (
-                        <tr key={r.id} className="hover:bg-cream-dark transition-colors">
-                          <td className="px-2.5 py-2 border-b border-ink-10 font-mono text-[12px] whitespace-nowrap">{toDateStr(r.date)}</td>
-                          <td className="px-2.5 py-2 border-b border-ink-10 font-semibold whitespace-nowrap">{parseFloat(r.litres).toFixed(1)} L</td>
-                          <td className="px-2.5 py-2 border-b border-ink-10 hidden sm:table-cell"><InlineBar litres={parseFloat(r.litres)} overall={overall} /></td>
-                          <td className="px-2.5 py-2 border-b border-ink-10"><Badge cls={cls} /></td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-[13px] mb-2">
+                    <thead className="sticky top-0 z-[1]" style={{ background: 'var(--surface)' }}>
+                      <tr>
+                        {/* The vs-avg bar is the widest column and the least
+                            essential, so it steps aside on a phone rather than
+                            pushing Status off the edge. */}
+                        {[['Date', ''], ['Litres', ''], ['vs avg', 'hidden sm:table-cell'], ['Status', '']].map(([h, extra]) => (
+                          <th key={h} className={`text-left px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10 ${extra}`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map(r => {
+                        const cls = statusClass(parseFloat(r.litres), overall)
+                        return (
+                          <tr key={r.id} className="hover:bg-cream-dark transition-colors">
+                            <td className="px-2.5 py-2 border-b border-ink-10 font-mono text-[12px] whitespace-nowrap">{toDateStr(r.date)}</td>
+                            <td className="px-2.5 py-2 border-b border-ink-10 font-semibold whitespace-nowrap">{parseFloat(r.litres).toFixed(1)} L</td>
+                            <td className="px-2.5 py-2 border-b border-ink-10 hidden sm:table-cell"><InlineBar litres={parseFloat(r.litres)} overall={overall} /></td>
+                            <td className="px-2.5 py-2 border-b border-ink-10"><Badge cls={cls} /></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )
           }
         </div>
@@ -479,7 +481,7 @@ function MonthlyTotals() {
 
   return (
     <div>
-      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           ['Months recorded', String(months.length), ''],
           ['Total produced',  fmt(grandTotal, 0),    'litres'],
@@ -521,114 +523,116 @@ function MonthlyTotals() {
           <CardTitle>Month by month</CardTitle>
           <Btn size="sm" onClick={exportCSV}>↓ Export CSV</Btn>
         </div>
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr>
-              {[['Month', ''], ['Total', ''], ['Avg / day', ''],
-                ['vs previous', 'hidden sm:table-cell'],
-                ['Cows', 'hidden sm:table-cell'], ['Days', 'hidden sm:table-cell']]
-                .map(([h, extra]) => (
-                  <th key={h} className={`text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b ${extra}`}
-                    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
-                ))}
-            </tr>
-          </thead>
-          <tbody>
-            {months.map((m, i) => {
-              /* Compare on litres per day, not on the monthly total.
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr>
+                {[['Month', ''], ['Total', ''], ['Avg / day', ''],
+                  ['vs previous', 'hidden sm:table-cell'],
+                  ['Cows', 'hidden sm:table-cell'], ['Days', 'hidden sm:table-cell']]
+                  .map(([h, extra]) => (
+                    <th key={h} className={`text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b ${extra}`}
+                      style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m, i) => {
+                /* Compare on litres per day, not on the monthly total.
 
-                 A month still being filled in has far fewer days recorded than
-                 the one before it, so comparing totals reports a collapse that
-                 did not happen — six days of August against all of July reads
-                 as -80% when the herd is actually producing slightly more each
-                 day. Per-day is also immune to February being short.
+                   A month still being filled in has far fewer days recorded than
+                   the one before it, so comparing totals reports a collapse that
+                   did not happen — six days of August against all of July reads
+                   as -80% when the herd is actually producing slightly more each
+                   day. Per-day is also immune to February being short.
 
-                 Only against the month immediately before: the API returns the
-                 previous month *with data*, which can be a year earlier, and a
-                 percentage across that gap means nothing. */
-              const prev = months[i + 1]
-              const adjacent = prev && prev.month === previousMonthOf(m.month)
-              const change = adjacent && Number(prev.avg_per_day) > 0
-                ? ((Number(m.avg_per_day) - Number(prev.avg_per_day)) / Number(prev.avg_per_day)) * 100
-                : null
-              const partial = m.days_recorded < daysInMonth(m.month)
-              const rows = breakdown[m.month]
-              return (
-                <React.Fragment key={m.month}>
-                  <tr
-                    onClick={() => toggle(m.month)}
-                    className="cursor-pointer transition-colors"
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
-                    onMouseLeave={e => e.currentTarget.style.background = ''}
-                  >
-                    <td className="px-5 py-3 border-b font-medium" style={{ borderColor: 'var(--ink-10)' }}>
-                      <span className="inline-block w-3 mr-1" style={{ color: 'var(--ink-30)' }}>
-                        {open === m.month ? '▾' : '▸'}
-                      </span>
-                      {formatMonth(m.month)}
-                      {partial && (
-                        <span className="text-[11px] ml-2" style={{ color: 'var(--ink-30)' }}>
-                          {m.days_recorded} of {daysInMonth(m.month)} days
+                   Only against the month immediately before: the API returns the
+                   previous month *with data*, which can be a year earlier, and a
+                   percentage across that gap means nothing. */
+                const prev = months[i + 1]
+                const adjacent = prev && prev.month === previousMonthOf(m.month)
+                const change = adjacent && Number(prev.avg_per_day) > 0
+                  ? ((Number(m.avg_per_day) - Number(prev.avg_per_day)) / Number(prev.avg_per_day)) * 100
+                  : null
+                const partial = m.days_recorded < daysInMonth(m.month)
+                const rows = breakdown[m.month]
+                return (
+                  <React.Fragment key={m.month}>
+                    <tr
+                      onClick={() => toggle(m.month)}
+                      className="cursor-pointer transition-colors"
+                      onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+                      onMouseLeave={e => e.currentTarget.style.background = ''}
+                    >
+                      <td className="px-5 py-3 border-b font-medium" style={{ borderColor: 'var(--ink-10)' }}>
+                        <span className="inline-block w-3 mr-1" style={{ color: 'var(--ink-30)' }}>
+                          {open === m.month ? '▾' : '▸'}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 border-b font-semibold" style={{ borderColor: 'var(--ink-10)' }}>
-                      {fmt(m.total_litres, 0)} L
-                    </td>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
-                      {fmt(m.avg_per_day)} L
-                    </td>
-                    <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)' }}>
-                      {change === null
-                        ? <span style={{ color: 'var(--ink-30)' }} title={prev ? 'No data for the month before this one' : ''}>—</span>
-                        : <span style={{ color: change >= 0 ? 'var(--green-600)' : 'var(--red)' }}>
-                            {change >= 0 ? '+' : ''}{change.toFixed(1)}%
-                          </span>}
-                    </td>
-                    <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
-                      {m.cows_milked}
-                    </td>
-                    <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
-                      {m.days_recorded}
-                    </td>
-                  </tr>
-
-                  {open === m.month && (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-4 border-b" style={{ borderColor: 'var(--ink-10)', background: 'var(--cream)' }}>
-                        {!rows
-                          ? <div className="text-[13px]" style={{ color: 'var(--ink-30)' }}>Loading…</div>
-                          : rows.length === 0
-                            ? <div className="text-[13px]" style={{ color: 'var(--ink-30)' }}>No cows recorded this month.</div>
-                            : (
-                              <>
-                                <div className="text-[11px] uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--ink-60)' }}>
-                                  Who produced it — {rows.length} cows
-                                </div>
-                                <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))' }}>
-                                  {rows.map(c => (
-                                    <div key={c.id} className="flex items-baseline justify-between gap-2 rounded-lg px-3 py-2"
-                                      style={{ background: 'var(--surface)' }}>
-                                      <span className="text-[13px] truncate">
-                                        {c.name}
-                                        {c.status && c.status !== 'active' && (
-                                          <span className="text-[10px] ml-1" style={{ color: 'var(--ink-30)' }}>({c.status})</span>
-                                        )}
-                                      </span>
-                                      <span className="text-[13px] font-semibold whitespace-nowrap">{fmt(c.total_litres, 0)} L</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </>
-                            )}
+                        {formatMonth(m.month)}
+                        {partial && (
+                          <span className="text-[11px] ml-2" style={{ color: 'var(--ink-30)' }}>
+                            {m.days_recorded} of {daysInMonth(m.month)} days
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3 border-b font-semibold" style={{ borderColor: 'var(--ink-10)' }}>
+                        {fmt(m.total_litres, 0)} L
+                      </td>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                        {fmt(m.avg_per_day)} L
+                      </td>
+                      <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)' }}>
+                        {change === null
+                          ? <span style={{ color: 'var(--ink-30)' }} title={prev ? 'No data for the month before this one' : ''}>—</span>
+                          : <span style={{ color: change >= 0 ? 'var(--green-600)' : 'var(--red)' }}>
+                              {change >= 0 ? '+' : ''}{change.toFixed(1)}%
+                            </span>}
+                      </td>
+                      <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                        {m.cows_milked}
+                      </td>
+                      <td className="px-5 py-3 border-b hidden sm:table-cell" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                        {m.days_recorded}
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              )
-            })}
-          </tbody>
-        </table>
+
+                    {open === m.month && (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-4 border-b" style={{ borderColor: 'var(--ink-10)', background: 'var(--cream)' }}>
+                          {!rows
+                            ? <div className="text-[13px]" style={{ color: 'var(--ink-30)' }}>Loading…</div>
+                            : rows.length === 0
+                              ? <div className="text-[13px]" style={{ color: 'var(--ink-30)' }}>No cows recorded this month.</div>
+                              : (
+                                <>
+                                  <div className="text-[11px] uppercase tracking-wider font-medium mb-2" style={{ color: 'var(--ink-60)' }}>
+                                    Who produced it — {rows.length} cows
+                                  </div>
+                                  <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(190px, 100%), 1fr))' }}>
+                                    {rows.map(c => (
+                                      <div key={c.id} className="flex items-baseline justify-between gap-2 rounded-lg px-3 py-2"
+                                        style={{ background: 'var(--surface)' }}>
+                                        <span className="text-[13px] truncate">
+                                          {c.name}
+                                          {c.status && c.status !== 'active' && (
+                                            <span className="text-[10px] ml-1" style={{ color: 'var(--ink-30)' }}>({c.status})</span>
+                                          )}
+                                        </span>
+                                        <span className="text-[13px] font-semibold whitespace-nowrap">{fmt(c.total_litres, 0)} L</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   )
@@ -666,7 +670,7 @@ export default function Records({ cows, summary }) {
       </PageHeader>
 
       {/* Tabs */}
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         {[['browse', '📋 Browse Records'], ['monthly', '📅 Monthly Totals'], ['entry', '📝 Manual Entry']].map(([v, l]) => (
           <button
             key={v}

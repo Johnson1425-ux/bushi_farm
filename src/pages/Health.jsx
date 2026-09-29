@@ -10,7 +10,7 @@ function Modal({ title, onClose, children }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-center justify-center"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className="rounded-[16px] w-full max-w-lg p-7 mx-4 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
+      <div className="rounded-[16px] w-full max-w-lg p-5 sm:p-7 mx-4 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5">
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
           <button onClick={onClose} className="border-0 bg-transparent text-xl cursor-pointer p-1 hover:opacity-60" style={{ color: 'var(--ink-30)' }}>✕</button>
@@ -194,7 +194,7 @@ export default function Health() {
         <Btn size="sm" variant="primary" onClick={() => { setShowModal(true); setEditDisease(null) }}>+ Record Disease</Btn>
       </PageHeader>
 
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn active={tab === 'list'}    onClick={() => setTab('list')}>🦠 Disease Records</TabBtn>
         <TabBtn active={tab === 'summary'} onClick={() => setTab('summary')}>📊 Summary</TabBtn>
       </div>
@@ -202,54 +202,56 @@ export default function Health() {
       {/* ── LIST TAB ── */}
       {tab === 'list' && (
         <Card noPad>
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr>
-                {['Date', 'Disease', 'Affected Cows', 'Treatments', 'ACTIONS'].map(h => (
-                  <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
-                    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {diseases.length === 0 && (
-                <tr><td colSpan={5}><EmptyState>No disease records yet.</EmptyState></td></tr>
-              )}
-              {diseases.map(d => (
-                <tr key={d.id} style={{ transition: 'background 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}>
-                  <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{d.date}</td>
-                  <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{d.name}</div>
-                    {d.description && <div className="text-xs mt-0.5" style={{ color: 'var(--ink-60)' }}>{d.description}</div>}
-                  </td>
-                  <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
-                    {d.affected_cows?.length > 0 ? d.affected_cows.map(c => c.name).join(', ') : <span style={{ color: 'var(--ink-30)' }}>All herd</span>}
-                  </td>
-                  <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <span className="inline-block text-[11px] font-medium px-2.5 py-0.5 rounded-full"
-                      style={{ background: 'var(--green-100)', color: 'var(--green-800)' }}>
-                      {d.treatment_count} treatment{d.treatment_count !== 1 ? 's' : ''}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <RowMenu items={[
-                      { label: 'Treatments', onClick: () => setViewTreat(d) },
-                      { label: 'Edit', onClick: () => { setEditDisease(d); setShowModal(true) } },
-                      { label: 'Delete', danger: true, onClick: () => handleDelete(d.id) },
-                    ]} />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  {['Date', 'Disease', 'Affected Cows', 'Treatments', 'ACTIONS'].map(h => (
+                    <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
+                      style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {diseases.length === 0 && (
+                  <tr><td colSpan={5}><EmptyState>No disease records yet.</EmptyState></td></tr>
+                )}
+                {diseases.map(d => (
+                  <tr key={d.id} style={{ transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{d.date}</td>
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{d.name}</div>
+                      {d.description && <div className="text-xs mt-0.5" style={{ color: 'var(--ink-60)' }}>{d.description}</div>}
+                    </td>
+                    <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
+                      {d.affected_cows?.length > 0 ? d.affected_cows.map(c => c.name).join(', ') : <span style={{ color: 'var(--ink-30)' }}>All herd</span>}
+                    </td>
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      <span className="inline-block text-[11px] font-medium px-2.5 py-0.5 rounded-full"
+                        style={{ background: 'var(--green-100)', color: 'var(--green-800)' }}>
+                        {d.treatment_count} treatment{d.treatment_count !== 1 ? 's' : ''}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      <RowMenu items={[
+                        { label: 'Treatments', onClick: () => setViewTreat(d) },
+                        { label: 'Edit', onClick: () => { setEditDisease(d); setShowModal(true) } },
+                        { label: 'Delete', danger: true, onClick: () => handleDelete(d.id) },
+                      ]} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
       {/* ── SUMMARY TAB ── */}
       {tab === 'summary' && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(200px,100%),1fr))] gap-4">
           {diseases.length === 0
             ? <EmptyState>No disease records yet.</EmptyState>
             : diseases.reduce((acc, d) => {

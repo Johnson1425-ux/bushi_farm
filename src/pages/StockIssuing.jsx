@@ -306,7 +306,7 @@ function IssueTab({ stock, branches, onIssued }) {
           <EmptyState>No open branches yet. Add one on the Branches tab first.</EmptyState>
         ) : (
           <>
-            <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+            <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>
               <div>
                 <label className="block text-xs font-medium uppercase tracking-wider mb-1.5" style={{ color: 'var(--ink-60)' }}>Branch</label>
                 <select value={branchId} onChange={e => setBranchId(e.target.value)} className="w-full">
@@ -623,7 +623,7 @@ function BranchesTab({ branches, products, onChanged }) {
         <Card>
           <CardTitle>New branch</CardTitle>
           <form onSubmit={create}>
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))' }}>
               {[
                 ['name', 'Name', true, 'e.g. Mwabulugu Shop'],
                 ['code', 'Code', false, 'e.g. MWA'],
@@ -699,7 +699,7 @@ function BranchesTab({ branches, products, onChanged }) {
                 Milk sold by the litre from the churn. Sealed products come from the processing
                 catalogue instead, so the workbook template and the parser stay aware of them.
               </p>
-              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))' }}>
                 {[
                   ['product', 'Name', 'e.g. Fresh Milk', 'text'],
                   ['size', 'Label', 'LTR', 'text'],
@@ -825,7 +825,7 @@ export default function StockIssuing() {
         sub="What the processing store holds, and where it goes"
       />
 
-      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'In the store',   value: fmt(storeUnits),   color: 'var(--green-600)' },
           { label: 'In transit',     value: fmt(transitUnits), color: 'var(--amber)' },
@@ -842,7 +842,7 @@ export default function StockIssuing() {
         ))}
       </div>
 
-      <div className="flex mb-5 flex-wrap" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="Store"       active={tab === 'store'}    onClick={() => setTab('store')} />
         <TabBtn label="Issue Stock" active={tab === 'issue'}    onClick={() => setTab('issue')} />
         <TabBtn label="Issue Notes" active={tab === 'notes'}    onClick={() => setTab('notes')} badge={awaiting} />

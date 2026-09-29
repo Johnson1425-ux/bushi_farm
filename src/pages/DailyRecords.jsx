@@ -171,7 +171,7 @@ export default function DailyRecords() {
       </PageHeader>
 
       {/* ── Tabs ── */}
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn active={tab === 'records'} onClick={() => setTab('records')}>🥛 Records</TabBtn>
         <TabBtn active={tab === 'summary'} onClick={() => setTab('summary')}>📊 Summary</TabBtn>
       </div>
@@ -187,7 +187,7 @@ export default function DailyRecords() {
               <div className="text-[11px] font-medium uppercase tracking-wider mb-2" style={{ color: 'var(--ink-60)' }}>
                 Filter by Cow
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <div className="chip-scroll" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 <button
                   onClick={() => { setSelectedCow(null); setPage(0) }}
                   style={{
@@ -248,92 +248,94 @@ export default function DailyRecords() {
 
           {/* Table */}
           <Card noPad>
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr>
-                  {[
-                    { label: 'Date',   field: 'date'   },
-                    { label: 'Cow',    field: 'cow'    },
-                    { label: 'Breed',  field: null     },
-                    { label: 'Litres', field: 'litres' },
-                    { label: 'vs Avg', field: null     },
-                    { label: 'Status', field: null     },
-                    { label: 'Notes',  field: 'notes'  },
-                  ].map(col => (
-                    <th
-                      key={col.label}
-                      onClick={col.field ? () => toggleSort(col.field) : undefined}
-                      className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
-                      style={{
-                        color: 'var(--ink-60)', borderColor: 'var(--ink-10)',
-                        cursor: col.field ? 'pointer' : 'default', userSelect: 'none',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {col.label}
-                      {col.field && <span className="ml-1"><SortIcon field={col.field} /></span>}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading && records.length === 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-sm" style={{ color: 'var(--ink-30)' }}>
-                      <Spinner /> Loading records…
-                    </td>
+                    {[
+                      { label: 'Date',   field: 'date'   },
+                      { label: 'Cow',    field: 'cow'    },
+                      { label: 'Breed',  field: null     },
+                      { label: 'Litres', field: 'litres' },
+                      { label: 'vs Avg', field: null     },
+                      { label: 'Status', field: null     },
+                      { label: 'Notes',  field: 'notes'  },
+                    ].map(col => (
+                      <th
+                        key={col.label}
+                        onClick={col.field ? () => toggleSort(col.field) : undefined}
+                        className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
+                        style={{
+                          color: 'var(--ink-60)', borderColor: 'var(--ink-10)',
+                          cursor: col.field ? 'pointer' : 'default', userSelect: 'none',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {col.label}
+                        {col.field && <span className="ml-1"><SortIcon field={col.field} /></span>}
+                      </th>
+                    ))}
                   </tr>
-                )}
-                {!loading && records.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>
-                      <EmptyState>
-                        {hasFilters ? 'No records match your current filters.' : 'No milk records found.'}
-                      </EmptyState>
-                    </td>
-                  </tr>
-                )}
-                {records.map(r => {
-                  const cow = cowsMap[r.cow]
-                  const cls = cow ? statusClass(Number(r.litres), Number(cow.avg_litres)) : 'mid'
-                  return (
-                    <tr
-                      key={r.id}
-                      style={{ transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
-                      onMouseLeave={e => e.currentTarget.style.background = ''}
-                    >
-                      <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)', whiteSpace: 'nowrap' }}>
-                        {fmtDate(r.date)}
-                      </td>
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{r.cow}</div>
-                        {cow?.tag && <div className="text-xs mt-0.5" style={{ color: 'var(--ink-30)' }}>Tag #{cow.tag}</div>}
-                      </td>
-                      <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
-                        {cow?.breed || <span style={{ color: 'var(--ink-30)' }}>—</span>}
-                      </td>
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <span className="font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>{fmt(r.litres)}</span>
-                        <span className="text-xs ml-1" style={{ color: 'var(--ink-30)' }}>L</span>
-                      </td>
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        {cow ? <InlineBar litres={Number(r.litres)} overall={Number(cow.avg_litres)} /> : <span style={{ color: 'var(--ink-30)' }}>—</span>}
-                      </td>
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <Badge cls={cls} />
-                      </td>
-                      <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)', maxWidth: 200 }}>
-                        {r.notes
-                          ? <span title={r.notes} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.notes}</span>
-                          : <span style={{ color: 'var(--ink-30)' }}>—</span>
-                        }
+                </thead>
+                <tbody>
+                  {loading && records.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-sm" style={{ color: 'var(--ink-30)' }}>
+                        <Spinner /> Loading records…
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  )}
+                  {!loading && records.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <EmptyState>
+                          {hasFilters ? 'No records match your current filters.' : 'No milk records found.'}
+                        </EmptyState>
+                      </td>
+                    </tr>
+                  )}
+                  {records.map(r => {
+                    const cow = cowsMap[r.cow]
+                    const cls = cow ? statusClass(Number(r.litres), Number(cow.avg_litres)) : 'mid'
+                    return (
+                      <tr
+                        key={r.id}
+                        style={{ transition: 'background 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}
+                      >
+                        <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)', whiteSpace: 'nowrap' }}>
+                          {fmtDate(r.date)}
+                        </td>
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{r.cow}</div>
+                          {cow?.tag && <div className="text-xs mt-0.5" style={{ color: 'var(--ink-30)' }}>Tag #{cow.tag}</div>}
+                        </td>
+                        <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
+                          {cow?.breed || <span style={{ color: 'var(--ink-30)' }}>—</span>}
+                        </td>
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          <span className="font-bold" style={{ fontSize: 16, color: 'var(--ink)' }}>{fmt(r.litres)}</span>
+                          <span className="text-xs ml-1" style={{ color: 'var(--ink-30)' }}>L</span>
+                        </td>
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          {cow ? <InlineBar litres={Number(r.litres)} overall={Number(cow.avg_litres)} /> : <span style={{ color: 'var(--ink-30)' }}>—</span>}
+                        </td>
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          <Badge cls={cls} />
+                        </td>
+                        <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)', maxWidth: 200 }}>
+                          {r.notes
+                            ? <span title={r.notes} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.notes}</span>
+                            : <span style={{ color: 'var(--ink-30)' }}>—</span>
+                          }
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -341,7 +343,7 @@ export default function DailyRecords() {
                 <span className="text-xs" style={{ color: 'var(--ink-60)' }}>
                   Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total} records
                 </span>
-                <div className="flex gap-1.5 items-center">
+                <div className="flex flex-wrap gap-1.5 items-center">
                   <Btn size="sm" disabled={page === 0} onClick={() => { const p = 0; setPage(p); fetchRecords(p) }}>«</Btn>
                   <Btn size="sm" disabled={page === 0} onClick={() => { const p = page - 1; setPage(p); fetchRecords(p) }}>‹ Prev</Btn>
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -370,7 +372,7 @@ export default function DailyRecords() {
           {cows.length === 0 ? (
             <EmptyState>No cows found.</EmptyState>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))] gap-4">
               {cows.map(c => {
                 const cls = statusClass(Number(c.avg_litres), Number(c.avg_litres) * 0.95 + 0.1)
                 return (

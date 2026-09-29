@@ -102,7 +102,7 @@ export default function Users() {
         <Card className="mb-5">
           <div className="font-semibold text-sm mb-4">New user</div>
           <form onSubmit={createUser}>
-            <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
               <div>
                 <label className="block text-xs text-ink-60 font-medium mb-1.5">Username</label>
                 <input type="text" required value={form.username}
@@ -150,75 +150,77 @@ export default function Users() {
 
       {/* Users table */}
       <Card noPad>
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr>
-              {['User', 'Role', 'Branch', 'Created', 'Actions'].map(h => (
-                <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="hover:bg-cream transition-colors">
-                <td className="px-5 py-3.5 border-b border-ink-10">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-[34px] h-[34px] rounded-full bg-green-100 text-green-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                      {initials(u.username)}
-                    </div>
-                    <div>
-                      <div className="font-semibold">{u.username}</div>
-                      {u.id === me?.id && <div className="text-[11px] text-ink-30">you</div>}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-5 py-3.5 border-b border-ink-10">
-                  {editing?.id === u.id ? (
-                    <select value={editing.role}
-                      onChange={e => setEditing(ed => ({ ...ed, role: e.target.value }))}>
-                      {ROLE_OPTIONS.map(([value]) => <option key={value} value={value}>{value}</option>)}
-                    </select>
-                  ) : <RoleBadge role={u.role} />}
-                </td>
-                <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 text-xs">
-                  {editing?.id === u.id ? (
-                    editing.role === 'attendant' ? (
-                      <select value={editing.branch_id ?? ''}
-                        onChange={e => setEditing(ed => ({ ...ed, branch_id: e.target.value }))}>
-                        <option value="">Choose…</option>
-                        {branches.filter(b => b.active).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
-                    ) : <span className="text-ink-30">—</span>
-                  ) : (u.branch_name || <span className="text-ink-30">—</span>)}
-                </td>
-                <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 font-mono text-xs">
-                  {u.created_at?.slice(0, 10)}
-                </td>
-                <td className="px-5 py-3.5 border-b border-ink-10">
-                  <div className="flex gap-2 flex-wrap">
-                    {editing?.id === u.id ? (
-                      <>
-                        <Btn size="sm" variant="primary"
-                          onClick={() => saveRole(u, editing.role, editing.branch_id)}>Save</Btn>
-                        <Btn size="sm" onClick={() => setEditing(null)}>Cancel</Btn>
-                      </>
-                    ) : (
-                      /* Changing your own role is refused by the API — the
-                         last admin demoting themselves locks everyone out. */
-                      <RowMenu label={`Actions for ${u.username}`} items={[
-                        u.id !== me?.id && { label: 'Change role', onClick: () => setEditing({ id: u.id, role: u.role, branch_id: u.branch_id ?? '' }) },
-                        { label: 'Change password', onClick: () => { setPwdModal(u); setNewPwd('') } },
-                        u.id !== me?.id && { label: 'Delete', danger: true, onClick: () => deleteUser(u) },
-                      ]} />
-                    )}
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr>
+                {['User', 'Role', 'Branch', 'Created', 'Actions'].map(h => (
+                  <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase text-ink-60 border-b border-ink-10">
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="hover:bg-cream transition-colors">
+                  <td className="px-5 py-3.5 border-b border-ink-10">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-[34px] h-[34px] rounded-full bg-green-100 text-green-800 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                        {initials(u.username)}
+                      </div>
+                      <div>
+                        <div className="font-semibold">{u.username}</div>
+                        {u.id === me?.id && <div className="text-[11px] text-ink-30">you</div>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3.5 border-b border-ink-10">
+                    {editing?.id === u.id ? (
+                      <select value={editing.role}
+                        onChange={e => setEditing(ed => ({ ...ed, role: e.target.value }))}>
+                        {ROLE_OPTIONS.map(([value]) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+                    ) : <RoleBadge role={u.role} />}
+                  </td>
+                  <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 text-xs">
+                    {editing?.id === u.id ? (
+                      editing.role === 'attendant' ? (
+                        <select value={editing.branch_id ?? ''}
+                          onChange={e => setEditing(ed => ({ ...ed, branch_id: e.target.value }))}>
+                          <option value="">Choose…</option>
+                          {branches.filter(b => b.active).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        </select>
+                      ) : <span className="text-ink-30">—</span>
+                    ) : (u.branch_name || <span className="text-ink-30">—</span>)}
+                  </td>
+                  <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 font-mono text-xs">
+                    {u.created_at?.slice(0, 10)}
+                  </td>
+                  <td className="px-5 py-3.5 border-b border-ink-10">
+                    <div className="flex gap-2 flex-wrap">
+                      {editing?.id === u.id ? (
+                        <>
+                          <Btn size="sm" variant="primary"
+                            onClick={() => saveRole(u, editing.role, editing.branch_id)}>Save</Btn>
+                          <Btn size="sm" onClick={() => setEditing(null)}>Cancel</Btn>
+                        </>
+                      ) : (
+                        /* Changing your own role is refused by the API — the
+                           last admin demoting themselves locks everyone out. */
+                        <RowMenu label={`Actions for ${u.username}`} items={[
+                          u.id !== me?.id && { label: 'Change role', onClick: () => setEditing({ id: u.id, role: u.role, branch_id: u.branch_id ?? '' }) },
+                          { label: 'Change password', onClick: () => { setPwdModal(u); setNewPwd('') } },
+                          u.id !== me?.id && { label: 'Delete', danger: true, onClick: () => deleteUser(u) },
+                        ]} />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {/* Legend */}
@@ -239,7 +241,7 @@ export default function Users() {
           onClick={e => { if (e.target === e.currentTarget) setPwdModal(null) }}
           className="fixed inset-0 bg-[rgba(10,30,20,0.45)] z-[100] flex items-center justify-center"
         >
-          <div className="bg-surface rounded-[16px] p-7 w-[340px] max-w-[92vw]">
+          <div className="bg-surface rounded-[16px] p-5 sm:p-7 w-[340px] max-w-[92vw]">
             <div className="flex justify-between items-center mb-5">
               <div className="font-serif text-[18px]">Change password</div>
               <span onClick={() => setPwdModal(null)} className="cursor-pointer text-[18px] text-ink-30 hover:text-ink">✕</span>

@@ -382,7 +382,7 @@ export default function ProcessingUnit() {
       </PageHeader>
 
       {/* Tabs */}
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         {[['overview','Overview'], ['production','Production'], ['stock','Stock'], ['damage','Damage'], ['uploads','Uploads']].map(([v, l]) => (
           <TabBtn key={v} label={l} active={tab === v} onClick={() => setTab(v)} />
         ))}
@@ -476,7 +476,7 @@ export default function ProcessingUnit() {
           )}
 
           {/* KPI strip */}
-          <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+          <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))' }}>
             {[
               { label: 'Farm Milk',       value: fmt(stats.farm),           unit: 'L',     color: 'var(--green-600)' },
               { label: 'Purchased Milk',  value: fmt(stats.purchased),      unit: 'L',     color: 'var(--ink-60)' },
@@ -507,7 +507,7 @@ export default function ProcessingUnit() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <Card>
               <CardTitle>Daily Milk Received (L)</CardTitle>
               {receivedChart.length ? (
@@ -554,42 +554,44 @@ export default function ProcessingUnit() {
       {/* ── PRODUCTION ── */}
       {tab === 'production' && data && !loading && (
         <Card noPad>
-          <table className="w-full border-collapse text-[13px]">
-            <thead>
-              <tr>
-                <TH>Product</TH><TH>Size</TH>
-                <TH>Packed (units)</TH><TH>Packed (L)</TH><TH>Issued</TH><TH>Damaged</TH><TH>Stock</TH>
-              </tr>
-            </thead>
-            <tbody>
-              {productBreakdown.length === 0 && (
-                <tr><td colSpan={7}><EmptyState>No data.</EmptyState></td></tr>
-              )}
-              {productBreakdown.map((row, i) => {
-                const s  = row.stock
-                const sc = s === null ? 'ink' : s > 400 ? 'green' : s > 100 ? 'amber' : 'red'
-                return (
-                  <TR key={i} i={i}>
-                    <TD>{row.product}</TD>
-                    <TD mono>{row.size}</TD>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                      <StatBadge color="amber">{row.packed}</StatBadge>
-                    </td>
-                    <TD mono>{row.packedL ? fmt(row.packedL) : '—'}</TD>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                      <StatBadge color="blue">{row.issued}</StatBadge>
-                    </td>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                      {row.damaged > 0 ? <StatBadge color="red">{row.damaged}</StatBadge> : <span style={{ color: 'var(--ink-30)' }}>—</span>}
-                    </td>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                      <StatBadge color={sc}>{s ?? '—'}</StatBadge>
-                    </td>
-                  </TR>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <TH>Product</TH><TH>Size</TH>
+                  <TH>Packed (units)</TH><TH>Packed (L)</TH><TH>Issued</TH><TH>Damaged</TH><TH>Stock</TH>
+                </tr>
+              </thead>
+              <tbody>
+                {productBreakdown.length === 0 && (
+                  <tr><td colSpan={7}><EmptyState>No data.</EmptyState></td></tr>
+                )}
+                {productBreakdown.map((row, i) => {
+                  const s  = row.stock
+                  const sc = s === null ? 'ink' : s > 400 ? 'green' : s > 100 ? 'amber' : 'red'
+                  return (
+                    <TR key={i} i={i}>
+                      <TD>{row.product}</TD>
+                      <TD mono>{row.size}</TD>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                        <StatBadge color="amber">{row.packed}</StatBadge>
+                      </td>
+                      <TD mono>{row.packedL ? fmt(row.packedL) : '—'}</TD>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                        <StatBadge color="blue">{row.issued}</StatBadge>
+                      </td>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                        {row.damaged > 0 ? <StatBadge color="red">{row.damaged}</StatBadge> : <span style={{ color: 'var(--ink-30)' }}>—</span>}
+                      </td>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                        <StatBadge color={sc}>{s ?? '—'}</StatBadge>
+                      </td>
+                    </TR>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
@@ -626,38 +628,40 @@ export default function ProcessingUnit() {
                 {' '}Litres follow from the pack size.
               </p>
             </div>
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr>
-                  <TH>Product</TH><TH>Size</TH><TH>Opening</TH><TH>Packed</TH>
-                  <TH>Issued</TH><TH>Damaged</TH><TH>Closing</TH><TH>Closing (L)</TH>
-                </tr>
-              </thead>
-              <tbody>
-                {(data.stock || []).length === 0 && (
-                  <tr><td colSpan={8}><EmptyState>No stock data.</EmptyState></td></tr>
-                )}
-                {(data.stock || []).map((s, i) => {
-                  const closing = num(s.units)
-                  // Below zero is not a low balance, it is an impossible one.
-                  const sc = closing < 0 ? 'red' : closing > 400 ? 'green' : closing > 100 ? 'amber' : 'ink'
-                  return (
-                    <TR key={i} i={i}>
-                      <TD>{s.product}</TD>
-                      <TD mono>{s.size}</TD>
-                      <TD mono>{fmt(s.opening_units, 0)}</TD>
-                      <TD mono>{fmt(s.packed_units, 0)}</TD>
-                      <TD mono>{fmt(s.issued_units, 0)}</TD>
-                      <TD mono>{num(s.damaged_units) > 0 ? fmt(s.damaged_units, 0) : '—'}</TD>
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <StatBadge color={sc}>{fmt(closing, 0)}</StatBadge>
-                      </td>
-                      <TD mono>{fmt(s.litres)}</TD>
-                    </TR>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr>
+                    <TH>Product</TH><TH>Size</TH><TH>Opening</TH><TH>Packed</TH>
+                    <TH>Issued</TH><TH>Damaged</TH><TH>Closing</TH><TH>Closing (L)</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.stock || []).length === 0 && (
+                    <tr><td colSpan={8}><EmptyState>No stock data.</EmptyState></td></tr>
+                  )}
+                  {(data.stock || []).map((s, i) => {
+                    const closing = num(s.units)
+                    // Below zero is not a low balance, it is an impossible one.
+                    const sc = closing < 0 ? 'red' : closing > 400 ? 'green' : closing > 100 ? 'amber' : 'ink'
+                    return (
+                      <TR key={i} i={i}>
+                        <TD>{s.product}</TD>
+                        <TD mono>{s.size}</TD>
+                        <TD mono>{fmt(s.opening_units, 0)}</TD>
+                        <TD mono>{fmt(s.packed_units, 0)}</TD>
+                        <TD mono>{fmt(s.issued_units, 0)}</TD>
+                        <TD mono>{num(s.damaged_units) > 0 ? fmt(s.damaged_units, 0) : '—'}</TD>
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          <StatBadge color={sc}>{fmt(closing, 0)}</StatBadge>
+                        </td>
+                        <TD mono>{fmt(s.litres)}</TD>
+                      </TR>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       )}
@@ -666,33 +670,35 @@ export default function ProcessingUnit() {
       {tab === 'damage' && data && !loading && (
         <div>
           <Card noPad>
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr><TH>Product</TH><TH>Size</TH><TH>Damaged (units)</TH></tr>
-              </thead>
-              <tbody>
-                {(!data.damaged || data.damaged.length === 0) && (
-                  <tr><td colSpan={3}><EmptyState>No damaged stock recorded for this period.</EmptyState></td></tr>
-                )}
-                {(() => {
-                  const map = {}
-                  ;(data.damaged || []).forEach(r => {
-                    const k = `${r.product}||${r.size}`
-                    map[k] = map[k] || { product: r.product, size: r.size, units: 0 }
-                    map[k].units += parseInt(r.units) || 0
-                  })
-                  return Object.values(map).sort((a, b) => b.units - a.units).map((row, i) => (
-                    <TR key={i} i={i}>
-                      <TD>{row.product}</TD>
-                      <TD mono>{row.size}</TD>
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <StatBadge color="red">{row.units}</StatBadge>
-                      </td>
-                    </TR>
-                  ))
-                })()}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr><TH>Product</TH><TH>Size</TH><TH>Damaged (units)</TH></tr>
+                </thead>
+                <tbody>
+                  {(!data.damaged || data.damaged.length === 0) && (
+                    <tr><td colSpan={3}><EmptyState>No damaged stock recorded for this period.</EmptyState></td></tr>
+                  )}
+                  {(() => {
+                    const map = {}
+                    ;(data.damaged || []).forEach(r => {
+                      const k = `${r.product}||${r.size}`
+                      map[k] = map[k] || { product: r.product, size: r.size, units: 0 }
+                      map[k].units += parseInt(r.units) || 0
+                    })
+                    return Object.values(map).sort((a, b) => b.units - a.units).map((row, i) => (
+                      <TR key={i} i={i}>
+                        <TD>{row.product}</TD>
+                        <TD mono>{row.size}</TD>
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          <StatBadge color="red">{row.units}</StatBadge>
+                        </td>
+                      </TR>
+                    ))
+                  })()}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       )}
@@ -701,35 +707,38 @@ export default function ProcessingUnit() {
       {tab === 'uploads' && (
         <div>
           <Card noPad>
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr>
-                  <TH>Period</TH>
-                  <TH>Uploaded</TH>
-                  <TH>Action</TH>
-                </tr>
-              </thead>
-              <tbody>
-                {uploads.length === 0 && (
-                  <tr><td colSpan={3}><EmptyState>No uploads yet.</EmptyState></td></tr>
-                )}
-                {uploads.map((u, i) => (
-                  <TR key={u.id} i={i}>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                      <button onClick={() => { setSelectedId(String(u.id)); setTab('overview') }}
-                        className="border-0 bg-transparent cursor-pointer font-semibold text-sm"
-                        style={{ color: 'var(--green-600)', textDecoration: String(u.id) === selectedId ? 'underline' : 'none' }}>
-                        {u.label}
-                      </button>
-                    </td>
-                    <TD mono>{new Date(u.uploaded_at).toLocaleDateString()}</TD>
-                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                      <Btn size="sm" variant="danger" onClick={() => handleDelete(u.id)}>Delete</Btn>
-                    </td>
-                  </TR>
-                ))}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr>
+                    <TH>Period</TH><TH>Uploaded</TH>
+                    {isAdmin && <TH></TH>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {uploads.length === 0 && (
+                    <tr><td colSpan={3}><EmptyState>No uploads yet.</EmptyState></td></tr>
+                  )}
+                  {uploads.map((u, i) => (
+                    <TR key={u.id} i={i}>
+                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                        <button onClick={() => { setSelectedId(String(u.id)); setTab('overview') }}
+                          className="border-0 bg-transparent cursor-pointer font-semibold text-sm"
+                          style={{ color: 'var(--green-600)', textDecoration: String(u.id) === selectedId ? 'underline' : 'none' }}>
+                          {u.label}
+                        </button>
+                      </td>
+                      <TD mono>{new Date(u.uploaded_at).toLocaleDateString()}</TD>
+                      {isAdmin && (
+                        <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                          <Btn size="sm" variant="danger" onClick={() => handleDelete(u.id)}>Delete</Btn>
+                        </td>
+                      )}
+                    </TR>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </Card>
         </div>
       )}

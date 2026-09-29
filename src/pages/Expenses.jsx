@@ -54,8 +54,8 @@ const TH = ({ children, right }) => (
   <th className={`px-4 py-3 text-[11px] font-semibold tracking-wider uppercase border-b ${right ? 'text-right' : 'text-left'}`}
     style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)', whiteSpace: 'nowrap' }}>{children}</th>
 )
-const TD = ({ children, right, mono, style = {}, colSpan }) => (
-  <td colSpan={colSpan} className={`px-4 py-2.5 border-b text-[13px] ${right ? 'text-right' : ''}`}
+const TD = ({ children, right, mono, wrap, style = {}, colSpan }) => (
+  <td colSpan={colSpan} className={`px-4 py-2.5 border-b text-[13px] ${right ? 'text-right' : ''} ${wrap ? 'cell-wrap' : ''}`}
     style={{
       borderColor: 'var(--ink-10)', color: 'var(--ink)',
       fontFamily: mono ? "'DM Mono', monospace" : 'inherit', fontSize: mono ? 12 : 13, ...style,
@@ -261,7 +261,7 @@ function AddLine({ categories, date, onSaved, onCancel, lockedCategory }) {
           Saved {saved.details} — {fmtTsh(saved.amount)}.
         </div>
       )}
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         <Field label="Date">
           <input type="date" className="w-full" value={form.entry_date}
             onChange={e => setForm(f => ({ ...f, entry_date: e.target.value }))} />
@@ -320,7 +320,7 @@ function Modal({ title, onClose, children }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-start justify-center p-4 overflow-y-auto"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className="rounded-[16px] w-full max-w-4xl p-7 my-6"
+      <div className="rounded-[16px] w-full max-w-4xl p-5 sm:p-7 my-6"
         style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5 gap-3">
           <div className="font-serif text-[20px]" style={{ color: 'var(--ink)' }}>{title}</div>
@@ -380,7 +380,7 @@ function CategoryDetail({ id, year, onYear, categories, onClose, onChanged }) {
         <p className="text-sm -mt-3 mb-4" style={{ color: 'var(--ink-60)' }}>{category.notes}</p>
       )}
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))' }}>
         {[
           { label: `Spent in ${year}`, value: fmtTsh(data.total) },
           { label: 'Lines',            value: fmt(data.entry_count) },
@@ -588,7 +588,7 @@ function MonthView({ year, month, categories, onOpenCategory, adding, setAdding,
 
   return (
     <>
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))' }}>
         {[
           { label: 'Spent this month', value: fmtTsh(data.total), color: 'var(--ink)' },
           { label: 'Lines recorded',   value: fmt(data.counts.entries), color: 'var(--ink-60)' },
@@ -809,7 +809,7 @@ function MonthView({ year, month, categories, onOpenCategory, adding, setAdding,
                       className="border-0 bg-transparent cursor-pointer text-[13px] p-0 text-left"
                       style={{ color: 'var(--ink-60)' }}>{e.category}</button>
                   </TD>
-                  <TD>{e.details}</TD>
+                  <TD wrap>{e.details}</TD>
                   <TD right mono style={{ color: 'var(--ink-60)' }}>{e.quantity ? fmt(e.quantity, 2) : ''}</TD>
                   <TD right mono style={{ color: 'var(--ink-60)' }}>{e.unit_price ? fmt(e.unit_price, 2) : ''}</TD>
                   <TD right mono style={{ fontWeight: 600 }}>{fmt(e.amount)}</TD>
@@ -972,7 +972,7 @@ function CategoriesView({ onChanged, onOpenCategory }) {
       {showNew && (
         <Card>
           <CardTitle>New heading</CardTitle>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>
             <div>
               <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Name</label>
               <input type="text" className="w-full" value={form.name} placeholder="e.g. Poultry"
@@ -1408,7 +1408,7 @@ export default function Expenses() {
       </PageHeader>
 
 
-      <div className="flex mb-5 flex-wrap" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="The month"    active={tab === 'month'}      onClick={() => setTab('month')} />
         <TabBtn label="Year summary" active={tab === 'year'}       onClick={() => setTab('year')} />
         <TabBtn label="Categories"   active={tab === 'categories'} onClick={() => setTab('categories')} />

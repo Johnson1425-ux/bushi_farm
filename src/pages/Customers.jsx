@@ -68,7 +68,7 @@ function Modal({ title, onClose, children, wide }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className={`rounded-[16px] w-full ${wide ? 'max-w-3xl' : 'max-w-md'} p-7 max-h-[90vh] overflow-y-auto`}
+      <div className={`rounded-[16px] w-full ${wide ? 'max-w-3xl' : 'max-w-md'} p-5 sm:p-7 max-h-[90vh] overflow-y-auto`}
         style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5">
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
@@ -120,7 +120,7 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant }) {
 
   return (
     <Modal title={data.name} onClose={onClose} wide>
-      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(130px, 100%), 1fr))' }}>
         {[
           { label: 'Balance', node: <Balance value={data.balance} bold /> },
           { label: 'Spent with us', node: <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{fmtTsh(data.total_spent)}</span> },
@@ -165,7 +165,7 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant }) {
               original entry stays and this explains it.
             </p>
           )}
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))' }}>
             <div>
               <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Amount</label>
               <input type="number" step="any" className="w-full" value={form.amount}
@@ -208,7 +208,7 @@ function Account({ id, onClose, onChanged, canManage, branches, isAttendant }) {
         </Card>
       )}
 
-      <div className="flex mb-3" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-3" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="Account ledger" active={view === 'ledger'}    onClick={() => setView('ledger')} />
         <TabBtn label="Purchases"      active={view === 'purchases'} onClick={() => setView('purchases')} />
       </div>
@@ -348,7 +348,7 @@ export default function Customers() {
             on credit — it is how the farm knows what a customer is worth. They only appear under
             Debtors if something is actually owed.
           </p>
-          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))' }}>
             <div>
               <label className="block text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--ink-60)' }}>Name</label>
               <input type="text" className="w-full" value={form.name}
@@ -387,7 +387,7 @@ export default function Customers() {
         </Card>
       )}
 
-      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'Customers',        value: fmt(data.totals.count),                       color: 'var(--ink)' },
           { label: 'Lifetime trade',   value: fmtTsh(data.totals.lifetime_spend),           color: 'var(--green-600)' },
@@ -401,7 +401,7 @@ export default function Customers() {
         ))}
       </div>
 
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="Customers" active={tab === 'customers'} onClick={() => setTab('customers')} />
         <TabBtn label="Debtors"   active={tab === 'debtors'}   onClick={() => setTab('debtors')}
           badge={data.totals.owing_count} />

@@ -12,7 +12,7 @@ function Modal({ title, onClose, children }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-center justify-center"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className="rounded-[16px] w-full max-w-md p-7 mx-4" style={{ background: 'var(--surface)' }}>
+      <div className="rounded-[16px] w-full max-w-md p-5 sm:p-7 mx-4 max-h-[90vh] overflow-y-auto" style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5">
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
           <button onClick={onClose} className="border-0 bg-transparent text-xl cursor-pointer p-1 hover:opacity-60" style={{ color: 'var(--ink-30)' }}>✕</button>
@@ -230,53 +230,55 @@ export default function Pregnancies({ cows: cowsProp = [] }) {
       </div>
 
       <Card noPad>
-        <table className="w-full border-collapse text-[13px]">
-          <thead>
-            <tr>
-              {['Cow', 'Conception', 'Due Date', 'Status', 'Notes', ''].map(h => (
-                <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
-                  style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr><td colSpan={6}><EmptyState>No pregnancies found.</EmptyState></td></tr>
-            )}
-            {filtered.map(p => (
-              <tr key={p.id} style={{ transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
-                onMouseLeave={e => e.currentTarget.style.background = ''}>
-                <td className="px-5 py-3 border-b font-semibold" style={{ color: 'var(--ink)', borderColor: 'var(--ink-10)' }}>
-                  {p.cow_name}
-                  {p.cow_tag && <span className="text-xs ml-1" style={{ color: 'var(--ink-30)' }}>#{p.cow_tag}</span>}
-                </td>
-                <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{p.conception_date}</td>
-                <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
-                  {p.expected_due_date}
-                  {p.actual_birth_date && <div className="text-[10px] mt-0.5" style={{ color: 'var(--green-600)' }}>Born: {p.actual_birth_date}</div>}
-                </td>
-                <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                  <DaysChip days={p.days_remaining} status={p.status} />
-                </td>
-                <td className="px-5 py-3 border-b text-xs" style={{ color: 'var(--ink-30)', borderColor: 'var(--ink-10)' }}>{p.notes || '—'}</td>
-                <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                  {/* A delivery that has not been followed up with a calf is
-                      half a record. The dam and the birth date travel in the
-                      address, so the calf form opens already filled in. */}
-                  <RowMenu items={[
-                    p.status === 'active' && { label: 'Update', onClick: () => setUpdateModal(p) },
-                    p.status === 'delivered' && {
-                      label: 'Record calf', onClick: () => recordCalf(p),
-                      title: 'Put the calf she delivered on the books',
-                    },
-                    { label: 'Delete', danger: true, onClick: () => handleDelete(p.id) },
-                  ]} />
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr>
+                {['Cow', 'Conception', 'Due Date', 'Status', 'Notes', ''].map(h => (
+                  <th key={h} className="text-left px-5 py-3 text-[11px] font-semibold tracking-wider uppercase border-b"
+                    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr><td colSpan={6}><EmptyState>No pregnancies found.</EmptyState></td></tr>
+              )}
+              {filtered.map(p => (
+                <tr key={p.id} style={{ transition: 'background 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--cream)'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  <td className="px-5 py-3 border-b font-semibold" style={{ color: 'var(--ink)', borderColor: 'var(--ink-10)' }}>
+                    {p.cow_name}
+                    {p.cow_tag && <span className="text-xs ml-1" style={{ color: 'var(--ink-30)' }}>#{p.cow_tag}</span>}
+                  </td>
+                  <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{p.conception_date}</td>
+                  <td className="px-5 py-3 border-b font-mono text-xs" style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>
+                    {p.expected_due_date}
+                    {p.actual_birth_date && <div className="text-[10px] mt-0.5" style={{ color: 'var(--green-600)' }}>Born: {p.actual_birth_date}</div>}
+                  </td>
+                  <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                    <DaysChip days={p.days_remaining} status={p.status} />
+                  </td>
+                  <td className="px-5 py-3 border-b text-xs cell-wrap" style={{ color: 'var(--ink-30)', borderColor: 'var(--ink-10)' }}>{p.notes || '—'}</td>
+                  <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                    {/* A delivery that has not been followed up with a calf is
+                        half a record. The dam and the birth date travel in the
+                        address, so the calf form opens already filled in. */}
+                    <RowMenu items={[
+                      p.status === 'active' && { label: 'Update', onClick: () => setUpdateModal(p) },
+                      p.status === 'delivered' && {
+                        label: 'Record calf', onClick: () => recordCalf(p),
+                        title: 'Put the calf she delivered on the books',
+                      },
+                      { label: 'Delete', danger: true, onClick: () => handleDelete(p.id) },
+                    ]} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {/* ── ADD PREGNANCY MODAL ── */}

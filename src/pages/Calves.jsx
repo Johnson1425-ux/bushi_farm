@@ -62,7 +62,7 @@ function Modal({ title, onClose, children, wide }) {
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto"
       style={{ background: 'rgba(10,30,20,0.45)' }}
       role="dialog" aria-modal="true" aria-label={title}>
-      <div className={`rounded-[16px] w-full ${wide ? 'max-w-lg' : 'max-w-md'} p-7 my-8`}
+      <div className={`rounded-[16px] w-full ${wide ? 'max-w-lg' : 'max-w-md'} p-5 sm:p-7 my-8`}
         style={{ background: 'var(--surface)' }}>
         <div className="flex items-center justify-between mb-5">
           <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>

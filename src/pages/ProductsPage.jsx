@@ -85,7 +85,7 @@ export default function ProductsPage() {
 
       {/* ── Products grid ── */}
       <section style={{ maxWidth: 1100, margin: '0 auto', padding: '64px 24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: 24 }}>
           {PRODUCTS.map(p => (
             <div
               key={p.id}

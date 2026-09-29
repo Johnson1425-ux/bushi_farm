@@ -59,7 +59,7 @@ function Modal({ title, onClose, wide, fill, children }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
-      <div className={`rounded-[16px] w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} max-h-[90vh] flex flex-col ${fill ? 'overflow-hidden' : 'overflow-y-auto p-7'}`}
+      <div className={`rounded-[16px] w-full ${wide ? 'max-w-4xl' : 'max-w-2xl'} max-h-[90vh] flex flex-col ${fill ? 'overflow-hidden' : 'overflow-y-auto p-5 sm:p-7'}`}
         style={{ background: 'var(--surface)' }}>
         <div className={`flex items-center justify-between shrink-0 ${fill ? 'px-7 pt-6 pb-4' : 'mb-5'}`}
           style={fill ? { borderBottom: '1px solid var(--ink-10)' } : undefined}>
@@ -137,35 +137,37 @@ function RecordDetailModal({ record, onClose, onDownload }) {
 
       {cf.length > 0 && (
         <Section title="Clinical Examination Findings">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr>
-                {['System', 'Status', 'Observations'].map(h => (
-                  <th key={h} className="text-left px-3 py-1.5 text-[10px] uppercase tracking-wider border-b"
-                    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {cf.map((f, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink)' }}>{f.system}</td>
-                  <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                      style={{
-                        background: f.status === 'Normal' ? 'var(--green-50)' : '#fff0f0',
-                        color: f.status === 'Normal' ? 'var(--green-800)' : '#c0392b',
-                      }}>
-                      {f.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
-                    {f.observations || '—'}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr>
+                  {['System', 'Status', 'Observations'].map(h => (
+                    <th key={h} className="text-left px-3 py-1.5 text-[10px] uppercase tracking-wider border-b"
+                      style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {cf.map((f, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink)' }}>{f.system}</td>
+                    <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{
+                          background: f.status === 'Normal' ? 'var(--green-50)' : '#fff0f0',
+                          color: f.status === 'Normal' ? 'var(--green-800)' : '#c0392b',
+                        }}>
+                        {f.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>
+                      {f.observations || '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
       )}
 
@@ -192,24 +194,26 @@ function RecordDetailModal({ record, onClose, onDownload }) {
 
       {tx.length > 0 && (
         <Section title="Treatments">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr>
-                {['Drug / Vaccine', 'Prescription'].map(h => (
-                  <th key={h} className="text-left px-3 py-1.5 text-[10px] uppercase tracking-wider border-b"
-                    style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {tx.map((t, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-1.5 border-b font-medium" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink)' }}>{t.drug}</td>
-                  <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>{t.prescription}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr>
+                  {['Drug / Vaccine', 'Prescription'].map(h => (
+                    <th key={h} className="text-left px-3 py-1.5 text-[10px] uppercase tracking-wider border-b"
+                      style={{ color: 'var(--ink-60)', borderColor: 'var(--ink-10)' }}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {tx.map((t, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-1.5 border-b font-medium" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink)' }}>{t.drug}</td>
+                    <td className="px-3 py-1.5 border-b" style={{ borderColor: 'var(--ink-10)', color: 'var(--ink-60)' }}>{t.prescription}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Section>
       )}
 
@@ -630,53 +634,53 @@ export default function HealthRecords() {
 
           <Card noPad>
             <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
-              <thead>
-                <tr>
-                  {['Date', 'Diagnosis', 'Vet', 'Treatments', 'Source', ''].map((h, i) => (
-                    <Th key={i}>{h}</Th>
+              <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
+                <thead>
+                  <tr>
+                    {['Date', 'Diagnosis', 'Vet', 'Treatments', 'Source', ''].map((h, i) => (
+                      <Th key={i}>{h}</Th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {!loadingRecords && records.length === 0 && (
+                    <tr><td colSpan={6}>
+                      <EmptyState>
+                        {from || to
+                          ? 'No records for this animal in that period.'
+                          : 'No records for this animal yet.'}
+                      </EmptyState>
+                    </td></tr>
+                  )}
+                  {records.map(r => (
+                    <HoverRow key={r.id}>
+                      <Td className="font-mono text-xs" style={{ color: 'var(--ink-60)' }}>
+                        {shortDate(r.effective_date)}
+                        {!wroteADate(r) && (
+                          <span className="ml-1.5 text-[10px]" title={r.exam_date ? `Sheet says "${r.exam_date}"` : 'No date on the sheet'}
+                            style={{ color: 'var(--ink-30)' }}>saved</span>
+                        )}
+                      </Td>
+                      <Td style={{ maxWidth: 280 }}>
+                        {r.final_diagnosis || r.tentative_diagnosis
+                          ? <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
+                              {(r.final_diagnosis || r.tentative_diagnosis).slice(0, 70)}
+                              {(r.final_diagnosis || r.tentative_diagnosis).length > 70 ? '…' : ''}
+                            </span>
+                          : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>}
+                      </Td>
+                      <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{r.attending_vet || '—'}</Td>
+                      <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{r.treatment_count || 0}</Td>
+                      <Td className="text-xs" style={{ color: 'var(--ink-30)' }}>
+                        {r.source_filename ? r.source_filename.slice(0, 22) : 'Filled in the app'}
+                      </Td>
+                      <Td className="text-right">
+                        <RowMenu items={recordActions(r)} busy={busyRecord === r.id} />
+                      </Td>
+                    </HoverRow>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {!loadingRecords && records.length === 0 && (
-                  <tr><td colSpan={6}>
-                    <EmptyState>
-                      {from || to
-                        ? 'No records for this animal in that period.'
-                        : 'No records for this animal yet.'}
-                    </EmptyState>
-                  </td></tr>
-                )}
-                {records.map(r => (
-                  <HoverRow key={r.id}>
-                    <Td className="font-mono text-xs" style={{ color: 'var(--ink-60)' }}>
-                      {shortDate(r.effective_date)}
-                      {!wroteADate(r) && (
-                        <span className="ml-1.5 text-[10px]" title={r.exam_date ? `Sheet says "${r.exam_date}"` : 'No date on the sheet'}
-                          style={{ color: 'var(--ink-30)' }}>saved</span>
-                      )}
-                    </Td>
-                    <Td style={{ maxWidth: 280 }}>
-                      {r.final_diagnosis || r.tentative_diagnosis
-                        ? <span className="text-xs font-medium" style={{ color: 'var(--ink)' }}>
-                            {(r.final_diagnosis || r.tentative_diagnosis).slice(0, 70)}
-                            {(r.final_diagnosis || r.tentative_diagnosis).length > 70 ? '…' : ''}
-                          </span>
-                        : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>}
-                    </Td>
-                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{r.attending_vet || '—'}</Td>
-                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{r.treatment_count || 0}</Td>
-                    <Td className="text-xs" style={{ color: 'var(--ink-30)' }}>
-                      {r.source_filename ? r.source_filename.slice(0, 22) : 'Filled in the app'}
-                    </Td>
-                    <Td className="text-right">
-                      <RowMenu items={recordActions(r)} busy={busyRecord === r.id} />
-                    </Td>
-                  </HoverRow>
-                ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
             </div>
           </Card>
         </>
@@ -705,52 +709,52 @@ export default function HealthRecords() {
 
           <Card noPad>
             <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]" style={{ minWidth: 720 }}>
-              <thead>
-                <tr>
-                  {['Cow', 'Tag', 'Records', 'Last examination', 'Latest diagnosis', 'Vet', ''].map((h, i) => (
-                    <Th key={i}>{h}</Th>
+              <table className="w-full border-collapse text-[13px]" style={{ minWidth: 720 }}>
+                <thead>
+                  <tr>
+                    {['Cow', 'Tag', 'Records', 'Last examination', 'Latest diagnosis', 'Vet', ''].map((h, i) => (
+                      <Th key={i}>{h}</Th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleHerd.length === 0 && (
+                    <tr><td colSpan={7}>
+                      <EmptyState>
+                        {herd.length === 0
+                          ? <>No health records yet. Fill one in with <strong>New Record</strong>, or upload a filled .docx form.</>
+                          : 'No cow matches that search.'}
+                      </EmptyState>
+                    </td></tr>
+                  )}
+                  {visibleHerd.map(c => (
+                    <HoverRow key={c.group_key} onClick={() => enterCow(c)}>
+                      <Td className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>
+                        {c.cow_name || <span style={{ color: 'var(--ink-30)' }}>Unlinked</span>}
+                      </Td>
+                      <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{c.cow_tag || '—'}</Td>
+                      <Td>
+                        <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: 'var(--green-50)', color: 'var(--green-800)' }}>
+                          {c.record_count}
+                        </span>
+                      </Td>
+                      <Td className="font-mono text-xs" style={{ color: 'var(--ink-60)' }}>{shortDate(c.last_exam)}</Td>
+                      <Td style={{ maxWidth: 240 }}>
+                        {c.latest_diagnosis
+                          ? <span className="text-xs" style={{ color: 'var(--ink)' }}>
+                              {c.latest_diagnosis.slice(0, 60)}{c.latest_diagnosis.length > 60 ? '…' : ''}
+                            </span>
+                          : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>}
+                      </Td>
+                      <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{c.latest_vet || '—'}</Td>
+                      <Td className="text-right">
+                        <Btn size="sm" variant="primary" onClick={() => enterCow(c)}>View</Btn>
+                      </Td>
+                    </HoverRow>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleHerd.length === 0 && (
-                  <tr><td colSpan={7}>
-                    <EmptyState>
-                      {herd.length === 0
-                        ? <>No health records yet. Fill one in with <strong>New Record</strong>, or upload a filled .docx form.</>
-                        : 'No cow matches that search.'}
-                    </EmptyState>
-                  </td></tr>
-                )}
-                {visibleHerd.map(c => (
-                  <HoverRow key={c.group_key} onClick={() => enterCow(c)}>
-                    <Td className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>
-                      {c.cow_name || <span style={{ color: 'var(--ink-30)' }}>Unlinked</span>}
-                    </Td>
-                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{c.cow_tag || '—'}</Td>
-                    <Td>
-                      <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium"
-                        style={{ background: 'var(--green-50)', color: 'var(--green-800)' }}>
-                        {c.record_count}
-                      </span>
-                    </Td>
-                    <Td className="font-mono text-xs" style={{ color: 'var(--ink-60)' }}>{shortDate(c.last_exam)}</Td>
-                    <Td style={{ maxWidth: 240 }}>
-                      {c.latest_diagnosis
-                        ? <span className="text-xs" style={{ color: 'var(--ink)' }}>
-                            {c.latest_diagnosis.slice(0, 60)}{c.latest_diagnosis.length > 60 ? '…' : ''}
-                          </span>
-                        : <span className="text-xs" style={{ color: 'var(--ink-30)' }}>—</span>}
-                    </Td>
-                    <Td className="text-xs" style={{ color: 'var(--ink-60)' }}>{c.latest_vet || '—'}</Td>
-                    <Td className="text-right">
-                      <Btn size="sm" variant="primary" onClick={() => enterCow(c)}>View</Btn>
-                    </Td>
-                  </HoverRow>
-                ))}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
             </div>
           </Card>
         </>

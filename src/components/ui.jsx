@@ -75,7 +75,7 @@ export function Btn({ children, variant = 'default', size = 'md', type = 'button
 export function Card({ children, className = '', noPad, style = {} }) {
   return (
     <div
-      className={`rounded-lg border border-ink-10 ${noPad ? '' : 'p-6'} ${className}`}
+      className={`rounded-lg border border-ink-10 ${noPad ? '' : 'p-4 md:p-6'} ${className}`}
       style={{ background: 'var(--surface)', marginBottom: 20, ...style }}
     >
       {children}
@@ -85,7 +85,7 @@ export function Card({ children, className = '', noPad, style = {} }) {
 
 export function CardTitle({ children, className = '' }) {
   return (
-    <div className={`text-sm font-semibold mb-4 flex items-center justify-between gap-3 ${className}`} style={{ color: 'var(--ink)' }}>
+    <div className={`text-sm font-semibold mb-4 flex flex-wrap items-center justify-between gap-3 ${className}`} style={{ color: 'var(--ink)' }}>
       {children}
     </div>
   )
@@ -162,7 +162,7 @@ export function PageHeader({ title, sub, children }) {
 
 export function EmptyState({ children }) {
   return (
-    <div className="text-center py-12 px-5 text-sm" style={{ color: 'var(--ink-60)' }}>
+    <div className="empty-state text-center py-12 px-5 text-sm" style={{ color: 'var(--ink-60)' }}>
       {children}
     </div>
   )

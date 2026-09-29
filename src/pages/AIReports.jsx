@@ -536,7 +536,7 @@ export default function AIReports({ cows = [] }) {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-5 flex-wrap">
+      <div className="flex gap-1 mb-5 flex-wrap chip-scroll">
         {TABS.map(t => (
           <button
             key={t.id}
