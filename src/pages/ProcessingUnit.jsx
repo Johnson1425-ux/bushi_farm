@@ -7,6 +7,7 @@ import { useAuth } from '../lib/AuthContext'
 import { streamAi } from '../lib/aiApi'
 import Markdown from '../components/Markdown'
 import { useConfirm } from '../lib/ConfirmContext'
+import NewProductForm from '../components/NewProductForm'
 
 const fmt = (n, dec = 1) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: dec })
 const num = (v) => Number(v) || 0
@@ -66,16 +67,86 @@ function StatBadge({ children, color = 'green' }) {
   )
 }
 
+/**
+ * Rows on the uploaded sheet that name a product the app does not know.
+ *
+ * Each can be added from here, prefilled from the sheet, and the same file
+ * sent again — so a new product costs one form rather than a trip to
+ * another page and a hunt for the file. Nothing is added on its own: a row
+ * the app does not recognise is as likely to be a misspelling as a new
+ * product, and only the person who knows the sheet can say which.
+ */
+function UnknownProducts({ items, onReupload, uploading }) {
+  const [open,  setOpen]  = useState(null)
+  const [added, setAdded] = useState({})
+  const key = (u) => `${u.product}|${u.size}`
+  const anyAdded = Object.keys(added).length > 0
+
+  return (
+    <div className="text-xs mt-2 rounded-lg p-3" style={{ background: 'rgba(232,160,32,0.10)', maxWidth: 560 }}>
+      <div className="font-semibold mb-1" style={{ color: 'var(--amber)' }}>
+        {items.length === 1 ? 'A product on this sheet is' : `${items.length} products on this sheet are`} not in the app
+      </div>
+      <p className="mb-2" style={{ color: 'var(--ink-60)' }}>
+        Their figures were not imported. If one is new, add it and upload again. If it is a
+        misspelling of a product you already have, correct the sheet instead.
+      </p>
+      {items.map(u => {
+        const k = key(u)
+        const moved = [['packed', u.packed], ['issued', u.issued], ['damaged', u.damaged]]
+          .filter(([, n]) => n > 0).map(([w, n]) => `${fmt(n, 0)} ${w}`).join(', ')
+        return (
+          <div key={k} className="py-1.5 border-t" style={{ borderColor: 'var(--ink-10)' }}>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <span className="font-semibold" style={{ color: 'var(--ink)' }}>{u.product} {u.size}</span>
+                <span style={{ color: 'var(--ink-60)' }}>
+                  {' '}— {moved || 'no figures entered'} · {u.found_on.join(', ')}
+                </span>
+              </div>
+              {added[k]
+                ? <span style={{ color: 'var(--green-600)' }}>✓ added as {added[k]}</span>
+                : open !== k && <Btn size="sm" onClick={() => setOpen(k)}>Add this product</Btn>}
+            </div>
+            {open === k && !added[k] && (
+              <div className="mt-2">
+                <NewProductForm compact
+                  initial={{ product: u.product, size: u.size, litres_per_pack: u.litres_per_pack ?? undefined }}
+                  onCancel={() => setOpen(null)}
+                  onAdded={(p) => { setAdded(a => ({ ...a, [k]: `${p.product} ${p.size}` })); setOpen(null) }} />
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {anyAdded && (
+        <div className="flex justify-end mt-2">
+          <Btn size="sm" variant="primary" disabled={uploading} onClick={onReupload}>
+            {uploading ? 'Uploading…' : '↻ Upload the same file again'}
+          </Btn>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* The parser's own sentence for an unknown row. Shown in the panel above
+   instead, with a button, so it is not listed twice. */
+const UNKNOWN_WARNING = /is not a product the app knows/
+
 function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) {
   const [uploading, setUploading] = useState(false)
   const [error,     setError]     = useState(null)
   const [issues,    setIssues]    = useState([])
   const [warnings,  setWarnings]  = useState([])
   const [imported,  setImported]  = useState([])
+  const [unknown,   setUnknown]   = useState([])
+  const [lastFile,  setLastFile]  = useState(null)
   const fileRef = useRef()
 
   const doUpload = async (file) => {
-    setUploading(true); setError(null); setIssues([]); setWarnings([]); setImported([])
+    setUploading(true); setError(null); setIssues([]); setWarnings([]); setImported([]); setUnknown([])
+    setLastFile(file)
     try {
       const fd = new FormData()
       fd.append('file', file)
@@ -88,12 +159,14 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
       if (!res.ok) {
         // A 422 from the parser carries a list of specific problems to fix.
         if (data.issues?.length) setIssues(data.issues)
-        if (data.warnings?.length) setWarnings(data.warnings)
+        if (data.warnings?.length) setWarnings(data.warnings.filter(w => !UNKNOWN_WARNING.test(w)))
+        if (data.unknown_products?.length) setUnknown(data.unknown_products)
         throw new Error(data.error || 'Upload failed')
       }
       // Warnings do not block the import, so they stay on screen next to the
       // months that were brought in — they are usually about one of them.
-      if (data.warnings?.length) setWarnings(data.warnings)
+      if (data.warnings?.length) setWarnings(data.warnings.filter(w => !UNKNOWN_WARNING.test(w)))
+      if (data.unknown_products?.length) setUnknown(data.unknown_products)
       setImported(data.months || [])
       onUploaded?.(data)
     } catch (e) {
@@ -147,6 +220,11 @@ function UploadSelector({ uploads, selectedId, onSelect, onUploaded, isAdmin }) 
                 </div>
               ))}
             </div>
+          )}
+          {unknown.length > 0 && (
+            <UnknownProducts key={unknown.map(u => u.product + u.size).join()}
+              items={unknown} uploading={uploading}
+              onReupload={() => lastFile && doUpload(lastFile)} />
           )}
           {issues.length > 0 && (
             <div className="text-xs mt-1" style={{ color: 'var(--red)', maxWidth: 420 }}>
