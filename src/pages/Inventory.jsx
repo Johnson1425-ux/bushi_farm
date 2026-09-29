@@ -1844,9 +1844,9 @@ function Report() {
               <table className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr>
-                    <TH>Item</TH><TH right>Opening</TH><TH right>Received</TH><TH right>Returned</TH>
-                    <TH right>Issued</TH><TH right>Damaged</TH><TH right>Adjust</TH>
-                    <TH right>Closing</TH><TH right>Cost used</TH><TH right>Damage %</TH><TH right>Value</TH>
+                    <TH>Item</TH><TH right>Opening</TH><TH right>Received</TH>
+                    <TH right>Returned</TH><TH right>Issued</TH><TH right>Damaged</TH>
+                    <TH right>Adjust</TH><TH right>Closing</TH><TH right>Cost used</TH><TH right>Value</TH>
                   </tr>
                 </thead>
                 <tbody>
@@ -1880,14 +1880,11 @@ function Report() {
                       <TD right mono strong color={r.consumed_value > 0 ? 'var(--ink)' : 'var(--ink-30)'}>
                         {r.consumed_value > 0 ? money(r.consumed_value) : '—'}
                       </TD>
-                      <TD right mono color={r.damage_rate > 5 ? 'var(--red)' : 'var(--ink-60)'}>
-                        {r.issued + r.damaged > 0 ? `${r.damage_rate}%` : '—'}
-                      </TD>
                       <TD right mono>{r.unit_cost > 0 ? money(r.closing_value) : '—'}</TD>
                     </Row>
                   ))}
                 </tbody>
-                {moved.length > 0 && (
+                {/* {moved.length > 0 && (
                   <tfoot>
                     <tr style={{ background: 'var(--cream)' }}>
                       <TD strong>Total — {data.from} to {data.to}</TD>
@@ -1903,7 +1900,7 @@ function Report() {
                       <TD right mono strong>{money(data.totals.closing_value)}</TD>
                     </tr>
                   </tfoot>
-                )}
+                )} */}
               </table>
             </div>
           </Card>

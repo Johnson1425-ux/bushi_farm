@@ -565,10 +565,10 @@ export default function HealthRecords() {
   }
 
   const recordActions = (r) => [
-    { label: 'View',     icon: '👁', onClick: () => openRecord(r.id, 'view') },
-    { label: 'Edit',     icon: '✎',     onClick: () => openRecord(r.id, 'edit') },
-    { label: 'Download', icon: '⬇',     onClick: () => handleDownload(r) },
-    { label: 'Delete',   icon: '✕',     onClick: () => handleDelete(r.id), danger: true },
+    { label: 'View', onClick: () => openRecord(r.id, 'view') },
+    { label: 'Edit', onClick: () => openRecord(r.id, 'edit') },
+    { label: 'Download', onClick: () => handleDownload(r) },
+    { label: 'Delete', onClick: () => handleDelete(r.id), danger: true },
   ]
 
   const visibleHerd = herd.filter(c => {

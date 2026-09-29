@@ -295,11 +295,13 @@ export default function BranchStock() {
       </Card>
 
       <Card noPad>
-        <div className="px-5 pt-4 pb-1"><CardTitle>Delivery history</CardTitle></div>
+        <div className="px-5 pt-4"><CardTitle>Delivery history</CardTitle></div>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr><TH>Note</TH><TH>Date</TH><TH>Status</TH><TH right>Units</TH><TH>Received by</TH></tr>
+              <tr>
+                <TH>Note</TH><TH>Date</TH><TH>Status</TH><TH>Units</TH><TH>Received by</TH>
+              </tr>
             </thead>
             <tbody>
               {issues.length === 0 && (
@@ -310,7 +312,7 @@ export default function BranchStock() {
                   <TD mono>{i.issue_no}</TD>
                   <TD mono>{i.issue_date}</TD>
                   <TD>{i.status}</TD>
-                  <TD mono right>{fmt(i.units)}</TD>
+                  <TD mono>{fmt(i.units)}</TD>
                   <TD>{i.received_by || '—'}</TD>
                 </tr>
               ))}

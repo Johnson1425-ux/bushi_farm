@@ -79,14 +79,12 @@ export default function ImportData({ onImported }) {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Import Data" sub="Upload Excel or CSV — saved directly to PostgreSQL">
+      <PageHeader title="Import Data" sub="Upload Excel or CSV">
         <Btn size="sm" variant="danger" onClick={confirmClear}>Clear all data</Btn>
       </PageHeader>
 
       <div style={{ background: 'var(--green-50)', border: '1px solid var(--green-100)', borderRadius: 10, padding: '14px 18px', fontSize: 12.5, color: 'var(--green-800)', marginBottom: 18, lineHeight: 1.7 }}>
-        <strong>Expected format:</strong> A column named <em>COW</em> (or similar), plus numeric day columns (1–31) for that month's readings.
-        The sheet holding that grid is found automatically, wherever it sits in the workbook — a month-by-month
-        summary tab in front of it is ignored. Month and year are auto-detected from the filename
+        Month and year are auto-detected from the filename
         (e.g. <em>january2025.xlsx</em>). Duplicates are updated automatically.
       </div>
 

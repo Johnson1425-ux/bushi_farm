@@ -328,7 +328,9 @@ function IssueTab({ stock, branches, onIssued }) {
             <div style={{ overflowX: 'auto' }}>
               <table className="w-full border-collapse text-[13px]">
                 <thead>
-                  <tr><TH>Product</TH><TH>Size</TH><TH right>On hand</TH><TH right>Issue</TH></tr>
+                  <tr>
+                    <TH>Product</TH><TH>Size</TH><TH>On hand</TH><TH>Issue</TH>
+                  </tr>
                 </thead>
                 <tbody>
                   {stock.map(s => {
@@ -338,10 +340,10 @@ function IssueTab({ stock, branches, onIssued }) {
                       <tr key={s.product_id}>
                         <TD>{s.product}</TD>
                         <TD mono>{s.size}</TD>
-                        <TD mono right>
+                        <TD>
                           <span style={{ color: s.units <= 0 ? 'var(--ink-30)' : 'var(--ink-60)' }}>{fmt(s.units)}</span>
                         </TD>
-                        <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
+                        <td className="px-5 py-2 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                           <input type="number" min="0" max={Math.max(s.units, 0)}
                             step={s.sold_by === 'litre' ? 'any' : '1'}
                             style={{
@@ -440,7 +442,7 @@ function NotesTab({ issues, onChanged }) {
             <thead>
               <tr>
                 <TH>Note</TH><TH>Branch</TH><TH>Date</TH><TH>Status</TH>
-                <TH right>Lines</TH><TH right>Units</TH><TH></TH>
+                <TH>Lines</TH><TH>Units</TH><TH>Actions</TH>
               </tr>
             </thead>
             <tbody>
@@ -466,7 +468,7 @@ function NotesTab({ issues, onChanged }) {
                     </td>
                     <TD mono right>{i.lines}</TD>
                     <TD mono right>{fmt(i.units)}</TD>
-                    <td className="px-5 py-3 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                       <div className="flex justify-end" onClick={e => e.stopPropagation()}>
                         <RowMenu label={`Actions for ${i.issue_no}`} items={[
                           i.status === 'draft' && { label: 'Dispatch', disabled: busy,
@@ -652,7 +654,7 @@ function BranchesTab({ branches, products, onChanged }) {
             <thead>
               <tr>
                 <TH>Name</TH><TH>Code</TH><TH>Location</TH>
-                <TH right>Stock (units)</TH><TH right>Attendants</TH><TH></TH>
+                <TH>Stock (units)</TH><TH>Attendants</TH><TH>Actions</TH>
               </tr>
             </thead>
             <tbody>
@@ -667,9 +669,9 @@ function BranchesTab({ branches, products, onChanged }) {
                   </TD>
                   <TD mono>{b.code || '—'}</TD>
                   <TD>{b.location || '—'}</TD>
-                  <TD mono right>{fmt(b.stock_units)}</TD>
-                  <TD mono right>{b.attendants}</TD>
-                  <td className="px-5 py-3 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
+                  <TD>{fmt(b.stock_units)}</TD>
+                  <TD>{b.attendants}</TD>
+                  <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
                     <Btn size="sm" variant={b.active ? 'danger' : 'default'} onClick={() => toggle(b)}>
                       {b.active ? 'Close' : 'Reopen'}
                     </Btn>
@@ -683,17 +685,14 @@ function BranchesTab({ branches, products, onChanged }) {
 
       <Card noPad>
         <div className="px-5 pt-4 pb-1">
-          <CardTitle>Selling prices</CardTitle>
-          <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
-            Retail is what a shop charges over the counter; wholesale is what an agent pays for a
-            crate. Leave wholesale at zero and the till simply charges the retail price — an unset
-            price is never treated as free.
-          </p>
-          <div className="flex justify-end mb-2">
-            <Btn size="sm" onClick={() => setShowBulk(v => !v)}>
-              {showBulk ? 'Cancel' : '+ Loose milk line'}
-            </Btn>
-          </div>
+          <CardTitle>
+            Selling prices
+            <div className="flex justify-end mb-2">
+              <Btn size="sm" onClick={() => setShowBulk(v => !v)} hover>
+                {showBulk ? 'Cancel' : '+ Loose milk line'}
+              </Btn>
+            </div>
+          </CardTitle>
           {showBulk && (
             <div className="rounded-lg p-4 mb-3" style={{ background: 'var(--cream-dark)' }}>
               <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
@@ -728,7 +727,7 @@ function BranchesTab({ branches, products, onChanged }) {
             <thead>
               <tr>
                 <TH>Product</TH><TH>Size</TH><TH>Sold by</TH>
-                <TH right>Retail (TSh)</TH><TH right>Wholesale (TSh)</TH><TH></TH>
+                <TH>Retail (TSh)</TH><TH>Wholesale (TSh)</TH><TH></TH>
               </tr>
             </thead>
             <tbody>

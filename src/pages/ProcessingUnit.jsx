@@ -700,31 +700,13 @@ export default function ProcessingUnit() {
       {/* ── UPLOADS ── */}
       {tab === 'uploads' && (
         <div>
-          {isAdmin && (
-            <Card>
-              <CardTitle>Upload New Period</CardTitle>
-              <p className="text-sm mb-2" style={{ color: 'var(--ink-60)' }}>
-                Two layouts work. <strong>Download template</strong> gives a blank workbook with a
-                sheet per month covering opening balance, milk received, packed, issued, damaged
-                and fresh milk lost — fill the yellow cells and upload it back.
-              </p>
-              <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
-                The farm's own <code style={{ fontFamily: "'DM Mono', monospace", background: 'var(--cream-dark)', padding: '1px 6px', borderRadius: 4, fontSize: 12 }}>BUSH_PROCESSING_UNIT.xlsx</code>{' '}
-                is read as-is: month sheets, their matching "DAMEGE" sheets, and the B/D carry-in
-                column. Its SUMMARY sheet is ignored, since everything on it is recalculated here,
-                and so is its ISSUED block — that figure now comes from the issue notes, which know
-                which branch took the stock. Re-uploading a month replaces it.
-              </p>
-              <UploadSelector uploads={[]} selectedId={null} onSelect={() => {}} onUploaded={handleUploaded} isAdmin={true} />
-            </Card>
-          )}
-
           <Card noPad>
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
-                  <TH>Period</TH><TH>Uploaded</TH>
-                  {isAdmin && <TH></TH>}
+                  <TH>Period</TH>
+                  <TH>Uploaded</TH>
+                  <TH>Action</TH>
                 </tr>
               </thead>
               <tbody>
@@ -741,11 +723,9 @@ export default function ProcessingUnit() {
                       </button>
                     </td>
                     <TD mono>{new Date(u.uploaded_at).toLocaleDateString()}</TD>
-                    {isAdmin && (
-                      <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
-                        <Btn size="sm" variant="danger" onClick={() => handleDelete(u.id)}>Delete</Btn>
-                      </td>
-                    )}
+                    <td className="px-5 py-3 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      <Btn size="sm" variant="danger" onClick={() => handleDelete(u.id)}>Delete</Btn>
+                    </td>
                   </TR>
                 ))}
               </tbody>

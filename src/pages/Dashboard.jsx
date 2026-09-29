@@ -167,7 +167,7 @@ export default function Dashboard({ cows, summary, setPage }) {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Farm Overview" sub="Summary of your herd's milk production">
+      <PageHeader title="Dashboard" sub="Summary of your herd's milk production">
         <Btn size="sm" onClick={() => setPage('import')}>+ Import Excel</Btn>
       </PageHeader>
 
