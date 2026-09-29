@@ -15,6 +15,9 @@ import { notify } from '../lib/notify'
 
      The year      a unit per row, a month per column (MONTHLY SALES BY UNITY)
      The month     a day per row, a unit per column ("<MONTH> SALES BY UNITY")
+     Units         each shop, sales person and bulk buyer on its own —
+                   open one for its sales month by month, and a month
+                   for the days behind it
      Workbooks     uploading the file, and what each upload brought in
 
    The till's own takings are shown beside the book wherever there are
@@ -99,6 +102,17 @@ function Notice({ kind = 'error', children, onClose }) {
   )
 }
 
+/** A unit's name that opens it. */
+function UnitLink({ unit, onOpen, strong }) {
+  return (
+    <button onClick={() => onOpen(unit)}
+      className="border-0 bg-transparent cursor-pointer text-[13px] text-left p-0"
+      style={{ color: 'var(--green-600)', fontWeight: strong ? 600 : 500, font: 'inherit' }}>
+      {unit}
+    </button>
+  )
+}
+
 /** The units, grouped under their kind, in the order the server sent them. */
 const grouped = (units) =>
   KINDS.map(([kind, label]) => ({ kind, label, units: units.filter(u => u.kind === kind) }))
@@ -106,7 +120,7 @@ const grouped = (units) =>
 
 /* ── the year ────────────────────────────────────────────── */
 
-function YearView({ year, onOpenMonth, reload }) {
+function YearView({ year, onOpenMonth, onOpenUnit, reload }) {
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -193,7 +207,7 @@ function YearView({ year, onOpenMonth, reload }) {
                     </tr>
                     {g.units.map(u => (
                       <tr key={u.unit}>
-                        <TD sticky>{u.unit}</TD>
+                        <TD sticky><UnitLink unit={u.unit} onOpen={onOpenUnit} /></TD>
                         {shown.map(i => (
                           <TD key={i} right mono title={u.by_month[i] ? fmtTsh(u.by_month[i]) : undefined}
                             style={{ color: u.by_month[i] ? 'var(--ink)' : 'var(--ink-30)' }}>
@@ -240,7 +254,7 @@ function YearView({ year, onOpenMonth, reload }) {
 
 /* ── the month ───────────────────────────────────────────── */
 
-function MonthView({ year, month, onChange, reload }) {
+function MonthView({ year, month, onChange, onOpenUnit, reload }) {
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -309,7 +323,7 @@ function MonthView({ year, month, onChange, reload }) {
             <tbody>
               {data.units.map(u => (
                 <tr key={u.unit}>
-                  <TD>{u.unit}</TD>
+                  <TD><UnitLink unit={u.unit} onOpen={onOpenUnit} /></TD>
                   <TD style={{ color: 'var(--ink-60)' }}>{KINDS.find(k => k[0] === u.kind)?.[1]}</TD>
                   <TD right mono style={{ fontWeight: 600 }}>{fmt(u.total)}</TD>
                 </tr>
@@ -326,7 +340,11 @@ function MonthView({ year, month, onChange, reload }) {
               <thead>
                 <tr>
                   <TH sticky>Date</TH>
-                  {data.units.map(u => <TH key={u.unit} right>{u.unit}</TH>)}
+                  {data.units.map(u => (
+                    <TH key={u.unit} right onClick={() => onOpenUnit(u.unit)} title={`Open ${u.unit}`}>
+                      <span style={{ color: 'var(--green-600)' }}>{u.unit}</span>
+                    </TH>
+                  ))}
                   <TH right>Total</TH>
                   {hasTill && <TH right>Till</TH>}
                 </tr>
@@ -359,6 +377,237 @@ function MonthView({ year, month, onChange, reload }) {
           </div>
         </Card>
       )}
+    </>
+  )
+}
+
+/* ── the units ───────────────────────────────────────────── */
+
+function Modal({ title, sub, onClose, children }) {
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      className="fixed inset-0 z-[100] flex items-start justify-center p-4 overflow-y-auto"
+      style={{ background: 'rgba(10,30,20,0.45)' }}>
+      <div className="rounded-[16px] w-full max-w-4xl p-7 my-6" style={{ background: 'var(--surface)' }}>
+        <div className="flex items-start justify-between mb-5 gap-3">
+          <div>
+            <div className="font-serif text-[20px]" style={{ color: 'var(--ink)' }}>{title}</div>
+            {sub && <div className="text-xs mt-0.5" style={{ color: 'var(--ink-60)' }}>{sub}</div>}
+          </div>
+          <button onClick={onClose} className="border-0 bg-transparent text-[18px] cursor-pointer p-1 leading-none"
+            style={{ color: 'var(--ink-30)' }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/* How big a month is against the unit's best — the question a unit is
+   opened for is whether it has been climbing, and a bar reads that
+   faster than a column of figures. */
+function ShareBar({ value, of }) {
+  const pct = of > 0 ? Math.min(100, (num(value) / of) * 100) : 0
+  return (
+    <div className="h-1.5 rounded-full overflow-hidden min-w-[80px]" style={{ background: 'var(--ink-10)' }}>
+      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--green-400)' }} />
+    </div>
+  )
+}
+
+const kindLabel = (kind) => KINDS.find(k => k[0] === kind)?.[1] || ''
+
+/**
+ * One unit's sales, month by month, with the days that made each month.
+ *
+ * Every month of the year is listed, sold in or not: a sales person who
+ * went quiet is a reading, and a table that left the month out would
+ * hide it. A month opens in place to show its days.
+ */
+function UnitDetail({ unit, year, onYear, onClose }) {
+  const [data, setData] = useState(null)
+  const [open, setOpen] = useState(null)
+
+  useEffect(() => {
+    setData(null); setOpen(null)
+    apiFetch(`/sales-book/units/${encodeURIComponent(unit)}?year=${year}`)
+      .then(setData).catch(e => { notify.error(e.message); onClose() })
+  }, [unit, year, onClose])
+
+  if (!data) return <Modal title={unit} onClose={onClose}><div className="text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div></Modal>
+
+  const best = Math.max(...data.months.map(m => m.total), 0)
+  const lastSold = data.months.reduce((a, m) => (m.total ? m.month : a), 0)
+  const rows = data.months.filter(m => m.month <= Math.max(lastSold, 1))
+
+  return (
+    <Modal title={data.unit} sub={kindLabel(data.kind)} onClose={onClose}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+        {[
+          { label: `Sold in ${year}`, value: fmtTsh(data.total), note: `${data.share}% of all sales in the book` },
+          { label: 'Month average', value: fmtTsh(data.monthly_average), note: 'over the finished months it sold in' },
+          { label: 'Best month', value: data.best_month ? MONTHS[data.best_month - 1] : '—',
+            note: data.best_month ? fmtTsh(data.months[data.best_month - 1].total) : null },
+          data.days_recorded > 0 && { label: 'Per day', value: fmtTsh(data.daily_average),
+            note: `over ${data.days_recorded} days recorded` },
+          data.best_day && { label: 'Best day', value: fmtTsh(data.best_day.amount), note: data.best_day.date },
+        ].filter(Boolean).map(k => (
+          <div key={k.label} className="rounded-lg" style={{ background: 'var(--cream-dark)', padding: '10px 14px' }}>
+            <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: 'var(--ink)' }}>{k.value}</div>
+            {k.note && <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-30)' }}>{k.note}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="text-xs" style={{ color: 'var(--ink-60)' }}>
+          Click a month to see its days. Months marked <span style={{ color: 'var(--amber)' }}>◦</span> are
+          a single figure from the year summary, with no days behind them.
+        </div>
+        {data.years.length > 1 && (
+          <select value={year} onChange={e => onYear(Number(e.target.value))}>
+            {data.years.map(y => <option key={y.year} value={y.year}>{y.year}</option>)}
+          </select>
+        )}
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table className="w-full border-collapse text-[13px]" style={{ minWidth: 560 }}>
+          <thead>
+            <tr><TH>Month</TH><TH right>Days</TH><TH right>Sales</TH><TH right>Share</TH><TH>Against the best month</TH></tr>
+          </thead>
+          <tbody>
+            {rows.map(m => {
+              const canOpen = m.days.length > 0
+              return (
+                <Fragment key={m.month}>
+                  <tr style={{ opacity: m.total ? 1 : 0.45 }}>
+                    <td className="px-3 py-2 border-b" style={{ borderColor: 'var(--ink-10)' }}>
+                      {canOpen ? (
+                        <button onClick={() => setOpen(open === m.month ? null : m.month)}
+                          className="border-0 bg-transparent cursor-pointer text-[13px] font-medium text-left p-0"
+                          style={{ color: 'var(--green-600)' }}>
+                          <span style={{ display: 'inline-block', width: 14 }}>{open === m.month ? '▾' : '▸'}</span>
+                          {MONTHS[m.month - 1]}
+                        </button>
+                      ) : (
+                        <span className="text-[13px]" style={{ color: 'var(--ink-60)', paddingLeft: 14 }}>
+                          {MONTHS[m.month - 1]}
+                          {m.whole_month && <span style={{ color: 'var(--amber)' }}> ◦</span>}
+                        </span>
+                      )}
+                    </td>
+                    <TD right mono style={{ color: 'var(--ink-60)' }}>{m.days.length || ''}</TD>
+                    <TD right mono style={{ fontWeight: m.total ? 600 : 400 }}>{m.total ? fmt(m.total) : '—'}</TD>
+                    <TD right mono style={{ color: 'var(--ink-60)' }}>{m.total ? `${m.share}%` : ''}</TD>
+                    <TD style={{ minWidth: 150 }}>{m.total ? <ShareBar value={m.total} of={best} /> : null}</TD>
+                  </tr>
+                  {open === m.month && m.days.map(d => (
+                    <tr key={d.date} style={{ background: 'var(--cream-dark)' }}>
+                      <TD mono style={{ color: 'var(--ink-60)', paddingLeft: 30, background: 'var(--cream-dark)' }}>{d.date}</TD>
+                      <TD />
+                      <TD right mono style={{ fontWeight: 600 }}>{fmt(d.amount)}</TD>
+                      <TD />
+                      <TD><ShareBar value={d.amount} of={Math.max(...m.days.map(x => x.amount))} /></TD>
+                    </tr>
+                  ))}
+                </Fragment>
+              )
+            })}
+            <tr>
+              <TD style={{ fontWeight: 700 }}>{year}</TD>
+              <TD right mono style={{ color: 'var(--ink-60)' }}>{data.days_recorded || ''}</TD>
+              <TD right mono style={{ fontWeight: 700 }}>{fmt(data.total)}</TD>
+              <TD right mono style={{ color: 'var(--ink-60)' }}>{data.share}%</TD>
+              <TD />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {data.years.length > 1 && (
+        <div className="mt-5">
+          <div className="text-sm font-semibold mb-2" style={{ color: 'var(--ink)' }}>Year on year</div>
+          <div className="flex flex-wrap gap-2">
+            {data.years.map(y => (
+              <button key={y.year} onClick={() => onYear(y.year)} className="rounded-lg border cursor-pointer text-left"
+                style={{
+                  padding: '8px 14px', background: y.year === year ? 'var(--green-100)' : 'var(--surface)',
+                  borderColor: y.year === year ? 'var(--green-600)' : 'var(--ink-10)',
+                }}>
+                <div className="text-[11px]" style={{ color: 'var(--ink-60)' }}>{y.year}</div>
+                <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{fmt(y.total)}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+/** Every unit, grouped the way the farm thinks of them. */
+function UnitsView({ year, onOpenUnit, reload }) {
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    setData(null)
+    apiFetch(`/sales-book/units?year=${year}`).then(setData).catch(e => notify.error(e.message))
+  }, [year, reload])
+
+  if (!data) return <div className="p-8 text-center text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div>
+  if (!data.units.length) {
+    return <Card><EmptyState>No units yet — upload the workbook under <strong>Workbooks</strong>.</EmptyState></Card>
+  }
+
+  const top = Math.max(...data.units.map(u => u.year_total), 0)
+
+  return (
+    <>
+      <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
+        Every shop, sales person and bulk buyer in the sales book. Open one for its sales month by
+        month, and a month for the days behind it.
+      </p>
+      {grouped(data.units).map(g => {
+        const sub = g.units.reduce((a, u) => a + u.year_total, 0)
+        return (
+          <Card noPad key={g.kind}>
+            <div className="px-5 pt-4 pb-2 flex items-baseline justify-between gap-3 flex-wrap">
+              <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>{g.label}</div>
+              <div className="text-xs" style={{ color: 'var(--ink-60)' }}>
+                {fmtTsh(sub)} in {year}
+                {data.year_total ? ` · ${Math.round((sub / data.year_total) * 1000) / 10}% of sales` : ''}
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
+                <thead>
+                  <tr>
+                    <TH>Unit</TH><TH right>{year}</TH><TH right>Share</TH><TH />
+                    <TH right>Months</TH><TH right>Days</TH><TH>Last day recorded</TH>
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.units.map(u => (
+                    <tr key={u.unit} style={{ opacity: u.year_total ? 1 : 0.55 }}>
+                      <TD><UnitLink unit={u.unit} onOpen={onOpenUnit} strong /></TD>
+                      <TD right mono style={{ fontWeight: 600 }}>{u.year_total ? fmt(u.year_total) : '—'}</TD>
+                      <TD right mono style={{ color: 'var(--ink-60)' }}>
+                        {data.year_total && u.year_total ? `${Math.round((u.year_total / data.year_total) * 1000) / 10}%` : ''}
+                      </TD>
+                      <TD style={{ minWidth: 120 }}>{u.year_total ? <ShareBar value={u.year_total} of={top} /> : null}</TD>
+                      <TD right mono style={{ color: 'var(--ink-60)' }}>{u.months}</TD>
+                      <TD right mono style={{ color: 'var(--ink-60)' }}>{u.days || '—'}</TD>
+                      <TD mono style={{ color: 'var(--ink-60)' }}>{u.last_day || '—'}</TD>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )
+      })}
     </>
   )
 }
@@ -548,6 +797,12 @@ export default function SalesBook() {
   const [year,  setYear]  = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [reload, setReload] = useState(0)
+  /* The unit being read, and the year it is read for. Kept here so a
+     unit opens the same way from the year grid, the month and the list. */
+  const [openUnit, setOpenUnit] = useState(null)
+  const [unitYear, setUnitYear] = useState(year)
+  const openUnitFor = (u) => { setUnitYear(year); setOpenUnit(u) }
+  const closeUnit = useCallback(() => setOpenUnit(null), [])
 
   useEffect(() => {
     apiFetch('/sales-book/years').then(ys => {
@@ -568,18 +823,21 @@ export default function SalesBook() {
         <div className="flex gap-1">
           <SubTab label="The year"  active={view === 'year'}  onClick={() => setView('year')} />
           <SubTab label="The month" active={view === 'month'} onClick={() => setView('month')} />
+          <SubTab label="Units"     active={view === 'units'} onClick={() => setView('units')} />
           <SubTab label="Workbooks" active={view === 'books'} onClick={() => setView('books')} />
         </div>
-        {view === 'year' && years.length > 1 && (
+        {(view === 'year' || view === 'units') && years.length > 1 && (
           <select value={year} onChange={e => setYear(Number(e.target.value))}>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
       </div>
 
-      {view === 'year'  && <YearView year={year} onOpenMonth={openMonth} reload={reload} />}
-      {view === 'month' && <MonthView year={year} month={month} reload={reload}
+      {view === 'year'  && <YearView year={year} onOpenMonth={openMonth} onOpenUnit={openUnitFor} reload={reload} />}
+      {view === 'units' && <UnitsView year={year} onOpenUnit={openUnitFor} reload={reload} />}
+      {view === 'month' && <MonthView year={year} month={month} reload={reload} onOpenUnit={openUnitFor}
         onChange={(y, m) => { setYear(y); setMonth(m) }} />}
+      {openUnit && <UnitDetail unit={openUnit} year={unitYear} onYear={setUnitYear} onClose={closeUnit} />}
       {view === 'books' && <BooksView onImported={() => setReload(n => n + 1)} onOpenYear={() => setView('year')} />}
     </div>
   )
