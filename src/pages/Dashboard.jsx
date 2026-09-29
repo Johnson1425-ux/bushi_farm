@@ -172,7 +172,7 @@ export default function Dashboard({ cows, summary, setPage }) {
       </PageHeader>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3.5 mb-7">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(150px,100%),1fr))] gap-3.5 mb-7">
         <MetricCard label="Cows tracked"    value={parseInt(s.total_cows) || '—'} />
         <MetricCard label="Herd avg / day"  value={parseFloat(s.overall_avg)?.toFixed(1) || '—'} unit="litres" />
         <MetricCard label="Yesterday's collection" value={

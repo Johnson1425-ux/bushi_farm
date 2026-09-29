@@ -122,7 +122,7 @@ function AppShell() {
           app is, and a phone gets a page that scrolls sideways with the
           sidebar's edge showing — the tables already scroll inside their
           own containers, which is where that belongs. */}
-      <main className="flex-1 min-w-0 min-h-screen md:ml-[220px] pt-[56px] md:pt-0" style={{ padding: '56px 20px 32px' }}>
+      <main className="flex-1 min-w-0 min-h-screen md:ml-[220px] pt-[56px] px-4 pb-8 md:px-5">
         <div className="md:p-[32px_36px] p-0 pt-4">
           <Outlet context={{ cows, summary, loadData, setPage }} />
         </div>

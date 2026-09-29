@@ -208,7 +208,7 @@ export default function BranchStock() {
         )}
       </PageHeader>
 
-      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {[
           { label: 'Units on hand',  value: fmt(totalUnits),      color: 'var(--green-600)' },
           { label: 'Litres on hand', value: fmt(totalLitres, 1),  color: 'var(--blue)' },

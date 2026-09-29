@@ -168,7 +168,7 @@ function Modal({ title, sub, onClose, wide, children }) {
     <div onClick={e => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto"
       style={{ background: 'rgba(10,30,20,0.45)', padding: '40px 16px' }}>
-      <div className="rounded-[16px] w-full p-7" style={{ background: 'var(--surface)', maxWidth: wide ? 940 : 480 }}>
+      <div className="rounded-[16px] w-full p-5 sm:p-7" style={{ background: 'var(--surface)', maxWidth: wide ? 940 : 480 }}>
         <div className="flex items-start justify-between mb-5 gap-4">
           <div>
             <div className="font-serif text-[18px]" style={{ color: 'var(--ink)' }}>{title}</div>
@@ -193,7 +193,7 @@ function Field({ label, hint, name, type = 'text', defaultValue, required, child
   )
 }
 
-const Grid2 = ({ children }) => <div className="grid gap-x-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>{children}</div>
+const Grid2 = ({ children }) => <div className="grid gap-x-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>{children}</div>
 
 /**
  * Download whatever is on screen.
@@ -354,7 +354,7 @@ export default function Inventory() {
 
       {importResult && <ImportReport result={importResult} onClose={() => setImportResult(null)} />}
 
-      <div className="flex mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn active={tab === 'overview'}  onClick={() => setTab('overview')}  count={attention}>Overview</TabBtn>
         <TabBtn active={tab === 'items'}     onClick={() => setTab('items')}>Stock list</TabBtn>
         <TabBtn active={tab === 'movements'} onClick={() => setTab('movements')}>Movements</TabBtn>
@@ -486,7 +486,7 @@ function Overview({ summary, items, onOrder, onOpen }) {
 
   return (
     <>
-      <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+      <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(180px, 100%), 1fr))' }}>
         <MetricCard label="Lines carried" value={fmt(summary.items)} unit="active items" />
         <MetricCard label="Value on the shelf" value={money(summary.stock_value)} unit="TSh" accent />
         <MetricCard label="Out of stock" value={fmt(summary.out_of_stock)}
@@ -503,7 +503,7 @@ function Overview({ summary, items, onOrder, onOpen }) {
           note={`${money(p.damaged_value)} TSh, last 30 days`} />
       </div>
 
-      <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+      <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))' }}>
         {/* ── the order sheet ── */}
         <Card noPad>
           <div className="px-5 pt-5">
@@ -562,30 +562,32 @@ function Overview({ summary, items, onOrder, onOpen }) {
             {summary.from} to {summary.to}. Received and returned put stock on the shelf;
             issued and damaged take it off. Adjustments are what stock counts corrected.
           </p>
-          <table className="w-full border-collapse text-[13px]">
-            <tbody>
-              {[
-                ['in',     'Received',    p.received,  `${tsh(p.received_value)}`],
-                ['return', 'Returned to store', p.returned, ''],
-                ['out',    'Issued to use', p.issued, tsh(p.issued_value)],
-                ['damage', 'Damaged / written off', p.damaged, `${tsh(p.damaged_value)}`],
-                ['adjust', 'Count adjustments', p.adjusted, ''],
-              ].map(([type, label, value, aside]) => (
-                <tr key={type}>
-                  <TD><TypeChip type={type} /></TD>
-                  <TD strong>{label}</TD>
-                  {/* An adjustment carries its own direction — MOVEMENTS.adjust
-                      has sign 0 — so it is the signed value that must be shown.
-                      Taking the absolute value here printed a count that removed
-                      fifty bottles identically to one that added fifty. */}
-                  <TD right mono color={MOVEMENTS[type].color}>
-                    {signPrefix(type, value)}{fmt(Math.abs(value), 2)}
-                  </TD>
-                  <TD right>{aside}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[13px]">
+              <tbody>
+                {[
+                  ['in',     'Received',    p.received,  `${tsh(p.received_value)}`],
+                  ['return', 'Returned to store', p.returned, ''],
+                  ['out',    'Issued to use', p.issued, tsh(p.issued_value)],
+                  ['damage', 'Damaged / written off', p.damaged, `${tsh(p.damaged_value)}`],
+                  ['adjust', 'Count adjustments', p.adjusted, ''],
+                ].map(([type, label, value, aside]) => (
+                  <tr key={type}>
+                    <TD><TypeChip type={type} /></TD>
+                    <TD strong>{label}</TD>
+                    {/* An adjustment carries its own direction — MOVEMENTS.adjust
+                        has sign 0 — so it is the signed value that must be shown.
+                        Taking the absolute value here printed a count that removed
+                        fifty bottles identically to one that added fifty. */}
+                    <TD right mono color={MOVEMENTS[type].color}>
+                      {signPrefix(type, value)}{fmt(Math.abs(value), 2)}
+                    </TD>
+                    <TD right>{aside}</TD>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {p.damaged > 0 && (
             <div className="mt-4 rounded-lg text-xs" style={{ padding: '10px 14px', background: 'rgba(217,64,64,0.08)', color: 'var(--red)' }}>
               {p.damage_rate}% of everything that left the shelf was damage rather than use
@@ -1221,7 +1223,7 @@ function StockCard({ itemId, onClose, onChanged, onMove }) {
       sub={[catLabel(data.category), packLabel(data), data.code, data.supplier, data.location]
         .filter(Boolean).join(' · ')}
     >
-      <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+      <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))' }}>
         <MetricCard label="On hand" value={fmt(data.current_stock, 2)} unit={data.unit}
           note={hasPacks(data)
             ? `${fmt(data.current_packs, 2)} ${plural(data.current_packs, data.pack_unit)}`
@@ -1395,7 +1397,7 @@ function Movements({ items, onChanged }) {
         )}>Export CSV</Btn>
       </div>
 
-      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         {Object.entries(MOVEMENTS).map(([t, m]) => (
           <div key={t} className="rounded-lg border px-4 py-3" style={{ borderColor: 'var(--ink-10)', background: 'var(--surface)' }}>
             <div className="text-[11px] uppercase tracking-wider" style={{ color: 'var(--ink-60)' }}>{m.label}</div>
@@ -1669,7 +1671,7 @@ function CountSheet({ countId, onClose, onChanged }) {
       title={`Stock count ${count.ref}`}
       sub={`${count.count_date} · ${count.status.toUpperCase()}${count.counted_by ? ` · opened by ${count.counted_by}` : ''}${count.posted_by ? ` · posted by ${count.posted_by}` : ''}`}
     >
-      <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+      <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(150px, 100%), 1fr))' }}>
         <MetricCard label="Counted" value={`${fmt(lines.length - uncounted.length)} / ${fmt(lines.length)}`}
           unit="lines"
           note={uncounted.length ? `${fmt(uncounted.length)} not counted — left unchanged` : 'Whole sheet counted'} />
@@ -1829,7 +1831,7 @@ function Report() {
 
       {!busy && data && (
         <>
-          <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+          <div className="grid gap-4 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))' }}>
             <MetricCard label="Received" value={fmt(data.totals.received, 2)} unit="units in" />
             <MetricCard label="Issued" value={fmt(data.totals.issued, 2)} unit="units to production" />
             <MetricCard label="Cost of what was used" value={money(data.totals.consumed_value)} unit="TSh"

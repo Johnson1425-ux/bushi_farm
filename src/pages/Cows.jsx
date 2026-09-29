@@ -60,7 +60,7 @@ function ArchiveDialog({ cow, onClose, onDone }) {
     >
       <form
         onSubmit={submit}
-        className="rounded-[16px] w-full max-w-md p-6"
+        className="rounded-[16px] w-full max-w-md p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
         style={{ background: 'var(--surface)' }}
       >
         <div className="font-serif text-[20px] mb-1">Archive {cow.name}</div>
@@ -218,7 +218,7 @@ export default function Cows({ cows, onChanged }) {
           </EmptyState>
         )
         : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3.5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(180px,100%),1fr))] gap-3.5">
             {sorted.map((c, i) => {
               const cls = statusClass(parseFloat(c.avg_litres) || 0, overall)
               const gone = c.status && c.status !== 'active'

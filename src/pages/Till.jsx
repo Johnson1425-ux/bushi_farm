@@ -102,7 +102,7 @@ function Receipt({ sale, onClose, onVoid, canVoid }) {
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       style={{ background: 'rgba(10,30,20,0.45)' }}>
       <style>{PRINT_CSS}</style>
-      <div id="receipt-print" className="rounded-[16px] w-full max-w-sm p-7 max-h-[90vh] overflow-y-auto"
+      <div id="receipt-print" className="rounded-[16px] w-full max-w-sm p-5 sm:p-7 max-h-[90vh] overflow-y-auto"
         style={{ background: 'var(--surface)' }}>
         <div className="text-center mb-4">
           <div className="font-serif text-[20px]" style={{ color: 'var(--ink)' }}>Bushi Farm</div>
@@ -290,7 +290,7 @@ function CashUp({ branchId, isAttendant }) {
         {closed && !isAttendant && <Btn size="sm" onClick={reopen}>Reopen</Btn>}
       </div>
 
-      <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+      <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))' }}>
         {/* What the receipts already say. */}
         <Card>
           <CardTitle>The day's takings</CardTitle>
@@ -545,6 +545,17 @@ export default function Till() {
   const total    = subtotal - disc
   const anyOver  = lines.some(l => l.over)
 
+  /* Whether the basket is on screen — the phone's jump-to-basket bar
+     steps aside once it is, rather than covering the Complete button. */
+  const [basketInView, setBasketInView] = useState(false)
+  useEffect(() => {
+    const el = document.getElementById('till-basket')
+    if (!el || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(([e]) => setBasketInView(e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [tab])
+
   const complete = async () => {
     setBusy(true)
     try {
@@ -631,7 +642,7 @@ export default function Till() {
       </PageHeader>
 
       {day && (
-        <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+        <div className="grid gap-3.5 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))' }}>
           {[
             { label: "Today's takings", value: fmtTsh(day.revenue), color: 'var(--green-600)' },
             { label: 'Receipts',        value: fmt(day.receipts),   color: 'var(--ink)' },
@@ -647,7 +658,7 @@ export default function Till() {
         </div>
       )}
 
-      <div className="flex mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+      <div className="tab-bar mb-5" style={{ borderBottom: '1px solid var(--ink-10)' }}>
         <TabBtn label="Sell" active={tab === 'sell'} onClick={() => setTab('sell')}
           badge={lines.length || null} />
         <TabBtn label="Cash up" active={tab === 'cashup'} onClick={() => setTab('cashup')} />
@@ -658,7 +669,10 @@ export default function Till() {
       )}
 
       {tab === 'sell' && (
-        <div className="grid gap-5" style={{ gridTemplateColumns: 'minmax(0, 1.5fr) minmax(280px, 1fr)' }}>
+        /* Side by side once there is room; stacked below that, with the
+           basket after the products and a bar at the foot of the screen
+           that jumps down to it. */
+        <div className="grid gap-5 grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
           {/* ── products ── */}
           <div style={{ minWidth: 0 }}>
             <Card>
@@ -672,7 +686,7 @@ export default function Till() {
               {catalogue.length === 0 ? (
                 <EmptyState>Nothing in stock at this branch yet.</EmptyState>
               ) : (
-                <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+                <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(140px, 100%), 1fr))' }}>
                   {catalogue.map(p => {
                     const inCart = cart[p.product_id]?.units || 0
                     const out    = p.units <= 0
@@ -753,7 +767,7 @@ export default function Till() {
           </div>
 
           {/* ── basket ── */}
-          <div style={{ minWidth: 0 }}>
+          <div id="till-basket" style={{ minWidth: 0, scrollMarginTop: 72 }}>
             <Card style={{ position: 'sticky', top: 16 }}>
               <CardTitle>
                 Basket
@@ -887,6 +901,19 @@ export default function Till() {
               )}
             </Card>
           </div>
+          {/* Stacked, the basket sits below every product; this keeps its
+             total in reach while tapping through the tiles. Fixed, so it
+             takes no room in the grid. */}
+          {lines.length > 0 && !basketInView && (
+            <button
+              type="button"
+              onClick={() => document.getElementById('till-basket')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="lg:hidden fixed left-4 right-4 z-20 flex items-center justify-between gap-3 rounded-lg border-0 px-4 py-3 text-sm font-medium text-white shadow-lg cursor-pointer"
+              style={{ bottom: 'calc(16px + env(safe-area-inset-bottom))', background: 'var(--green-600)' }}>
+              <span>Basket · {lines.length} {lines.length === 1 ? 'line' : 'lines'}</span>
+              <span>{fmtTsh(total)} ↓</span>
+            </button>
+          )}
         </div>
       )}
 

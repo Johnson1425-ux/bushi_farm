@@ -82,7 +82,7 @@ export default function LandingPage() {
             Looking for fresh milk, yoghurt, or mtindi? Explore our products and get in touch to place an order.
           </p>
         </div>
-        <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 20 }}>
           {[
             { path: '/farm',     icon: '🏡', title: 'Our Farm',  desc: 'Learn about Milktrack — our story, location, and values.' },
             { path: '/products', icon: '🥛', title: 'Products',  desc: 'Browse our fresh milk, vanilla & strawberry yoghurt, and Mtindi Bonge.' },
@@ -116,7 +116,7 @@ export default function LandingPage() {
         <h2 style={{ fontSize: 'clamp(26px, 4vw, 38px)', fontWeight: 800, letterSpacing: '-1px', color: 'var(--ink)', marginBottom: 44 }}>
           Everything your farm needs
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20, textAlign: 'left' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 20, textAlign: 'left' }}>
           {features.map(f => (
             <div
               key={f.title}

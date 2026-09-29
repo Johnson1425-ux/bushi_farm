@@ -119,7 +119,7 @@ export default function Compare({ cows }) {
           return cow ? (
             <div
               key={i}
-              className="flex-1 min-w-[180px] max-w-[260px] bg-surface rounded-lg p-3.5 flex items-center gap-2.5 text-[13px]"
+              className="flex-1 min-w-[140px] max-w-[260px] bg-surface rounded-lg p-3.5 flex items-center gap-2.5 text-[13px]"
               style={{ border: `1.5px solid ${CMP_COLORS[i]}` }}
             >
               <div
@@ -141,7 +141,7 @@ export default function Compare({ cows }) {
             <div
               key={i}
               onClick={() => setModalIdx(i)}
-              className="flex-1 min-w-[180px] max-w-[260px] bg-surface border-2 border-dashed border-ink-10 rounded-lg p-3.5 flex items-center gap-2.5 cursor-pointer text-[13px] text-ink-60 transition-all hover:text-ink-60"
+              className="flex-1 min-w-[140px] max-w-[260px] bg-surface border-2 border-dashed border-ink-10 rounded-lg p-3.5 flex items-center gap-2.5 cursor-pointer text-[13px] text-ink-60 transition-all hover:text-ink-60"
               style={{ '--hover-color': CMP_COLORS[i] }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = CMP_COLORS[i]; e.currentTarget.style.color = CMP_COLORS[i] }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.color = '' }}
@@ -178,7 +178,7 @@ export default function Compare({ cows }) {
             })}
           </Card>
 
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <Card>
               <CardTitle>Daily production trend</CardTitle>
               <div className="h-[280px] relative">

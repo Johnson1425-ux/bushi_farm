@@ -139,3 +139,70 @@ input:focus {
   0%, 45%   { opacity: 1; }
   55%, 100% { opacity: 0; }
 }
+/* ── Tab bars ──
+   One row that scrolls sideways when the tabs outgrow the screen, rather
+   than wrapping into a second row that reads as a separate control or
+   pushing the page wider than the phone. */
+.tab-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-bar > * { flex-shrink: 0; white-space: nowrap; }
+
+/* A row of chips that scrolls sideways on a phone instead of stacking
+   into a wall of pills above the content. */
+@media (max-width: 767px) {
+  .chip-scroll {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+  .chip-scroll > * { flex-shrink: 0; white-space: nowrap; }
+}
+
+/* ── Phones ── */
+@media (max-width: 767px) {
+  /* iOS zooms the page into any field set below 16px the moment it takes
+     focus, and leaves it zoomed. */
+  select,
+  input[type="text"],
+  input[type="date"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="search"],
+  input[type="email"],
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* A cell keeps its content on one line and the table scrolls inside its
+     wrapper. Left to wrap, a narrow screen squeezes every column until
+     "Cow 12" breaks over two lines and a phone number over three.
+     Spanning cells hold empty states and expanded detail, which should
+     wrap; `.cell-wrap` marks the free-text columns that should too. */
+  th, td { white-space: nowrap; }
+  td[colspan], td.cell-wrap, th.cell-wrap { white-space: normal; }
+  td.cell-wrap { min-width: 200px; }
+
+  /* An empty table can still be wider than the phone, and a message
+     centred across all of it lands off to the right. Pinned to the
+     visible part of the scroller instead — the card's width, less its
+     borders. */
+  td .empty-state {
+    position: sticky;
+    left: 0;
+    width: calc(100vw - 34px);
+    max-width: 100%;
+  }
+
+  /* Tables get a little tighter so more of them fits before scrolling. */
+  th[class*="px-5"], td[class*="px-5"] { padding-left: 14px !important; padding-right: 14px !important; }
+}
