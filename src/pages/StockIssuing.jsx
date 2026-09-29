@@ -4,6 +4,7 @@ import { Card, CardTitle, Btn, PageHeader, EmptyState, RowMenu } from '../compon
 import { useAuth } from '../lib/AuthContext'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
+import NewProductForm from '../components/NewProductForm'
 
 /* ══════════════════════════════════════════════════════════════
    STOCK & ISSUING
@@ -544,6 +545,7 @@ function BranchesTab({ branches, products, onChanged }) {
   const [prices, setPrices] = useState({})
   const [busy, setBusy] = useState(false)
   const [showBulk, setShowBulk] = useState(false)
+  const [showPack, setShowPack] = useState(false)
   const [bulkForm, setBulkForm] = useState({ product: '', size: 'LTR', retail_price: '', wholesale_price: '' })
 
   const addBulk = async () => {
@@ -587,6 +589,26 @@ function BranchesTab({ branches, products, onChanged }) {
     }
     try {
       await apiFetch(`/branches/${b.id}`, { method: 'PATCH', body: JSON.stringify({ active: !b.active }) })
+      onChanged()
+    } catch (err) { notify.error(err.message) }
+  }
+
+  /* Retiring rather than deleting: a product that has been made, issued or
+     sold is part of that history. Retired, it drops off the till and off
+     new workbook templates, and an old month that names it still reads. */
+  const toggleProduct = async (p) => {
+    if (p.active) {
+      const ok = await confirm({
+        title: `Retire ${p.product} ${p.size}`,
+        message: 'It will no longer be offered at the till or on new workbook templates.',
+        detail: 'Its history stays, months that name it still upload, and it can be restored later.',
+        confirmLabel: 'Retire',
+      })
+      if (!ok) return
+    }
+    try {
+      await apiFetch(`/products/${p.id}`, { method: 'PATCH', body: JSON.stringify({ active: !p.active }) })
+      notify.success(`${p.product} ${p.size} ${p.active ? 'retired' : 'restored'}.`)
       onChanged()
     } catch (err) { notify.error(err.message) }
   }
@@ -687,17 +709,35 @@ function BranchesTab({ branches, products, onChanged }) {
         <div className="px-5 pt-4 pb-1">
           <CardTitle>
             Selling prices
-            <div className="flex justify-end mb-2">
-              <Btn size="sm" onClick={() => setShowBulk(v => !v)} hover>
+            <div className="flex justify-end gap-2 mb-2">
+              <Btn size="sm" onClick={() => { setShowPack(v => !v); setShowBulk(false) }}>
+                {showPack ? 'Cancel' : '+ New product'}
+              </Btn>
+              <Btn size="sm" onClick={() => { setShowBulk(v => !v); setShowPack(false) }}>
                 {showBulk ? 'Cancel' : '+ Loose milk line'}
               </Btn>
             </div>
           </CardTitle>
+          {showPack && (
+            <div className="mb-3">
+              <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
+                A sealed pack the processing unit makes. Once added, the next workbook upload
+                recognises it and the next template you download has rows for it.
+              </p>
+              <NewProductForm
+                onCancel={() => setShowPack(false)}
+                onAdded={(p) => {
+                  setShowPack(false)
+                  notify.success(`${p.product} ${p.size} added.`)
+                  onChanged()
+                }} />
+            </div>
+          )}
           {showBulk && (
             <div className="rounded-lg p-4 mb-3" style={{ background: 'var(--cream-dark)' }}>
               <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
-                Milk sold by the litre from the churn. Sealed products come from the processing
-                catalogue instead, so the workbook template and the parser stay aware of them.
+                Milk sold by the litre from the churn. Sealed packs are added with “+ New product”
+                instead, so the workbook template and the upload recognise them.
               </p>
               <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))' }}>
                 {[
@@ -747,9 +787,17 @@ function BranchesTab({ branches, products, onChanged }) {
                     [p.id]: { retail, wholesale, ...(prev[p.id] || {}), [field]: value },
                   }))
                 return (
-                  <tr key={p.id}>
-                    <TD>{p.product}</TD>
-                    <TD mono>{p.size}</TD>
+                  <tr key={p.id} style={{ opacity: p.active ? 1 : 0.5 }}>
+                    <TD>
+                      {p.product}
+                      {!p.active && <span className="ml-2 text-[11px] uppercase tracking-wider" style={{ color: 'var(--ink-30)' }}>retired</span>}
+                    </TD>
+                    <TD mono>
+                      {p.size}
+                      {p.sold_by === 'pack' && (
+                        <span className="ml-1.5 text-[11px]" style={{ color: 'var(--ink-30)' }}>{fmt(p.litres_per_pack, 3)} L</span>
+                      )}
+                    </TD>
                     <TD style={{ color: p.sold_by === 'litre' ? 'var(--blue)' : 'var(--ink-60)', fontSize: 12 }}>
                       {p.sold_by === 'litre' ? 'the litre' : 'the pack'}
                     </TD>
@@ -767,8 +815,13 @@ function BranchesTab({ branches, products, onChanged }) {
                         <div className="text-[10px] mt-0.5" style={{ color: 'var(--amber)' }}>above retail</div>
                       )}
                     </td>
-                    <td className="px-5 py-2 border-b text-right" style={{ borderColor: 'var(--ink-10)' }}>
+                    <td className="px-5 py-2 border-b text-right whitespace-nowrap" style={{ borderColor: 'var(--ink-10)' }}>
                       {edited && <Btn size="sm" variant="primary" onClick={() => savePrice(p)}>Save</Btn>}
+                      {!edited && (
+                        <Btn size="sm" onClick={() => toggleProduct(p)}>
+                          {p.active ? 'Retire' : 'Restore'}
+                        </Btn>
+                      )}
                     </td>
                   </tr>
                 )
