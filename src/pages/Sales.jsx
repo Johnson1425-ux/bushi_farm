@@ -3,21 +3,28 @@ import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, PageHeader, EmptyState } from '../components/ui'
 import { notify } from '../lib/notify'
 import { usePrompt } from '../lib/ConfirmContext'
+import SalesBook from './SalesBook'
 
 /* ══════════════════════════════════════════════════════════════
    SALES
 
-   Everything the farm sells goes over a branch counter, so every figure
-   here is built from receipts and reconciles with branch stock by
-   construction.
+   Two books, side by side and never added together:
 
-   There was a second tab, for raw milk sold by the litre and kept by
-   hand. Milk sold loose is now an ordinary product measured in litres,
-   so it rings up at the same till with a customer and a payment method
-   against it — and a second place to record a sale would only have split
-   the farm's revenue across two figures that never met. The old rows are
-   still in the database and still reach the AI reports; nothing writes
-   to them any more.
+     Sales book     the farm's sales day book, read in from its workbook
+                    (SalesBook.jsx) — what the shops, the sales people and
+                    the bulk buyers sold, day by day, for as long as that
+                    is still kept on paper.
+
+     Till receipts  what was rung up over a branch counter in the app.
+                    Every figure here is built from receipts and reconciles
+                    with branch stock by construction.
+
+   The first gives way to the second as the sales people start recording
+   in the app. Until then both are shown, each labelled for what it is,
+   because adding them would count the changeover days twice.
+
+   (The old hand-kept bulk-milk table is still in the database and still
+   reaches the AI reports; nothing writes to it any more.)
 
    Voided receipts are excluded everywhere: money that was never taken.
 ══════════════════════════════════════════════════════════════ */
@@ -313,7 +320,19 @@ function BranchSales({ from, to, branchId, branches, onBranch, products }) {
   )
 }
 
+function TabBtn({ label, active, onClick }) {
+  return (
+    <button onClick={onClick} className="px-4 py-2 text-sm font-medium border-0 bg-transparent cursor-pointer"
+      style={{
+        color: active ? 'var(--green-600)' : 'var(--ink-60)',
+        borderBottom: active ? '2px solid var(--green-600)' : '2px solid transparent',
+      }}>{label}</button>
+  )
+}
+
 export default function Sales() {
+  /* The book opens first while it is still where the figures are. */
+  const [tab,      setTab]      = useState('book')
   const [branches, setBranches] = useState([])
   const [products, setProducts] = useState([])
   const [branchId, setBranchId] = useState('')
@@ -325,19 +344,30 @@ export default function Sales() {
 
   return (
     <div style={{ animation: 'fadeUp .2s ease' }}>
-      <PageHeader title="Sales" sub="What the branch tills rang up">
-        <div className="flex gap-2 items-center">
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
-          <span className="text-xs" style={{ color: 'var(--ink-30)' }}>to</span>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} />
-        </div>
+      <PageHeader title="Sales"
+        sub={tab === 'book' ? 'The sales day book, from the workbook' : 'What the branch tills rang up'}>
+        {tab === 'till' && (
+          <div className="flex gap-2 items-center">
+            <input type="date" value={from} onChange={e => setFrom(e.target.value)} />
+            <span className="text-xs" style={{ color: 'var(--ink-30)' }}>to</span>
+            <input type="date" value={to} onChange={e => setTo(e.target.value)} />
+          </div>
+        )}
       </PageHeader>
 
-      <BranchSales
-        from={from} to={to}
-        branchId={branchId} branches={branches} onBranch={setBranchId}
-        products={products}
-      />
+      <div className="flex mb-5 flex-wrap" style={{ borderBottom: '1px solid var(--ink-10)' }}>
+        <TabBtn label="Sales book"    active={tab === 'book'} onClick={() => setTab('book')} />
+        <TabBtn label="Till receipts" active={tab === 'till'} onClick={() => setTab('till')} />
+      </div>
+
+      {tab === 'book' && <SalesBook />}
+      {tab === 'till' && (
+        <BranchSales
+          from={from} to={to}
+          branchId={branchId} branches={branches} onBranch={setBranchId}
+          products={products}
+        />
+      )}
     </div>
   )
 }
