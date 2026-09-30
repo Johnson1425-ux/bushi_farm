@@ -20,6 +20,11 @@ import { notify } from '../lib/notify'
                    for the days behind it
      Workbooks     uploading the file, and what each upload brought in
 
+   Litres come from the day books ("01-SEPTEMBER-2026"), which list what
+   each unit took out pack by pack. Only the days that have a day book
+   have litres; a day without one is not a day of zero litres, and is
+   shown as a dash rather than a nought.
+
    The till's own takings are shown beside the book wherever there are
    any, and never added to it: the day the sales people start ringing
    sales up is a day that could otherwise be counted twice.
@@ -37,6 +42,8 @@ const KINDS = [
 const fmt    = (n) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })
 const fmtTsh = (n) => `TSh ${fmt(n)}`
 const num    = (v) => Number(v) || 0
+const fmt1   = (n) => Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })
+const fmtL   = (n) => `${Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })} L`
 
 /** Big money, short, for cells the eye scans across. */
 function brief(n) {
@@ -229,6 +236,17 @@ function YearView({ year, onOpenMonth, onOpenUnit, reload }) {
                 ))}
                 <TD right mono style={{ fontWeight: 700 }}>{brief(data.total)}</TD>
               </tr>
+              {data.litres?.some(Boolean) && (
+                <tr>
+                  <TD sticky style={{ color: 'var(--ink-60)' }} title="Only days with a day book have litres">Litres (day books)</TD>
+                  {shown.map(i => (
+                    <TD key={i} right mono style={{ color: data.litres[i] ? 'var(--ink-60)' : 'var(--ink-30)' }}>
+                      {data.litres[i] ? fmt(data.litres[i]) : '—'}
+                    </TD>
+                  ))}
+                  <TD right mono style={{ color: 'var(--ink-60)' }}>{fmt(data.litres.reduce((a, b) => a + b, 0))}</TD>
+                </tr>
+              )}
               {hasTill && (
                 <tr>
                   <TD sticky style={{ color: 'var(--blue)' }}>Till (in the app)</TD>
@@ -254,8 +272,9 @@ function YearView({ year, onOpenMonth, onOpenUnit, reload }) {
 
 /* ── the month ───────────────────────────────────────────── */
 
-function MonthView({ year, month, onChange, onOpenUnit, reload }) {
+function MonthView({ year, month, onChange, onOpenUnit, onOpenDay, reload }) {
   const [data, setData] = useState(null)
+  const [measure, setMeasure] = useState('tsh')
 
   useEffect(() => {
     setData(null)
@@ -299,6 +318,19 @@ function MonthView({ year, month, onChange, onOpenUnit, reload }) {
 
   const days = data.days
   const best = days.reduce((a, d) => (d.total > (a?.total || 0) ? d : a), null)
+  const lit = data.litres || { units: [], days: [], total: 0 }
+  const hasLitres = lit.total > 0
+  const inLitres = measure === 'litres' && hasLitres
+
+  /* The grid, in whichever measure is chosen. Litres run over the days
+     that have a day book; a day with money but no day book shows a dash. */
+  const cols = inLitres ? lit.units : data.units
+  const litresByDay = Object.fromEntries(lit.days.map(d => [d.day, d]))
+  const rowsOf = inLitres
+    ? [...new Set([...days.map(d => d.day), ...lit.days.map(d => d.day)])].sort()
+        .map(day => litresByDay[day] || { day, by_unit: {}, total: null })
+    : days
+  const cell = (v) => (inLitres ? fmt1(v) : fmt(v))
 
   return (
     <>
@@ -308,6 +340,8 @@ function MonthView({ year, month, onChange, onOpenUnit, reload }) {
           note={data.whole_month ? 'Month total only' : `${days.length} day${days.length === 1 ? '' : 's'} recorded`} />
         {!data.whole_month && <Tile label="Per day" value={fmtTsh(days.length ? data.total / days.length : 0)} note="Average over the days recorded" />}
         {best && <Tile label="Best day" value={fmtTsh(best.total)} note={best.day} />}
+        {hasLitres && <Tile label="Litres sold" value={fmtL(lit.total)} color="var(--blue)"
+          note={`over ${lit.days.length} day${lit.days.length === 1 ? '' : 's'} with a day book`} />}
         {hasTill && <Tile label="Till (in the app)" value={fmtTsh(data.till_total)} color="var(--blue)" note="Not included above" />}
       </div>
 
@@ -334,32 +368,50 @@ function MonthView({ year, month, onChange, onOpenUnit, reload }) {
         </Card>
       ) : (
         <Card noPad>
-          <div className="px-5 pt-5 pb-3 text-sm font-semibold" style={{ color: 'var(--ink)' }}>Day by day</div>
+          <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="text-sm font-semibold" style={{ color: 'var(--ink)' }}>
+              Day by day{inLitres ? ', in litres' : ''}
+            </div>
+            {hasLitres && (
+              <div className="flex gap-1 rounded-md p-0.5" style={{ background: 'var(--cream-dark)' }}>
+                <SubTab label="Shillings" active={!inLitres} onClick={() => setMeasure('tsh')} />
+                <SubTab label="Litres"    active={inLitres}  onClick={() => setMeasure('litres')} />
+              </div>
+            )}
+          </div>
+          <p className="px-5 pb-3 text-xs" style={{ color: 'var(--ink-60)' }}>
+            Click a date to see what each unit sold that day, product by product.
+            {inLitres && ' Litres are only known for days with a day book; the others show a dash.'}
+          </p>
           <div style={{ overflowX: 'auto' }}>
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr>
                   <TH sticky>Date</TH>
-                  {data.units.map(u => (
+                  {cols.map(u => (
                     <TH key={u.unit} right onClick={() => onOpenUnit(u.unit)} title={`Open ${u.unit}`}>
                       <span style={{ color: 'var(--green-600)' }}>{u.unit}</span>
                     </TH>
                   ))}
                   <TH right>Total</TH>
-                  {hasTill && <TH right>Till</TH>}
+                  {hasTill && !inLitres && <TH right>Till</TH>}
                 </tr>
               </thead>
               <tbody>
-                {days.map(d => (
+                {rowsOf.map(d => (
                   <tr key={d.day}>
-                    <TD sticky mono>{d.day}</TD>
-                    {data.units.map(u => (
+                    <TD sticky mono>
+                      <button onClick={() => onOpenDay(d.day)} title="What each unit sold this day"
+                        className="border-0 bg-transparent cursor-pointer p-0"
+                        style={{ color: 'var(--green-600)', font: 'inherit' }}>{d.day}</button>
+                    </TD>
+                    {cols.map(u => (
                       <TD key={u.unit} right mono style={{ color: d.by_unit[u.unit] ? 'var(--ink)' : 'var(--ink-30)' }}>
-                        {d.by_unit[u.unit] ? fmt(d.by_unit[u.unit]) : '—'}
+                        {d.by_unit[u.unit] ? cell(d.by_unit[u.unit]) : '—'}
                       </TD>
                     ))}
-                    <TD right mono style={{ fontWeight: 600 }}>{fmt(d.total)}</TD>
-                    {hasTill && (
+                    <TD right mono style={{ fontWeight: 600 }}>{d.total === null ? '—' : cell(d.total)}</TD>
+                    {hasTill && !inLitres && (
                       <TD right mono style={{ color: data.till[d.day] ? 'var(--blue)' : 'var(--ink-30)' }}>
                         {data.till[d.day] ? fmt(data.till[d.day]) : '—'}
                       </TD>
@@ -368,9 +420,9 @@ function MonthView({ year, month, onChange, onOpenUnit, reload }) {
                 ))}
                 <tr>
                   <TD sticky style={{ fontWeight: 700 }}>Total</TD>
-                  {data.units.map(u => <TD key={u.unit} right mono style={{ fontWeight: 700 }}>{fmt(u.total)}</TD>)}
-                  <TD right mono style={{ fontWeight: 700, color: 'var(--green-600)' }}>{fmt(data.total)}</TD>
-                  {hasTill && <TD right mono style={{ color: 'var(--blue)' }}>{fmt(data.till_total)}</TD>}
+                  {cols.map(u => <TD key={u.unit} right mono style={{ fontWeight: 700 }}>{cell(u.total)}</TD>)}
+                  <TD right mono style={{ fontWeight: 700, color: 'var(--green-600)' }}>{cell(inLitres ? lit.total : data.total)}</TD>
+                  {hasTill && !inLitres && <TD right mono style={{ color: 'var(--blue)' }}>{fmt(data.till_total)}</TD>}
                 </tr>
               </tbody>
             </table>
@@ -417,6 +469,100 @@ function ShareBar({ value, of }) {
 
 const kindLabel = (kind) => KINDS.find(k => k[0] === kind)?.[1] || ''
 
+/** A day book's lines for one unit: product, pack, how many, at what, litres. */
+function Lines({ lines, showSoldBy }) {
+  return (
+    <table className="w-full border-collapse text-[12px]">
+      <thead>
+        <tr>
+          <TH>Product</TH><TH>Pack</TH><TH right>Units</TH><TH right>Price</TH><TH right>Amount</TH><TH right>Litres</TH>
+          {showSoldBy && <TH>Sold from</TH>}
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((l, i) => (
+          <tr key={i}>
+            <TD>{l.product}</TD>
+            <TD style={{ color: 'var(--ink-60)' }}>{l.pack}</TD>
+            <TD right mono>{fmt1(l.units)}</TD>
+            <TD right mono style={{ color: 'var(--ink-60)' }}>{l.price == null ? '—' : fmt(l.price)}</TD>
+            <TD right mono>{fmt(l.amount)}</TD>
+            <TD right mono style={{ fontWeight: 600 }}>{fmt1(l.litres)}</TD>
+            {showSoldBy && <TD style={{ color: 'var(--ink-60)' }}>{l.sold_by}</TD>}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+/**
+ * One day, the way its day book is laid out: under each shop, sales
+ * person and buyer, what they took out product by product and the
+ * litres it came to.
+ */
+function DayDetail({ date, onClose, onOpenUnit }) {
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    setData(null)
+    apiFetch(`/sales-book/day?date=${date}`).then(setData).catch(e => { notify.error(e.message); onClose() })
+  }, [date, onClose])
+
+  if (!data) return <Modal title={date} onClose={onClose}><div className="text-sm" style={{ color: 'var(--ink-30)' }}>Loading…</div></Modal>
+
+  const withLines = data.units.filter(u => u.lines.length)
+  const without = data.units.filter(u => !u.lines.length && u.amount)
+
+  return (
+    <Modal title={new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+      sub="What each unit sold this day" onClose={onClose}>
+      <div className="grid gap-3 mb-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+        <Tile label="Sales" value={fmtTsh(data.amount)} color="var(--green-600)" />
+        <Tile label="Litres" value={data.has_day_book ? fmtL(data.litres) : '—'} color="var(--blue)"
+          note={data.has_day_book ? null : 'No day book for this day'} />
+      </div>
+
+      {!data.has_day_book && (
+        <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
+          The workbook has no day book for this day, so only what each unit took in shillings is known — not
+          what it sold or how many litres.
+        </p>
+      )}
+
+      {withLines.map(u => (
+        <div key={u.unit} className="mb-5">
+          <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+            <div className="flex items-baseline gap-2">
+              <UnitLink unit={u.unit} onOpen={onOpenUnit} strong />
+              <span className="text-[11px]" style={{ color: 'var(--ink-30)' }}>{kindLabel(u.kind)}</span>
+            </div>
+            <div className="text-[13px]">
+              <strong style={{ color: 'var(--blue)' }}>{fmtL(u.litres)}</strong>
+              <span style={{ color: 'var(--ink-60)' }}> · {fmtTsh(u.amount || u.booked)}</span>
+            </div>
+          </div>
+          {u.amount > 0 && Math.abs(u.amount - u.booked) > 1 && (
+            <div className="text-[11px] mb-1" style={{ color: 'var(--amber)' }}>
+              The day book's lines add up to {fmtTsh(u.booked)}; the SALES BY UNITY sheet has {fmtTsh(u.amount)} —
+              usually bulk sold from here that the sheet puts under the buyer.
+            </div>
+          )}
+          <div style={{ overflowX: 'auto' }}>
+            <Lines lines={u.lines} showSoldBy={u.lines.some(l => l.sold_by !== u.unit)} />
+          </div>
+        </div>
+      ))}
+
+      {data.has_day_book && without.length > 0 && (
+        <p className="text-xs" style={{ color: 'var(--ink-60)' }}>
+          In shillings only, with no lines in the day book: {without.map(u => `${u.unit} (${fmt(u.amount)})`).join(', ')}.
+        </p>
+      )}
+    </Modal>
+  )
+}
+
 /**
  * One unit's sales, month by month, with the days that made each month.
  *
@@ -427,6 +573,7 @@ const kindLabel = (kind) => KINDS.find(k => k[0] === kind)?.[1] || ''
 function UnitDetail({ unit, year, onYear, onClose }) {
   const [data, setData] = useState(null)
   const [open, setOpen] = useState(null)
+  const [openDay, setOpenDay] = useState(null)
 
   useEffect(() => {
     setData(null); setOpen(null)
@@ -451,6 +598,9 @@ function UnitDetail({ unit, year, onYear, onClose }) {
           data.days_recorded > 0 && { label: 'Per day', value: fmtTsh(data.daily_average),
             note: `over ${data.days_recorded} days recorded` },
           data.best_day && { label: 'Best day', value: fmtTsh(data.best_day.amount), note: data.best_day.date },
+          data.litre_days > 0 && { label: 'Litres sold', value: fmtL(data.litres),
+            note: `over ${data.litre_days} day${data.litre_days === 1 ? '' : 's'} with a day book` },
+          data.litre_days > 0 && { label: 'Litres per day', value: fmtL(data.litres_per_day), note: 'on the days with a day book' },
         ].filter(Boolean).map(k => (
           <div key={k.label} className="rounded-lg" style={{ background: 'var(--cream-dark)', padding: '10px 14px' }}>
             <div className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--ink-60)' }}>{k.label}</div>
@@ -475,7 +625,11 @@ function UnitDetail({ unit, year, onYear, onClose }) {
       <div style={{ overflowX: 'auto' }}>
         <table className="w-full border-collapse text-[13px]" style={{ minWidth: 560 }}>
           <thead>
-            <tr><TH>Month</TH><TH right>Days</TH><TH right>Sales</TH><TH right>Share</TH><TH>Against the best month</TH></tr>
+            <tr>
+              <TH>Month</TH><TH right>Days</TH><TH right>Sales</TH>
+              {data.litre_days > 0 && <TH right>Litres</TH>}
+              <TH right>Share</TH><TH>Against the best month</TH>
+            </tr>
           </thead>
           <tbody>
             {rows.map(m => {
@@ -500,17 +654,46 @@ function UnitDetail({ unit, year, onYear, onClose }) {
                     </td>
                     <TD right mono style={{ color: 'var(--ink-60)' }}>{m.days.length || ''}</TD>
                     <TD right mono style={{ fontWeight: m.total ? 600 : 400 }}>{m.total ? fmt(m.total) : '—'}</TD>
+                    {data.litre_days > 0 && (
+                      <TD right mono style={{ color: m.litre_days ? 'var(--blue)' : 'var(--ink-30)' }}
+                        title={m.litre_days ? `${m.litre_days} day(s) with a day book` : 'No day books this month'}>
+                        {m.litre_days ? fmt1(m.litres) : '—'}
+                      </TD>
+                    )}
                     <TD right mono style={{ color: 'var(--ink-60)' }}>{m.total ? `${m.share}%` : ''}</TD>
                     <TD style={{ minWidth: 150 }}>{m.total ? <ShareBar value={m.total} of={best} /> : null}</TD>
                   </tr>
                   {open === m.month && m.days.map(d => (
-                    <tr key={d.date} style={{ background: 'var(--cream-dark)' }}>
-                      <TD mono style={{ color: 'var(--ink-60)', paddingLeft: 30, background: 'var(--cream-dark)' }}>{d.date}</TD>
-                      <TD />
-                      <TD right mono style={{ fontWeight: 600 }}>{fmt(d.amount)}</TD>
-                      <TD />
-                      <TD><ShareBar value={d.amount} of={Math.max(...m.days.map(x => x.amount))} /></TD>
-                    </tr>
+                    <Fragment key={d.date}>
+                      <tr style={{ background: 'var(--cream-dark)' }}>
+                        <TD mono style={{ color: 'var(--ink-60)', paddingLeft: 30, background: 'var(--cream-dark)' }}>
+                          {d.lines?.length ? (
+                            <button onClick={() => setOpenDay(openDay === d.date ? null : d.date)}
+                              className="border-0 bg-transparent cursor-pointer p-0" title="What was sold this day"
+                              style={{ color: 'var(--green-600)', font: 'inherit' }}>
+                              {openDay === d.date ? '▾ ' : '▸ '}{d.date}
+                            </button>
+                          ) : d.date}
+                        </TD>
+                        <TD />
+                        <TD right mono style={{ fontWeight: 600 }}>{d.amount ? fmt(d.amount) : '—'}</TD>
+                        {data.litre_days > 0 && (
+                          <TD right mono style={{ color: d.litres != null ? 'var(--blue)' : 'var(--ink-30)' }}>
+                            {d.litres != null ? fmt1(d.litres) : '—'}
+                          </TD>
+                        )}
+                        <TD />
+                        <TD><ShareBar value={d.amount} of={Math.max(...m.days.map(x => x.amount))} /></TD>
+                      </tr>
+                      {openDay === d.date && (
+                        <tr>
+                          <td colSpan={data.litre_days > 0 ? 6 : 5} className="px-3 py-2 border-b"
+                            style={{ borderColor: 'var(--ink-10)', paddingLeft: 30 }}>
+                            <Lines lines={d.lines} showSoldBy={d.lines.some(l => l.sold_by !== data.unit)} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </Fragment>
               )
@@ -519,12 +702,39 @@ function UnitDetail({ unit, year, onYear, onClose }) {
               <TD style={{ fontWeight: 700 }}>{year}</TD>
               <TD right mono style={{ color: 'var(--ink-60)' }}>{data.days_recorded || ''}</TD>
               <TD right mono style={{ fontWeight: 700 }}>{fmt(data.total)}</TD>
+              {data.litre_days > 0 && <TD right mono style={{ fontWeight: 700, color: 'var(--blue)' }}>{fmt1(data.litres)}</TD>}
               <TD right mono style={{ color: 'var(--ink-60)' }}>{data.share}%</TD>
               <TD />
             </tr>
           </tbody>
         </table>
       </div>
+
+      {data.products?.length > 0 && (
+        <div className="mt-5">
+          <div className="text-sm font-semibold mb-1" style={{ color: 'var(--ink)' }}>What was sold, {year}</div>
+          <p className="text-xs mb-2" style={{ color: 'var(--ink-60)' }}>
+            From the {data.litre_days} day book{data.litre_days === 1 ? '' : 's'} in the workbook, most litres first.
+          </p>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="w-full border-collapse text-[13px]" style={{ minWidth: 480 }}>
+              <thead><tr><TH>Product</TH><TH>Pack</TH><TH right>Units</TH><TH right>Litres</TH><TH right>Amount</TH><TH>Share of litres</TH></tr></thead>
+              <tbody>
+                {data.products.map(p => (
+                  <tr key={`${p.product}|${p.pack}`}>
+                    <TD>{p.product}</TD>
+                    <TD style={{ color: 'var(--ink-60)' }}>{p.pack}</TD>
+                    <TD right mono>{fmt1(p.units)}</TD>
+                    <TD right mono style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt1(p.litres)}</TD>
+                    <TD right mono>{fmt(p.amount)}</TD>
+                    <TD style={{ minWidth: 120 }}><ShareBar value={p.litres} of={data.litres} /></TD>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {data.years.length > 1 && (
         <div className="mt-5">
@@ -567,7 +777,8 @@ function UnitsView({ year, onOpenUnit, reload }) {
     <>
       <p className="text-sm mb-4" style={{ color: 'var(--ink-60)' }}>
         Every shop, sales person and bulk buyer in the sales book. Open one for its sales month by
-        month, and a month for the days behind it.
+        month, and a month for the days behind it. Litres come from the day books, so they cover
+        only the days that have one{data.year_litres ? ` — ${fmtL(data.year_litres)} in ${year} so far` : ''}.
       </p>
       {grouped(data.units).map(g => {
         const sub = g.units.reduce((a, u) => a + u.year_total, 0)
@@ -585,7 +796,7 @@ function UnitsView({ year, onOpenUnit, reload }) {
                 <thead>
                   <tr>
                     <TH>Unit</TH><TH right>{year}</TH><TH right>Share</TH><TH />
-                    <TH right>Months</TH><TH right>Days</TH><TH>Last day recorded</TH>
+                    <TH right>Litres</TH><TH right>Months</TH><TH right>Days</TH><TH>Last day recorded</TH>
                   </tr>
                 </thead>
                 <tbody>
@@ -597,6 +808,10 @@ function UnitsView({ year, onOpenUnit, reload }) {
                         {data.year_total && u.year_total ? `${Math.round((u.year_total / data.year_total) * 1000) / 10}%` : ''}
                       </TD>
                       <TD style={{ minWidth: 120 }}>{u.year_total ? <ShareBar value={u.year_total} of={top} /> : null}</TD>
+                      <TD right mono style={{ color: u.year_litres ? 'var(--blue)' : 'var(--ink-30)' }}
+                        title={u.litre_days ? `from ${u.litre_days} day book(s)` : 'No day book lines'}>
+                        {u.year_litres ? fmt1(u.year_litres) : '—'}
+                      </TD>
                       <TD right mono style={{ color: 'var(--ink-60)' }}>{u.months}</TD>
                       <TD right mono style={{ color: 'var(--ink-60)' }}>{u.days || '—'}</TD>
                       <TD mono style={{ color: 'var(--ink-60)' }}>{u.last_day || '—'}</TD>
@@ -625,6 +840,19 @@ function ImportResult({ result, onClose, onOpenYear }) {
             style={{ color: 'var(--ink-30)' }}>✕</button>
         </span>
       </CardTitle>
+
+      {result.books?.length > 0 ? (
+        <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
+          <strong style={{ color: 'var(--blue)' }}>{fmtL(result.litres)}</strong> read from {result.books.length} day
+          book{result.books.length === 1 ? '' : 's'} ({result.books[0].date}
+          {result.books.length > 1 ? ` to ${result.books[result.books.length - 1].date}` : ''}) — the only days with
+          litres, product by product.
+        </p>
+      ) : (
+        <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
+          No day books were in this workbook, so no litres were read — only shillings.
+        </p>
+      )}
 
       {result.replaced_months?.length > 0 && (
         <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
@@ -803,6 +1031,8 @@ export default function SalesBook() {
   const [unitYear, setUnitYear] = useState(year)
   const openUnitFor = (u) => { setUnitYear(year); setOpenUnit(u) }
   const closeUnit = useCallback(() => setOpenUnit(null), [])
+  const [openDay, setOpenDay] = useState(null)
+  const closeDay = useCallback(() => setOpenDay(null), [])
 
   useEffect(() => {
     apiFetch('/sales-book/years').then(ys => {
@@ -835,8 +1065,9 @@ export default function SalesBook() {
 
       {view === 'year'  && <YearView year={year} onOpenMonth={openMonth} onOpenUnit={openUnitFor} reload={reload} />}
       {view === 'units' && <UnitsView year={year} onOpenUnit={openUnitFor} reload={reload} />}
-      {view === 'month' && <MonthView year={year} month={month} reload={reload} onOpenUnit={openUnitFor}
+      {view === 'month' && <MonthView year={year} month={month} reload={reload} onOpenUnit={openUnitFor} onOpenDay={setOpenDay}
         onChange={(y, m) => { setYear(y); setMonth(m) }} />}
+      {openDay && <DayDetail date={openDay} onClose={closeDay} onOpenUnit={u => { setOpenDay(null); openUnitFor(u) }} />}
       {openUnit && <UnitDetail unit={openUnit} year={unitYear} onYear={setUnitYear} onClose={closeUnit} />}
       {view === 'books' && <BooksView onImported={() => setReload(n => n + 1)} onOpenYear={() => setView('year')} />}
     </div>
