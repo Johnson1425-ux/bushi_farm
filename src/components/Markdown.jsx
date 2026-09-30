@@ -86,7 +86,7 @@ function Table({ rows, keyPrefix }) {
 
 /* ── block parser ────────────────────────────────────────── */
 
-export default function Markdown({ text = '', className = '' }) {
+function Markdown({ text = '', className = '' }) {
   const lines  = String(text).replace(/\r\n/g, '\n').split('\n')
   const blocks = []
   let i = 0
@@ -215,3 +215,7 @@ export default function Markdown({ text = '', className = '' }) {
 
   return <div className={className}>{blocks}</div>
 }
+
+/* Memoised so a chat re-renders only the answer still streaming in, not
+   every earlier answer on each new word. */
+export default React.memo(Markdown)

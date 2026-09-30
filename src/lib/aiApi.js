@@ -11,8 +11,15 @@ import { authHeaders } from './session'
  *           onDone({reportId, model, usage}), onError({error})
  * Returns an abort function.
  */
+/* The server writes a keep-alive line every 15 seconds while it works, so
+   this long with nothing at all means the connection is gone even though the
+   browser has not noticed. */
+const STALL_MS = 60000
+
 export function streamAi(path, body, handlers = {}) {
   const controller = new AbortController()
+  let stalled = false
+  let finished = false     // a done or error event has been delivered
 
   const run = async () => {
     let res
@@ -64,16 +71,24 @@ export function streamAi(path, body, handlers = {}) {
         case 'delta':   handlers.onDelta?.(payload.text || ''); break
         case 'tool':    handlers.onTool?.(payload); break
         case 'warning': handlers.onWarning?.(payload); break
-        case 'done':    handlers.onDone?.(payload); break
-        case 'error':   handlers.onError?.(payload); break
+        case 'done':    finished = true; handlers.onDone?.(payload); break
+        case 'error':   finished = true; handlers.onError?.(payload); break
         default: break
       }
     }
 
+    let watchdog
+    const arm = () => {
+      clearTimeout(watchdog)
+      watchdog = setTimeout(() => { stalled = true; controller.abort() }, STALL_MS)
+    }
+
     try {
+      arm()
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
+        arm()
         buffer += decoder.decode(value, { stream: true })
 
         let split
@@ -85,9 +100,23 @@ export function streamAi(path, body, handlers = {}) {
       }
       if (buffer.trim()) dispatch(buffer)
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        handlers.onError?.({ error: 'The connection dropped while generating' })
+      if (err.name !== 'AbortError' || stalled) {
+        finished = true
+        handlers.onError?.({
+          error: stalled
+            ? 'The server stopped responding. Try again, or ask a narrower question.'
+            : 'The connection dropped while generating',
+        })
       }
+    } finally {
+      clearTimeout(watchdog)
+    }
+
+    /* The stream closed without saying it was done — the host cut the
+       function off, or a proxy closed the connection. Without this the page
+       would sit in its busy state with nothing left to wake it. */
+    if (!finished && !controller.signal.aborted) {
+      handlers.onError?.({ error: 'The answer was cut off before it finished. Try again.' })
     }
   }
 
