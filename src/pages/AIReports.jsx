@@ -217,9 +217,24 @@ function AskTab() {
   const [error, setError]       = useState('')
   const abortRef = useRef(null)
   const bottomRef = useRef(null)
+  const pendingRef = useRef('')     // text received but not yet drawn
+  const frameRef = useRef(0)
 
-  useEffect(() => () => abortRef.current?.(), [])
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, tool])
+  useEffect(() => () => { abortRef.current?.(); cancelAnimationFrame(frameRef.current) }, [])
+  /* A smooth scroll started on every streamed word never finishes before the
+     next one begins, which is enough to make the page feel frozen. Jump
+     while text is arriving; glide only once it has settled. */
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: busy ? 'auto' : 'smooth', block: 'end' })
+  }, [messages, tool, busy])
+
+  const stop = () => {
+    abortRef.current?.()
+    abortRef.current = null
+    cancelAnimationFrame(frameRef.current)
+    pendingRef.current = ''
+    setTool(''); setBusy(false)
+  }
 
   const ask = (question) => {
     const q = (question ?? input).trim()
@@ -231,17 +246,34 @@ function AskTab() {
     setMessages(prev => [...prev, { role: 'user', content: q }, { role: 'assistant', content: '' }])
     setInput(''); setError(''); setTool(''); setBusy(true)
 
-    const appendToLast = (t) => setMessages(prev => {
-      const next = [...prev]
-      next[next.length - 1] = { ...next[next.length - 1], content: next[next.length - 1].content + t }
-      return next
-    })
+    /* Words arrive faster than the screen redraws. Collect them and draw once
+       per frame instead of re-rendering the conversation for every one. */
+    const flush = () => {
+      frameRef.current = 0
+      const t = pendingRef.current
+      if (!t) return
+      pendingRef.current = ''
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = { ...next[next.length - 1], content: next[next.length - 1].content + t }
+        return next
+      })
+    }
+    const appendToLast = (t) => {
+      pendingRef.current += t
+      if (!frameRef.current) frameRef.current = requestAnimationFrame(flush)
+    }
+    const finish = () => {
+      cancelAnimationFrame(frameRef.current)
+      flush()
+      setTool(''); setBusy(false)
+    }
 
     abortRef.current = streamAi('/ai/chat', { message: q, history }, {
       onDelta: (t) => { setTool(''); appendToLast(t) },
       onTool:  (c) => setTool(TOOL_LABELS[c.name] || `Running ${c.name}`),
-      onError: (e) => { setError(e.error); setTool(''); setBusy(false) },
-      onDone:  () => { setTool(''); setBusy(false) },
+      onError: (e) => { setError(e.error); finish() },
+      onDone:  finish,
     })
   }
 
@@ -250,7 +282,7 @@ function AskTab() {
       <CardTitle>
         <span>Ask about the farm</span>
         {messages.length > 0 && (
-          <Btn size="sm" onClick={() => { abortRef.current?.(); setMessages([]); setBusy(false); setError('') }}>
+          <Btn size="sm" onClick={() => { stop(); setMessages([]); setError('') }}>
             Clear
           </Btn>
         )}
@@ -318,9 +350,11 @@ function AskTab() {
           className="flex-1 px-3 py-2 rounded-lg border text-[13.5px]"
           style={{ borderColor: 'var(--ink-10)', background: 'var(--surface)', color: 'var(--ink)' }}
         />
-        <Btn variant="primary" onClick={() => ask()} disabled={busy || !input.trim()}>
-          {busy ? <Spinner /> : 'Ask'}
-        </Btn>
+        {busy ? (
+          <Btn onClick={stop}>Stop</Btn>
+        ) : (
+          <Btn variant="primary" onClick={() => ask()} disabled={!input.trim()}>Ask</Btn>
+        )}
       </div>
     </Card>
   )
