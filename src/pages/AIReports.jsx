@@ -3,7 +3,7 @@ import { useAuth } from '../lib/AuthContext'
 import { Card, CardTitle, Btn, PageHeader, EmptyState, Spinner } from '../components/ui'
 import Markdown from '../components/Markdown'
 import {
-  streamAi, aiStatus, listAiReports, getAiReport, deleteAiReport, getCowSummary,
+  streamAi, aiStatus, listAiReports, getAiReport, deleteAiReport, getCowSummary, getChatAnswer,
 } from '../lib/aiApi'
 
 /* ── date helpers ────────────────────────────────────────── */
@@ -202,6 +202,14 @@ const TOOL_LABELS = {
   get_alerts:      'Checking current alerts',
 }
 
+const newRequestId = () =>
+  globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+
+/* After a broken stream, how often to ask whether the answer is ready and for
+   how long. The server gives up on a question after four minutes. */
+const RECOVER_EVERY_MS = 3000
+const RECOVER_FOR_MS   = 5 * 60 * 1000
+
 const SUGGESTIONS = [
   'Which cows dropped output the most this month?',
   'How much milk did we sell last week, and what did it earn?',
@@ -219,8 +227,12 @@ function AskTab() {
   const bottomRef = useRef(null)
   const pendingRef = useRef('')     // text received but not yet drawn
   const frameRef = useRef(0)
+  const recoverRef = useRef(0)      // timer while collecting a saved answer
+  const runRef = useRef(0)          // bumped by each question and by Stop
 
-  useEffect(() => () => { abortRef.current?.(); cancelAnimationFrame(frameRef.current) }, [])
+  useEffect(() => () => {
+    abortRef.current?.(); cancelAnimationFrame(frameRef.current); clearTimeout(recoverRef.current)
+  }, [])
   /* A smooth scroll started on every streamed word never finishes before the
      next one begins, which is enough to make the page feel frozen. Jump
      while text is arriving; glide only once it has settled. */
@@ -231,7 +243,9 @@ function AskTab() {
   const stop = () => {
     abortRef.current?.()
     abortRef.current = null
+    runRef.current++
     cancelAnimationFrame(frameRef.current)
+    clearTimeout(recoverRef.current)
     pendingRef.current = ''
     setTool(''); setBusy(false)
   }
@@ -263,17 +277,65 @@ function AskTab() {
       pendingRef.current += t
       if (!frameRef.current) frameRef.current = requestAnimationFrame(flush)
     }
+    const replaceLast = (text) => {
+      cancelAnimationFrame(frameRef.current)
+      frameRef.current = 0
+      pendingRef.current = ''
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = { ...next[next.length - 1], content: text }
+        return next
+      })
+    }
     const finish = () => {
       cancelAnimationFrame(frameRef.current)
       flush()
       setTool(''); setBusy(false)
     }
 
-    abortRef.current = streamAi('/ai/chat', { message: q, history }, {
+    const requestId = newRequestId()
+    const run = ++runRef.current
+
+    /* The stream broke, but the server keeps going and saves the answer.
+       Ask for it until it is ready rather than leaving a half-written reply. */
+    const recover = (lostError) => {
+      const startedAt = Date.now()
+      let misses = 0
+      setTool('Connection dropped, fetching the answer')
+      const poll = async () => {
+        let answer = null
+        try {
+          answer = await getChatAnswer(requestId)
+        } catch {
+          misses++   // not recorded (the question never arrived) or a network blip
+        }
+        if (run !== runRef.current) return   // stopped or cleared meanwhile
+        if (answer?.status === 'done') {
+          replaceLast(answer.content)
+          return finish()
+        }
+        if (answer?.status === 'error') {
+          if (answer.content) replaceLast(answer.content)
+          setError(answer.error || lostError)
+          return finish()
+        }
+        if (misses >= 5 || Date.now() - startedAt > RECOVER_FOR_MS) {
+          setError(lostError)
+          return finish()
+        }
+        recoverRef.current = setTimeout(poll, RECOVER_EVERY_MS)
+      }
+      poll()
+    }
+
+    abortRef.current = streamAi('/ai/chat', { message: q, history, request_id: requestId }, {
       onDelta: (t) => { setTool(''); appendToLast(t) },
       onTool:  (c) => setTool(TOOL_LABELS[c.name] || `Running ${c.name}`),
       onError: (e) => { setError(e.error); finish() },
-      onDone:  finish,
+      onLost:  (e) => recover(e.error),
+      // The full text rides on the done event, so a word lost on the way
+      // cannot leave the answer with a hole in it.
+      onDone:  (d) => { if (typeof d?.text === 'string' && d.text) replaceLast(d.text); finish() },
     })
   }
 
