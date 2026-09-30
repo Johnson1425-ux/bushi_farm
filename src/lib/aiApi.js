@@ -8,16 +8,21 @@ import { authHeaders } from './session'
  * stream is read off fetch() and the SSE frames are parsed by hand.
  *
  * Handlers: onDelta(text), onTool({name, input}), onWarning({message}),
- *           onDone({reportId, model, usage}), onError({error})
+ *           onDone({reportId, model, usage}), onError({error}),
+ *           onLost({error}) — the connection broke or went quiet before the
+ *           server said it was finished. The server may still finish; a
+ *           caller that can collect the answer another way passes this, and
+ *           anyone else gets onError instead.
  * Returns an abort function.
  */
 /* The server writes a keep-alive line every 15 seconds while it works, so
    this long with nothing at all means the connection is gone even though the
    browser has not noticed. */
-const STALL_MS = 60000
+const STALL_MS = 35000
 
 export function streamAi(path, body, handlers = {}) {
   const controller = new AbortController()
+  const lost = (error) => (handlers.onLost || handlers.onError)?.({ error })
   let stalled = false
   let finished = false     // a done or error event has been delivered
 
@@ -36,7 +41,7 @@ export function streamAi(path, body, handlers = {}) {
         body: JSON.stringify(body || {}),
       })
     } catch (err) {
-      if (err.name !== 'AbortError') handlers.onError?.({ error: 'Could not reach the server' })
+      if (err.name !== 'AbortError') lost('Could not reach the server')
       return
     }
 
@@ -102,11 +107,9 @@ export function streamAi(path, body, handlers = {}) {
     } catch (err) {
       if (err.name !== 'AbortError' || stalled) {
         finished = true
-        handlers.onError?.({
-          error: stalled
-            ? 'The server stopped responding. Try again, or ask a narrower question.'
-            : 'The connection dropped while generating',
-        })
+        lost(stalled
+          ? 'The server stopped responding. Try again, or ask a narrower question.'
+          : 'The connection dropped while generating')
       }
     } finally {
       clearTimeout(watchdog)
@@ -116,7 +119,7 @@ export function streamAi(path, body, handlers = {}) {
        function off, or a proxy closed the connection. Without this the page
        would sit in its busy state with nothing left to wake it. */
     if (!finished && !controller.signal.aborted) {
-      handlers.onError?.({ error: 'The answer was cut off before it finished. Try again.' })
+      lost('The answer was cut off before it finished. Try again.')
     }
   }
 
@@ -134,6 +137,8 @@ export const listAiReports  = (params = {}) => {
   return apiFetch(`/ai/reports${q ? `?${q}` : ''}`)
 }
 export const getAiReport    = (id) => apiFetch(`/ai/reports/${id}`)
+/** A chat answer saved by the server: {status: running|done|error, content, error}. */
+export const getChatAnswer  = (id) => apiFetch(`/ai/chat/${encodeURIComponent(id)}`)
 export const deleteAiReport = (id) => apiFetch(`/ai/reports/${id}`, { method: 'DELETE' })
 
 /** Today's cached briefing, or null when none has been generated yet. */
