@@ -1,6 +1,6 @@
 import { Fragment, useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch } from '../lib/api'
-import { Card, CardTitle, Btn, EmptyState, Spinner, RowMenu } from '../components/ui'
+import { Card, CardTitle, Btn, EmptyState, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
 
@@ -467,35 +467,71 @@ export default function UnitsSold({ onOpenUnit, reload }) {
   )
 }
 
-/* ── the upload ──────────────────────────────────────────── */
+/* ── what an upload brought in, and the uploads held ──
+   The upload itself is the Workbooks tab's single button (SalesBook.jsx);
+   these show a UNIT SOLD workbook once it has been read. */
 
-export function UnitsSoldBooks({ onImported }) {
+export function UnitsSoldResult({ result, onClose, onOpen }) {
+  return (
+    <Card>
+      <CardTitle>
+        UNIT SOLD workbook — {fmtL(result.litres)} over {result.months.length} month{result.months.length === 1 ? '' : 's'}
+        <span className="flex items-center gap-2">
+          {onOpen && <Btn size="sm" variant="primary" onClick={onOpen}>See litres &amp; units</Btn>}
+          <button onClick={onClose} className="border-0 bg-transparent cursor-pointer text-[16px] leading-none"
+            style={{ color: 'var(--ink-30)' }}>✕</button>
+        </span>
+      </CardTitle>
+      {result.replaced_months?.length > 0 && (
+        <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
+          {result.replaced_months.length} month{result.replaced_months.length === 1 ? ' was' : 's were'} already
+          held and {result.replaced_months.length === 1 ? 'has' : 'have'} been replaced, so nothing is counted twice.
+        </p>
+      )}
+      <div style={{ overflowX: 'auto' }}>
+        <table className="w-full border-collapse text-[13px] mb-4" style={{ minWidth: 480 }}>
+          <thead><tr><TH>Month</TH><TH right>Days</TH><TH right>Fresh</TH><TH right>Processed</TH><TH right>All milk</TH></tr></thead>
+          <tbody>
+            {result.months.map(m => (
+              <tr key={m.month}>
+                <TD style={{ fontWeight: 600 }}>{m.label}</TD>
+                <TD right mono style={{ color: 'var(--ink-60)' }}>{m.days}</TD>
+                <TD right mono>{fmt(m.fresh)}</TD>
+                <TD right mono>{fmt(m.processed)}</TD>
+                <TD right mono style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt(m.litres)}</TD>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {result.warnings?.length > 0 && (
+        <div className="mb-3">
+          <div className="text-sm font-semibold mb-1" style={{ color: 'var(--amber)' }}>Worth a look</div>
+          <ul className="text-[12px] pl-5 list-disc" style={{ color: 'var(--ink-60)' }}>
+            {result.warnings.map((w, i) => <li key={i} className="mb-1">{w}</li>)}
+          </ul>
+        </div>
+      )}
+      {result.skipped?.length > 0 && (
+        <details>
+          <summary className="text-sm font-semibold cursor-pointer" style={{ color: 'var(--ink)' }}>Sheets left out ({result.skipped.length})</summary>
+          <ul className="text-[12px] pl-5 list-disc mt-2" style={{ color: 'var(--ink-60)' }}>
+            {result.skipped.map((s, i) => <li key={i}><strong>{s.sheet}</strong> — {s.why}</li>)}
+          </ul>
+        </details>
+      )}
+    </Card>
+  )
+}
+
+export function UnitsSoldUploads({ reload, onRemoved }) {
   const confirm = useConfirm()
   const [imports, setImports] = useState(null)
-  const [result, setResult] = useState(null)
-  const [issues, setIssues] = useState([])
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef()
 
   const load = useCallback(async () => {
     try { setImports(await apiFetch('/units-sold/imports')) } catch (e) { notify.error(e.message) }
   }, [])
-  useEffect(() => { load() }, [load])
-
-  const upload = async (file) => {
-    setUploading(true); setIssues([]); setResult(null)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const data = await apiFetch('/units-sold/import', { method: 'POST', body: fd })
-      setResult(data)
-      notify.success(`${fmtL(data.litres)} read in from ${file.name}.`)
-      load(); onImported()
-    } catch (e) {
-      if (e.body?.issues?.length) setIssues(e.body.issues)
-      notify.error(e.message)
-    } finally { setUploading(false) }
-  }
+  useEffect(() => { load() }, [load, reload])
 
   const remove = async (imp) => {
     const ok = await confirm({
@@ -505,110 +541,35 @@ export function UnitsSoldBooks({ onImported }) {
       confirmLabel: 'Remove',
     })
     if (!ok) return
-    try { await apiFetch(`/units-sold/imports/${imp.id}`, { method: 'DELETE' }); load(); onImported() }
+    try { await apiFetch(`/units-sold/imports/${imp.id}`, { method: 'DELETE' }); load(); onRemoved() }
     catch (e) { notify.error(e.message) }
   }
 
   return (
-    <>
-      <Card>
-        <CardTitle>Upload the UNIT SOLD workbook</CardTitle>
-        <p className="text-sm mb-3" style={{ color: 'var(--ink-60)' }}>
-          Litres and units sold come from here — a sheet per month, the days across the top, fresh milk by
-          outlet and processed milk by pack down the side. Every month in the file replaces what was held for
-          it, so upload the latest copy whenever it changes.
-        </p>
-        <p className="text-xs mb-4" style={{ color: 'var(--ink-30)' }}>
-          The YEARLY and MONTHLY sheets are sums of the month sheets and are not read. Anything below TOTAL
-          PROCESSED MILK SOLD — production, damages, calves — is not a sale and is left out.
-        </p>
-        <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
-          onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
-        <Btn variant="primary" disabled={uploading} onClick={() => fileRef.current?.click()}>
-          {uploading ? <><Spinner />Reading the workbook…</> : 'Choose a workbook'}
-        </Btn>
-      </Card>
-
-      {issues.length > 0 && (
-        <Card>
-          <div className="text-sm font-semibold mb-1" style={{ color: 'var(--red)' }}>The workbook could not be imported</div>
-          <ul className="text-[13px] pl-5 list-disc" style={{ color: 'var(--red)' }}>{issues.map((s, i) => <li key={i}>{s}</li>)}</ul>
-        </Card>
-      )}
-
-      {result && (
-        <Card>
-          <CardTitle>
-            {fmtL(result.litres)} read in — {result.months.length} month{result.months.length === 1 ? '' : 's'}
-            <button onClick={() => setResult(null)} className="border-0 bg-transparent cursor-pointer text-[16px] leading-none"
-              style={{ color: 'var(--ink-30)' }}>✕</button>
-          </CardTitle>
-          {result.replaced_months?.length > 0 && (
-            <p className="text-xs mb-3" style={{ color: 'var(--ink-60)' }}>
-              {result.replaced_months.length} month{result.replaced_months.length === 1 ? ' was' : 's were'} already
-              held and {result.replaced_months.length === 1 ? 'has' : 'have'} been replaced, so nothing is counted twice.
-            </p>
-          )}
-          <div style={{ overflowX: 'auto' }}>
-            <table className="w-full border-collapse text-[13px] mb-4" style={{ minWidth: 480 }}>
-              <thead><tr><TH>Month</TH><TH right>Days</TH><TH right>Fresh</TH><TH right>Processed</TH><TH right>All milk</TH></tr></thead>
-              <tbody>
-                {result.months.map(m => (
-                  <tr key={m.month}>
-                    <TD style={{ fontWeight: 600 }}>{m.label}</TD>
-                    <TD right mono style={{ color: 'var(--ink-60)' }}>{m.days}</TD>
-                    <TD right mono>{fmt(m.fresh)}</TD>
-                    <TD right mono>{fmt(m.processed)}</TD>
-                    <TD right mono style={{ fontWeight: 600, color: 'var(--blue)' }}>{fmt(m.litres)}</TD>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {result.warnings?.length > 0 && (
-            <div className="mb-3">
-              <div className="text-sm font-semibold mb-1" style={{ color: 'var(--amber)' }}>Worth a look</div>
-              <ul className="text-[12px] pl-5 list-disc" style={{ color: 'var(--ink-60)' }}>
-                {result.warnings.map((w, i) => <li key={i} className="mb-1">{w}</li>)}
-              </ul>
-            </div>
-          )}
-          {result.skipped?.length > 0 && (
-            <details>
-              <summary className="text-sm font-semibold cursor-pointer" style={{ color: 'var(--ink)' }}>Sheets left out ({result.skipped.length})</summary>
-              <ul className="text-[12px] pl-5 list-disc mt-2" style={{ color: 'var(--ink-60)' }}>
-                {result.skipped.map((s, i) => <li key={i}><strong>{s.sheet}</strong> — {s.why}</li>)}
-              </ul>
-            </details>
-          )}
-        </Card>
-      )}
-
-      <Card noPad>
-        <div className="px-5 pt-5 pb-3 text-sm font-semibold" style={{ color: 'var(--ink)' }}>UNIT SOLD uploads</div>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
-            <thead><tr><TH>File</TH><TH>Months held</TH><TH right>Litres</TH><TH>Uploaded</TH><TH /></tr></thead>
-            <tbody>
-              {imports && imports.length === 0 && (
-                <tr><td colSpan={5}><EmptyState>No UNIT SOLD workbook has been uploaded yet.</EmptyState></td></tr>
-              )}
-              {(imports || []).map(i => (
-                <tr key={i.id}>
-                  <TD style={{ fontWeight: 600 }}>{i.filename}</TD>
-                  <TD style={{ color: 'var(--ink-60)' }}>{i.covers || '—'}</TD>
-                  <TD right mono style={{ fontWeight: 600 }}>{fmt(i.litres)}</TD>
-                  <TD mono style={{ color: 'var(--ink-60)' }}>
-                    {String(i.uploaded_at).slice(0, 10)}
-                    {i.uploaded_by && <span style={{ color: 'var(--ink-30)' }}> · {i.uploaded_by}</span>}
-                  </TD>
-                  <TD right><RowMenu items={[{ label: 'Remove this upload', danger: true, onClick: () => remove(i) }]} /></TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    </>
+    <Card noPad>
+      <div className="px-5 pt-5 pb-3 text-sm font-semibold" style={{ color: 'var(--ink)' }}>UNIT SOLD workbooks uploaded</div>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
+          <thead><tr><TH>File</TH><TH>Months held</TH><TH right>Litres</TH><TH>Uploaded</TH><TH /></tr></thead>
+          <tbody>
+            {imports && imports.length === 0 && (
+              <tr><td colSpan={5}><EmptyState>No UNIT SOLD workbook has been uploaded yet.</EmptyState></td></tr>
+            )}
+            {(imports || []).map(i => (
+              <tr key={i.id}>
+                <TD style={{ fontWeight: 600 }}>{i.filename}</TD>
+                <TD style={{ color: 'var(--ink-60)' }}>{i.covers || '—'}</TD>
+                <TD right mono style={{ fontWeight: 600 }}>{fmt(i.litres)}</TD>
+                <TD mono style={{ color: 'var(--ink-60)' }}>
+                  {String(i.uploaded_at).slice(0, 10)}
+                  {i.uploaded_by && <span style={{ color: 'var(--ink-30)' }}> · {i.uploaded_by}</span>}
+                </TD>
+                <TD right><RowMenu items={[{ label: 'Remove this upload', danger: true, onClick: () => remove(i) }]} /></TD>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   )
 }

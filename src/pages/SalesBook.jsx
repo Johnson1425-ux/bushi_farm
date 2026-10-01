@@ -3,7 +3,7 @@ import { apiFetch } from '../lib/api'
 import { Card, CardTitle, Btn, EmptyState, Spinner, RowMenu } from '../components/ui'
 import { useConfirm } from '../lib/ConfirmContext'
 import { notify } from '../lib/notify'
-import UnitsSold, { UnitsSoldBooks } from './UnitsSold'
+import UnitsSold, { UnitsSoldResult, UnitsSoldUploads } from './UnitsSold'
 
 /* ══════════════════════════════════════════════════════════════
    THE SALES BOOK
@@ -710,10 +710,17 @@ function ImportResult({ result, onClose, onOpenYear }) {
   )
 }
 
-function BooksView({ onImported, onOpenYear }) {
+/**
+ * The Workbooks tab: one upload for both of the farm's workbooks. The
+ * server tells the sales book from the UNIT SOLD workbook by its sheets
+ * (see /sales-book/upload) and says which it read, and the summary and
+ * the list it lands in follow from that.
+ */
+function BooksView({ onImported, onOpenYear, onOpenLitres, reload }) {
   const confirm = useConfirm()
   const [imports, setImports] = useState(null)
   const [result, setResult] = useState(null)
+  const [unitsResult, setUnitsResult] = useState(null)
   const [issues, setIssues] = useState([])
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef()
@@ -723,16 +730,21 @@ function BooksView({ onImported, onOpenYear }) {
     catch (e) { notify.error(e.message) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [load, reload])
 
   const upload = async (file) => {
-    setUploading(true); setIssues([]); setResult(null)
+    setUploading(true); setIssues([]); setResult(null); setUnitsResult(null)
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const data = await apiFetch('/sales-book/import', { method: 'POST', body: fd })
-      setResult(data)
-      notify.success(`${fmt(data.entries)} lines read in from ${file.name}.`)
+      const data = await apiFetch('/sales-book/upload', { method: 'POST', body: fd })
+      if (data.kind === 'units') {
+        setUnitsResult(data)
+        notify.success(`Read as a UNIT SOLD workbook: ${fmt1(data.litres)} litres from ${file.name}.`)
+      } else {
+        setResult(data)
+        notify.success(`Read as a sales workbook: ${fmt(data.entries)} lines from ${file.name}.`)
+      }
       load(); onImported()
     } catch (e) {
       /* A 422 carries the reasons the file could not be read, which are
@@ -757,16 +769,25 @@ function BooksView({ onImported, onOpenYear }) {
   return (
     <>
       <Card>
-        <CardTitle>Upload the sales workbook</CardTitle>
+        <CardTitle>Upload a workbook</CardTitle>
         <p className="text-sm mb-3" style={{ color: 'var(--ink-60)' }}>
-          The sales day book as it is kept — no template to fill in. Every <strong>SALES BY UNITY</strong> sheet
-          is read day by day, one column per shop, sales person and bulk buyer. Months before the daily sheets
-          start are taken from <strong>MONTHLY SALES BY UNITY</strong> as one figure per unit.
+          Either of the farm's two workbooks, as it is kept — the app works out which one it is from its sheets:
         </p>
+        <ul className="text-sm mb-3 pl-5 list-disc" style={{ color: 'var(--ink-60)' }}>
+          <li className="mb-1">
+            <strong>The sales workbook</strong> (SDB) — shillings. Every <strong>SALES BY UNITY</strong> sheet is read
+            day by day, one column per shop, sales person and bulk buyer; months before the daily sheets start come
+            from <strong>MONTHLY SALES BY UNITY</strong>.
+          </li>
+          <li>
+            <strong>The UNIT SOLD workbook</strong> — litres and units. A sheet per month, fresh milk by outlet and
+            processed milk by pack, every day.
+          </li>
+        </ul>
         <p className="text-xs mb-4" style={{ color: 'var(--ink-30)' }}>
-          The workbook grows through the year, so upload the latest copy whenever it changes: each month in it
-          replaces what was held for that month before. The day books, cash sheets and MR / MRS BUSH are left out —
-          they are the same money counted another way. Every sheet skipped is listed after an upload.
+          Both grow through the year, so upload the latest copy whenever it changes: each month in it replaces what
+          was held for that month before, and nothing is counted twice. Sheets that are not sales — day books, cash
+          sheets, summaries — are left out, and every one skipped is listed after an upload.
         </p>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }}
           onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
@@ -783,9 +804,10 @@ function BooksView({ onImported, onOpenYear }) {
       )}
 
       {result && <ImportResult result={result} onClose={() => setResult(null)} onOpenYear={onOpenYear} />}
+      {unitsResult && <UnitsSoldResult result={unitsResult} onClose={() => setUnitsResult(null)} onOpen={onOpenLitres} />}
 
       <Card noPad>
-        <div className="px-5 pt-5 pb-3 text-sm font-semibold" style={{ color: 'var(--ink)' }}>Uploads</div>
+        <div className="px-5 pt-5 pb-3 text-sm font-semibold" style={{ color: 'var(--ink)' }}>Sales workbooks uploaded</div>
         <div style={{ overflowX: 'auto' }}>
           <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
             <thead>
@@ -814,6 +836,8 @@ function BooksView({ onImported, onOpenYear }) {
           </table>
         </div>
       </Card>
+
+      <UnitsSoldUploads reload={reload} onRemoved={onImported} />
     </>
   )
 }
@@ -871,10 +895,8 @@ export default function SalesBook() {
       {openUnit && <UnitDetail unit={openUnit} year={unitYear} onYear={setUnitYear} onClose={closeUnit} />}
       {view === 'litres' && <UnitsSold onOpenUnit={openUnitFor} reload={reload} />}
       {view === 'books' && (
-        <>
-          <BooksView onImported={() => setReload(n => n + 1)} onOpenYear={() => setView('year')} />
-          <UnitsSoldBooks onImported={() => setReload(n => n + 1)} />
-        </>
+        <BooksView reload={reload} onImported={() => setReload(n => n + 1)}
+          onOpenYear={() => setView('year')} onOpenLitres={() => setView('litres')} />
       )}
     </div>
   )
