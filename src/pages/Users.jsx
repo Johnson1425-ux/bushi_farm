@@ -192,7 +192,7 @@ export default function Users() {
                           {branches.filter(b => b.active).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                       ) : <span className="text-ink-30">—</span>
-                    ) : (u.branch_name || <span className="text-ink-30">—</span>)}
+                    ) : (u.branch_name || <span className="text-ink-30">Not assigned</span>)}
                   </td>
                   <td className="px-5 py-3.5 border-b border-ink-10 text-ink-60 font-mono text-xs">
                     {u.created_at?.slice(0, 10)}
