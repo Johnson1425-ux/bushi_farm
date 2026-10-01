@@ -12,18 +12,6 @@ import UnitsSold, { UnitsSoldResult, UnitsSoldUploads } from './UnitsSold'
    the workbook, for as long as the sales people keep it on paper rather
    than in the app.
 
-   Three ways through it, laid out the way the workbook already is:
-
-     The year      a unit per row, a month per column (MONTHLY SALES BY UNITY)
-     The month     a day per row, a unit per column ("<MONTH> SALES BY UNITY")
-     Litres        litres and units sold, from the UNIT SOLD workbook
-                   (UnitsSold.jsx) — fresh milk by outlet, processed
-                   milk by pack, every day of the year
-     Units         each shop, sales person and bulk buyer on its own —
-                   open one for its sales month by month, and a month
-                   for the days behind it
-     Workbooks     uploading the file, and what each upload brought in
-
    The till's own takings are shown beside the book wherever there are
    any, and never added to it: the day the sales people start ringing
    sales up is a day that could otherwise be counted twice.
@@ -607,12 +595,11 @@ function UnitsView({ year, onOpenUnit, reload }) {
               </div>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table className="w-full border-collapse text-[13px]" style={{ minWidth: 640 }}>
+              <table className="w-full border-collapse text-[13px]" style={{ minWidth: 580 }}>
                 <thead>
                   <tr>
                     <TH>Unit</TH><TH right>{year}</TH><TH right>Share</TH><TH />
-                    <TH right title="Fresh milk, from the UNIT SOLD workbook">Litres</TH>
-                    <TH right>Months</TH><TH right>Days</TH><TH>Last day recorded</TH>
+                    <TH title="Fresh milk, from the UNIT SOLD workbook">Litres</TH>
                   </tr>
                 </thead>
                 <tbody>
@@ -623,13 +610,10 @@ function UnitsView({ year, onOpenUnit, reload }) {
                       <TD right mono style={{ color: 'var(--ink-60)' }}>
                         {data.year_total && u.year_total ? `${Math.round((u.year_total / data.year_total) * 1000) / 10}%` : ''}
                       </TD>
-                      <TD style={{ minWidth: 120 }}>{u.year_total ? <ShareBar value={u.year_total} of={top} /> : null}</TD>
-                      <TD right mono style={{ color: u.year_litres ? 'var(--blue)' : 'var(--ink-30)' }}>
+                      <TD style={{ minWidth: 60 }}></TD>
+                      <TD mono style={{ color: u.year_litres ? 'var(--blue)' : 'var(--ink-30)' }}>
                         {u.year_litres ? fmt1(u.year_litres) : '—'}
                       </TD>
-                      <TD right mono style={{ color: 'var(--ink-60)' }}>{u.months}</TD>
-                      <TD right mono style={{ color: 'var(--ink-60)' }}>{u.days || '—'}</TD>
-                      <TD mono style={{ color: 'var(--ink-60)' }}>{u.last_day || '—'}</TD>
                     </tr>
                   ))}
                 </tbody>
@@ -878,7 +862,7 @@ export default function SalesBook() {
           <SubTab label="The year"  active={view === 'year'}  onClick={() => setView('year')} />
           <SubTab label="The month" active={view === 'month'} onClick={() => setView('month')} />
           <SubTab label="Units"     active={view === 'units'} onClick={() => setView('units')} />
-          <SubTab label="Litres & units" active={view === 'litres'} onClick={() => setView('litres')} />
+          <SubTab label="Units Sold" active={view === 'litres'} onClick={() => setView('litres')} />
           <SubTab label="Workbooks" active={view === 'books'} onClick={() => setView('books')} />
         </div>
         {(view === 'year' || view === 'units') && years.length > 1 && (
