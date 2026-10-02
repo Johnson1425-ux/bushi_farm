@@ -196,8 +196,13 @@ function Markdown({ text = '', className = '' }) {
       continue
     }
 
-    // Paragraph — accumulate until a blank line or a new block starts
-    const buf = []
+    // Paragraph — accumulate until a blank line or a new block starts.
+    // The first line is always taken: a line that only looks like the start
+    // of a block (a table row whose divider has not streamed in yet, a lone
+    // "|") would otherwise be taken by nothing, and the loop would spin on it
+    // forever and freeze the page.
+    const buf = [trimmed]
+    i++
     while (
       i < lines.length &&
       lines[i].trim() &&
